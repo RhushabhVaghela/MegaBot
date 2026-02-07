@@ -1,7 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock
-import os
-from pathlib import Path
+from unittest.mock import MagicMock
 
 
 @pytest.mark.asyncio

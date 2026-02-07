@@ -10,13 +10,11 @@ Covers:
 7. features/dash_data/agent.py line 230           (blocked pattern detection)
 """
 
-import asyncio
 import json
 import os
 import stat as _stat
 import tempfile
 from datetime import datetime
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

@@ -1,8 +1,6 @@
 """Tests for projects and secrets modules"""
 
-import pytest
 import os
-from unittest.mock import MagicMock, patch
 from core.projects import ProjectManager
 from core.secrets import SecretManager
 

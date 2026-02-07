@@ -17,8 +17,8 @@ def track_telemetry(func):
         start_time = time.perf_counter()
 
         # Try to capture prompt/messages for context
-        prompt = kwargs.get("prompt") or (args[0] if args else None)
-        messages = kwargs.get("messages")
+        _prompt = kwargs.get("prompt") or (args[0] if args else None)
+        _messages = kwargs.get("messages")
         model = getattr(self, "model", "unknown")
 
         try:

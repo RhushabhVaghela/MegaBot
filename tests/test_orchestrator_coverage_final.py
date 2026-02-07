@@ -1,10 +1,8 @@
 import pytest
-import asyncio
 import json
 from unittest.mock import MagicMock, AsyncMock, patch
 from core.orchestrator import MegaBotOrchestrator
 from core.interfaces import Message
-from adapters.messaging.server import PlatformMessage, MessageType
 
 
 @pytest.fixture

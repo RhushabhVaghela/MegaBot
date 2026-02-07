@@ -4,7 +4,7 @@ Centralized dependency injection system for MegaBot.
 Provides service registration, resolution, and lifecycle management.
 """
 
-from typing import Any, Dict, Type, TypeVar, Optional, Callable
+from typing import Any, Dict, Type, TypeVar, Callable
 from contextlib import contextmanager
 import threading
 from core.config import Config

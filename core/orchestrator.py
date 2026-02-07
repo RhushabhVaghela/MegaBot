@@ -817,7 +817,7 @@ class MegaBotOrchestrator:
 
             admin_phone = getattr(self.config.system, "admin_phone", None)
             if admin_phone and self.adapters["messaging"].voice_adapter:
-                script = f"Hello, this is Mega Bot. A critical vision approval is pending. Please check your messages and authorize action."
+                script = "Hello, this is Mega Bot. A critical vision approval is pending. Please check your messages and authorize action."
                 await self.adapters["messaging"].voice_adapter.make_call(
                     admin_phone, script, ivr=True, action_id=action["id"]
                 )
@@ -901,7 +901,9 @@ class MegaBotOrchestrator:
 
             # 3. Distillation (if too many lessons)
             if len(all_lessons) > 3:
-                lessons_text = "\n".join([f"- {l['content']}" for l in all_lessons])
+                lessons_text = "\n".join(
+                    [f"- {lesson['content']}" for lesson in all_lessons]
+                )
                 distill_prompt = f"Summarize the following architectural lessons into a concise, high-priority list (max 3 points):\n\n{lessons_text}"
                 distilled = await self.llm.generate(
                     context="Memory Distillation",

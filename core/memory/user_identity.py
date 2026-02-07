@@ -1,6 +1,5 @@
 import sqlite3
 import logging
-from typing import Optional
 import asyncio
 
 logger = logging.getLogger("megabot.memory.identity")

@@ -10,7 +10,6 @@ sys.modules["twilio"] = mock_twilio
 sys.modules["twilio.rest"] = mock_twilio
 
 from adapters.messaging.sms import SMSAdapter
-from adapters.messaging.server import PlatformMessage
 
 
 @pytest.fixture

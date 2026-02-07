@@ -1,6 +1,5 @@
 """Coverage for OpenClaw secure token generation"""
 
-import pytest
 import os
 from unittest.mock import patch
 from adapters.openclaw_adapter import OpenClawAdapter

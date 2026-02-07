@@ -37,7 +37,6 @@ async def test_read_file_symlink_error_os_open_eloop(orchestrator, tmp_path):
         raise OSError(errno.ELOOP, "Too many levels of symbolic links")
 
     # Use monkeypatch via pytest builtin fixture
-    import builtins
 
     try:
         orig_open = os.open

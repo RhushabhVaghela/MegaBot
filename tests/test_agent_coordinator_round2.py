@@ -16,13 +16,10 @@ Focuses on:
 - write_file outer exception with temp cleanup (lines 532-549)
 """
 
-import asyncio
 import errno
-import json
 import os
 import stat
 import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch, mock_open
 
 import pytest

@@ -1,14 +1,10 @@
 """Final coverage completion tests to achieve 100% coverage"""
 
 import pytest
-import asyncio
 import os
-import json
-import base64
 from unittest.mock import MagicMock, patch, AsyncMock
 from adapters.messaging.whatsapp import WhatsAppAdapter
-from adapters.messaging.server import MessageType, PlatformMessage
-from core.orchestrator import MegaBotOrchestrator
+from adapters.messaging.server import MessageType
 from core.admin_handler import AdminHandler
 
 

@@ -45,9 +45,7 @@ class MessageHandler:
         attachments = data.get("attachments", [])
 
         # Handle attachments (vision, audio)
-        vision_context = await self._process_attachments(
-            attachments, sender_id, content
-        )
+        await self._process_attachments(attachments, sender_id, content)
 
         # Check for Admin Command
         if content.startswith("!"):

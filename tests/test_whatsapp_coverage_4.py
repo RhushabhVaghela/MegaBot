@@ -1,9 +1,8 @@
 import pytest
-import asyncio
 import io
 from unittest.mock import MagicMock, AsyncMock, patch
 from adapters.messaging.whatsapp import WhatsAppAdapter
-from adapters.messaging.server import PlatformMessage, MessageType
+from adapters.messaging.server import MessageType
 
 
 @pytest.fixture

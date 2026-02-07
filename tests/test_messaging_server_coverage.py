@@ -2,7 +2,6 @@ import pytest
 import asyncio
 import json
 import uuid
-import os
 from unittest.mock import MagicMock, AsyncMock, patch
 from adapters.messaging.server import (
     MegaBotMessagingServer,

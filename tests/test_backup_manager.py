@@ -2,9 +2,8 @@ import pytest
 import os
 import tempfile
 import sqlite3
-import asyncio
 import shutil
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, MagicMock
 from core.memory.backup_manager import MemoryBackupManager
 
 

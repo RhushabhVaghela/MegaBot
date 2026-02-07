@@ -10,7 +10,6 @@ os.environ["MEGABOT_WS_PASSWORD"] = "test-ws-password-for-ci"
 import pytest
 import yaml
 from unittest.mock import MagicMock
-from unittest.mock import AsyncMock
 
 # Ensure the project root is on sys.path so `core` package is importable when
 # tests are executed from different working directories or isolation layers.

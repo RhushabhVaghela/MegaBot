@@ -1,8 +1,6 @@
 import pytest
-import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from core.orchestrator_components import MessageHandler, HealthMonitor, BackgroundTasks
-from core.interfaces import Message
 
 
 class BreakLoop(BaseException):

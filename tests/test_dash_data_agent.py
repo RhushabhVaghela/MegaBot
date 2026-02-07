@@ -4,10 +4,9 @@ Covers: load_data, get_summary, analyze, execute_python_analysis.
 Target: raise coverage from 19% to ~95%+.
 """
 
-import csv
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from features.dash_data.agent import DashDataAgent
 

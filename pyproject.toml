@@ -18,6 +18,16 @@ dependencies = [
 [tool.setuptools]
 packages = ["core", "adapters", "modules"]
 
+[tool.ruff.lint]
+# F = Pyflakes (unused imports, vars, etc), E741 = ambiguous variable names
+select = ["F", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# Imports after dynamic api-credentials.py loading block are intentional
+"core/orchestrator.py" = ["E402"]
+# Test files commonly have unused variables from side-effect calls and context managers
+"tests/**" = ["F841"]
+
 [tool.pytest.ini_options]
 python_files = ["test_*.py", "*_test.py", "benchmark*.py", "benchmarks.py"]
 filterwarnings = [

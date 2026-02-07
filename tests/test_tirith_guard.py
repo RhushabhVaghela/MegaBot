@@ -1,6 +1,5 @@
 """Tests for Tirith Guard security module"""
 
-import pytest
 from adapters.security.tirith_guard import TirithGuard, guard
 
 

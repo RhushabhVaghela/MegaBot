@@ -6,7 +6,6 @@ Provides integration with telephony services (Twilio) for voice calls.
 import asyncio
 import uuid
 from typing import Any, Dict, List, Optional
-from datetime import datetime
 
 from core.interfaces import VoiceInterface
 
@@ -128,7 +127,7 @@ class VoiceAdapter(VoiceInterface):
             # Run in executor because twilio-python is synchronous
             if not self.client:
                 print("[Voice] Cannot make call: Twilio client not initialized.")
-                return f"error_no_client"
+                return "error_no_client"
 
             call = await asyncio.get_event_loop().run_in_executor(
                 None, lambda: self.client.calls.create(**kwargs)

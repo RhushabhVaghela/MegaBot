@@ -1,6 +1,5 @@
 """Tests for PermissionManager"""
 
-import pytest
 from core.permissions import PermissionManager, PermissionLevel
 
 

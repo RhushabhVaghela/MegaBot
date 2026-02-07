@@ -1,13 +1,8 @@
 import pytest
-import asyncio
-import json
-import uuid
-import os
 import io
-import aiohttp
 from unittest.mock import MagicMock, AsyncMock, patch
 from adapters.messaging.whatsapp import WhatsAppAdapter
-from adapters.messaging.server import PlatformMessage, MessageType, MediaAttachment
+from adapters.messaging.server import MessageType
 
 
 @pytest.fixture

@@ -1,8 +1,6 @@
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from core.admin_handler import AdminHandler
-from core.interfaces import Message
 
 
 @pytest.fixture

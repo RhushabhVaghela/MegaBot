@@ -3,10 +3,8 @@ MegaBot core component benchmarks.
 Run with: PYTHONPATH=. python -m pytest tests/benchmarks.py -v -s
 """
 
-import asyncio
 import time
 import json
-import os
 
 import pytest
 

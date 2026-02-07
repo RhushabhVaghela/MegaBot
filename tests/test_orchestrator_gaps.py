@@ -14,7 +14,7 @@ Coverage gaps addressed:
 import asyncio
 import sys
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # _safe_create_task tests
@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 @pytest.mark.asyncio
 async def test_safe_create_task_runtime_error_fallback():
     """Lines 23-24: get_running_loop raises RuntimeError → falls back to get_event_loop."""
-    from core.orchestrator import _safe_create_task, _orchestrator_tasks
+    from core.orchestrator import _safe_create_task
 
     async def noop():
         pass
@@ -353,7 +353,6 @@ def test_check_policy_scope_auth_false(orchestrator):
 @pytest.mark.asyncio
 async def test_process_approval_outbound_vision(orchestrator):
     """Lines 1377-1396: approved outbound_vision action."""
-    from core.interfaces import Message
 
     action_id = "vis-1"
     orchestrator.admin_handler.approval_queue = [

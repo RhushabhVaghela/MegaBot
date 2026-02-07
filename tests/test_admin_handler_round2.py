@@ -5,8 +5,7 @@ Target: lines 351, 356-357, 360, 365-367, 412, 417-419, 429
 
 import os
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from core.admin_handler import AdminHandler
 

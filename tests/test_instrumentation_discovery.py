@@ -1,8 +1,7 @@
 """Tests for ModuleDiscovery and Instrumentation"""
 
 import pytest
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from core.discovery import ModuleDiscovery
 from core.instrumentation import track_telemetry
 

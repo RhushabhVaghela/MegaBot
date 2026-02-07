@@ -97,7 +97,7 @@ class PageIndexRAG:
 
     def _generate_quick_summary(self, content: str) -> str:
         # Take the first few non-empty lines
-        lines = [l.strip() for l in content.split("\n") if l.strip()]
+        lines = [line.strip() for line in content.split("\n") if line.strip()]
         return " ".join(lines[:3])[:200] + "..."
 
     async def navigate(self, query: str) -> str:

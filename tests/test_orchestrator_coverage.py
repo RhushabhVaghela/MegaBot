@@ -1,11 +1,8 @@
 import pytest
-import asyncio
-import os
 import io
 from unittest.mock import MagicMock, AsyncMock, patch
-from core.orchestrator import MegaBotOrchestrator, lifespan, app, ivr_callback
+from core.orchestrator import MegaBotOrchestrator, ivr_callback
 from core.config import Config, SystemConfig, SecurityConfig, AdapterConfig
-from core.interfaces import Message
 
 
 @pytest.fixture

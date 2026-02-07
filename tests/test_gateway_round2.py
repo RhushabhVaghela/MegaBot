@@ -6,7 +6,7 @@ Target: lines 108-110, 119-120, 133-145, 147, 158-163, 172-173, 183-185,
 
 import asyncio
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from core.network.gateway import UnifiedGateway
 

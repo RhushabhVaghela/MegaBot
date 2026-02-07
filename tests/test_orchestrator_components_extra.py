@@ -2,9 +2,6 @@ import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from core.orchestrator_components import MessageHandler, HealthMonitor, BackgroundTasks
-from core.interfaces import Message
-from core.drivers import ComputerDriver
-from core.dependencies import register_service
 
 
 class BreakLoop(BaseException):

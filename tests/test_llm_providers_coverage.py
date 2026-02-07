@@ -1,8 +1,5 @@
 import pytest
-import os
-import json
-import aiohttp
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, patch
 from core.llm_providers import (
     LLMProvider,
     OllamaProvider,

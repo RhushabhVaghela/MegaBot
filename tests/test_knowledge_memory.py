@@ -1,7 +1,6 @@
 import pytest
 import os
 import tempfile
-import asyncio
 from core.memory.knowledge_memory import KnowledgeMemoryManager
 
 

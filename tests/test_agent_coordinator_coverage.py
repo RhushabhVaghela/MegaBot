@@ -6,11 +6,9 @@ query_rag, MCP fallback with error dict.
 """
 
 import errno
-import json
 import os
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.agent_coordinator import AgentCoordinator, _audit
 

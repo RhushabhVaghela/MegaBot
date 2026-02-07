@@ -98,7 +98,7 @@ class TestHealthMonitorShutdown:
 
             def __await__(self):
                 raise RuntimeError("boom")
-                yield  # noqa: unreachable - makes it a generator
+                yield  # noqa: F841 - makes it a generator
 
         ft = FailingTask()
         monitor._tasks = [ft]

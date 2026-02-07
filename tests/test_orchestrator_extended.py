@@ -1,10 +1,7 @@
 """Extended tests for MegaBot orchestrator"""
 
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
-from core.orchestrator import MegaBotOrchestrator
-from core.interfaces import Message
 
 
 @pytest.mark.asyncio

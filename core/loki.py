@@ -77,9 +77,7 @@ class LokiMode:
 
         # 4. Security & Quality Review
         await self._relay_status("🛡️ Running final Tirith Security Audit...")
-        audit_res = await self._run_security_audit(
-            impl_results + [review_summary], memory_context
-        )
+        await self._run_security_audit(impl_results + [review_summary], memory_context)
 
         # 5. Deployment
         await self._relay_status("🚀 Deploying product to staging...")
@@ -124,12 +122,14 @@ class LokiMode:
         if len(lessons) > 20:
             # Prioritize CRITICAL ones
             critical_lessons = [
-                l
-                for l in lessons
-                if "CRITICAL" in str(l.get("content", "")).upper()
-                or "critical" in l.get("tags", [])
+                lesson
+                for lesson in lessons
+                if "CRITICAL" in str(lesson.get("content", "")).upper()
+                or "critical" in lesson.get("tags", [])
             ]
-            non_critical = [l for l in lessons if l not in critical_lessons]
+            non_critical = [
+                lesson for lesson in lessons if lesson not in critical_lessons
+            ]
 
             # Take all critical (up to 20) then fill with recent non-critical
             window = critical_lessons[:20]
@@ -138,7 +138,7 @@ class LokiMode:
 
             lessons = window
 
-        lessons_text = "\n".join([f"- {l['content']}" for l in lessons])
+        lessons_text = "\n".join([f"- {lesson['content']}" for lesson in lessons])
         distill_prompt = f"""
 Identify and summarize the most critical architectural constraints, security policies, and "hard-won" lessons from the following context that are directly relevant to the current product development task.
 

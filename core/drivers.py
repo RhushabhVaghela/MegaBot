@@ -1,6 +1,5 @@
 import base64
 import io
-import json
 from PIL import Image, ImageFilter
 from typing import Dict, Optional, List
 
