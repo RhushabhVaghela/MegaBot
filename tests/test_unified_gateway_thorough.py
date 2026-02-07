@@ -306,7 +306,10 @@ async def test_malicious_command_interception_metadata(gateway):
     assert forwarded_data["type"] == "shell.execute"
     assert forwarded_data["_meta"]["connection_type"] == "cloudflare"
     assert forwarded_data["_meta"]["client_id"] == "cf-evil"
-    assert forwarded_data["_meta"]["authenticated"] is False
+    # When no auth_token is configured on the gateway, all connections
+    # (including untrusted ones) are auto-authenticated since there is
+    # no token to verify against.
+    assert forwarded_data["_meta"]["authenticated"] is True
 
 
 @pytest.mark.asyncio

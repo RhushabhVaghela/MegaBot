@@ -30,6 +30,10 @@ venv/
 # Session files
 session-*.md
 
+# Security reports (contain exploitation details)
+PENTEST_REPORT.md
+SECURITY_AUDIT_REPORT.md
+
 # OS
 .DS_Store
 Thumbs.db

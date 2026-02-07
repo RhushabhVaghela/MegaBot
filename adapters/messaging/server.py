@@ -99,13 +99,22 @@ class PlatformMessage:
 
 class SecureWebSocket:
     def __init__(self, password: Optional[str] = None):
-        self.password = password or os.environ.get(
-            "MEGABOT_WS_PASSWORD", "megabot-secure-key"
-        )
+        self.password = password or os.environ.get("MEGABOT_WS_PASSWORD")
+        if not self.password:
+            raise ValueError(
+                "MEGABOT_WS_PASSWORD must be set via constructor or environment variable. "
+                "Refusing to use a hardcoded default."
+            )
         self.cipher = self._init_cipher()
 
     def _init_cipher(self) -> Fernet:
-        salt = os.environ.get("MEGABOT_ENCRYPTION_SALT", "megabot-static-salt").encode()
+        salt_val = os.environ.get("MEGABOT_ENCRYPTION_SALT")
+        if not salt_val:
+            raise ValueError(
+                "MEGABOT_ENCRYPTION_SALT must be set in environment. "
+                "Refusing to use a hardcoded default."
+            )
+        salt = salt_val.encode()
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000
         )

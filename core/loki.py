@@ -285,7 +285,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             match = re.search(r"\[.*\]", res, re.DOTALL)
             if match:
                 return json.loads(match.group(0))
-        except:
+        except Exception:
             pass
         return [
             {

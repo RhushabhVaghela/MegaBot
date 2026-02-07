@@ -158,12 +158,79 @@ class DashDataAgent:
                     return f"Action queued for approval (ID: {action_id}). Please authorize via UI or Admin command."
 
         data = self.datasets[name]
-        # Environment for execution
+
+        # --- Sandboxed execution ---
+        # Restrict builtins to a safe subset; block import, eval, exec, compile, open.
+        _SAFE_BUILTINS = {
+            "abs": abs,
+            "all": all,
+            "any": any,
+            "bool": bool,
+            "dict": dict,
+            "enumerate": enumerate,
+            "filter": filter,
+            "float": float,
+            "frozenset": frozenset,
+            "int": int,
+            "isinstance": isinstance,
+            "len": len,
+            "list": list,
+            "map": map,
+            "max": max,
+            "min": min,
+            "print": print,
+            "range": range,
+            "reversed": reversed,
+            "round": round,
+            "set": set,
+            "sorted": sorted,
+            "str": str,
+            "sum": sum,
+            "tuple": tuple,
+            "type": type,
+            "zip": zip,
+            "True": True,
+            "False": False,
+            "None": None,
+            # Common exceptions needed for data analysis code
+            "Exception": Exception,
+            "ValueError": ValueError,
+            "TypeError": TypeError,
+            "KeyError": KeyError,
+            "IndexError": IndexError,
+            "RuntimeError": RuntimeError,
+            "ArithmeticError": ArithmeticError,
+            "ZeroDivisionError": ZeroDivisionError,
+            "StopIteration": StopIteration,
+            "AttributeError": AttributeError,
+        }
+        sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
         local_vars = {"data": data, "result": None}
 
+        # Block obvious escape attempts in source
+        _BLOCKED_PATTERNS = [
+            "__import__",
+            "importlib",
+            "subprocess",
+            "os.",
+            "sys.",
+            "open(",
+            "eval(",
+            "exec(",
+            "compile(",
+            "getattr(",
+            "__subclasses__",
+            "__globals__",
+            "__code__",
+            "__builtins__",
+        ]
+        code_lower = python_code.lower()
+        for pattern in _BLOCKED_PATTERNS:
+            if pattern.lower() in code_lower:
+                return f"Security Error: Blocked pattern '{pattern}' detected in code."
+
         try:
-            # Wrap in a function for better control if needed, but here we'll just exec
-            exec(python_code, {}, local_vars)
+            exec(python_code, sandbox_globals, local_vars)  # noqa: S102
             return str(
                 local_vars.get("result", "Code executed but no 'result' variable set.")
             )

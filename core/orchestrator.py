@@ -171,6 +171,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# --- CORS Middleware ---
+from starlette.middleware.cors import CORSMiddleware  # type: ignore
+
+_allowed_origins = os.environ.get("MEGABOT_CORS_ORIGINS", "").split(",")
+_allowed_origins = [o.strip() for o in _allowed_origins if o.strip()]
+if not _allowed_origins:
+    # Default: restrict to localhost origins only
+    _allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 config = load_config()
 config.validate_environment()
 orchestrator = None
@@ -1313,6 +1331,7 @@ class MegaBotOrchestrator:
                     cmd = self.secret_manager.inject_secrets(cmd)
 
                     # Execute and capture output
+                    import shlex
                     import subprocess
 
                     try:
@@ -1321,8 +1340,8 @@ class MegaBotOrchestrator:
                             output = "Security Error: Command blocked by Tirith Guard (Suspicious Unicode/Cyrillic detected)."
                         else:
                             result = subprocess.run(
-                                cmd,
-                                shell=True,
+                                shlex.split(cmd),
+                                shell=False,
                                 capture_output=True,
                                 text=True,
                                 timeout=30,

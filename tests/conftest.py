@@ -5,6 +5,7 @@ import sys
 os.environ["PYTEST_CURRENT_TEST"] = "true"
 os.environ["MEGABOT_ENCRYPTION_SALT"] = "test-salt-minimum-16-chars"
 os.environ["MEGABOT_BACKUP_KEY"] = "test-backup-key-32-chars-long-string"
+os.environ["MEGABOT_WS_PASSWORD"] = "test-ws-password-for-ci"
 
 import pytest
 import yaml

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import ssl
 from dataclasses import dataclass
@@ -43,6 +44,10 @@ class ClientConnection:
 
 
 class UnifiedGateway:
+    # Token for WebSocket authentication (non-local connections).
+    # Set via MEGABOT_GATEWAY_TOKEN env var or constructor parameter.
+    _AUTH_TIMEOUT_SECONDS = 10
+
     def __init__(
         self,
         megabot_server_host: str = "127.0.0.1",
@@ -56,6 +61,7 @@ class UnifiedGateway:
         ssl_key_path: Optional[str] = None,
         public_domain: Optional[str] = None,
         on_message: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
+        auth_token: Optional[str] = None,
         **kwargs,
     ):
         self.megabot_host = megabot_server_host
@@ -69,6 +75,7 @@ class UnifiedGateway:
         self.ssl_cert_path = ssl_cert_path
         self.ssl_key_path = ssl_key_path
         self.public_domain = public_domain
+        self.auth_token = auth_token or os.environ.get("MEGABOT_GATEWAY_TOKEN")
 
         self.local_server = None
         self.cloudflare_process: Optional[subprocess.Popen] = None
@@ -453,7 +460,7 @@ class UnifiedGateway:
         # Generate a more stable client_id using IP and User-Agent hash
         import hashlib
 
-        client_hash = hashlib.md5(f"{ip}-{user_agent}".encode()).hexdigest()[:8]
+        client_hash = hashlib.sha256(f"{ip}-{user_agent}".encode()).hexdigest()[:12]
         client_id = f"{conn_type.value}-{client_hash}"
 
         conn = ClientConnection(
@@ -469,6 +476,23 @@ class UnifiedGateway:
     async def _manage_connection(self, conn: ClientConnection):
         self.clients[conn.client_id] = conn
         ws = conn.websocket
+
+        # --- Token-based authentication for non-local connections ---
+        if self.auth_token and conn.connection_type != ConnectionType.LOCAL:
+            try:
+                authenticated = await self._authenticate_connection(conn)
+                if not authenticated:
+                    await self._send_error(conn, "Authentication failed")
+                    self.clients.pop(conn.client_id, None)
+                    return
+            except Exception:
+                await self._send_error(conn, "Authentication timeout")
+                self.clients.pop(conn.client_id, None)
+                return
+        else:
+            # Local connections or no token configured: auto-authenticate
+            conn.authenticated = True
+
         try:
             async for message in ws:
                 payload = message
@@ -505,6 +529,63 @@ class UnifiedGateway:
                 await close_fn()
             elif callable(close_fn):
                 close_fn()
+
+    async def _authenticate_connection(self, conn: ClientConnection) -> bool:
+        """Require the first message to be a JSON auth payload with a valid token.
+
+        Expected format: {"type": "auth", "token": "<token>"}
+        Returns True if authenticated, False otherwise.
+        """
+        import hmac
+
+        ws = conn.websocket
+        try:
+            # Wait for auth message with a timeout
+            raw = await asyncio.wait_for(
+                ws.__aiter__().__anext__(),
+                timeout=self._AUTH_TIMEOUT_SECONDS,
+            )
+        except (asyncio.TimeoutError, StopAsyncIteration, Exception):
+            return False
+
+        # Extract text payload
+        payload = raw
+        if hasattr(raw, "data"):
+            payload = raw.data
+        if isinstance(payload, bytes):
+            payload = payload.decode("utf-8", errors="ignore")
+        if not isinstance(payload, str):
+            payload = str(payload)
+
+        try:
+            data = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return False
+
+        if data.get("type") != "auth":
+            return False
+
+        provided_token = data.get("token", "")
+        if not provided_token or not isinstance(provided_token, str):
+            return False
+
+        # Constant-time comparison to prevent timing attacks
+        if hmac.compare_digest(provided_token, self.auth_token):
+            conn.authenticated = True
+            # Send auth success acknowledgement
+            ack = json.dumps({"type": "auth_result", "status": "ok"})
+            if hasattr(ws, "send"):
+                try:
+                    await ws.send(ack)
+                except Exception:
+                    pass
+            elif hasattr(ws, "send_str"):
+                try:
+                    await ws.send_str(ack)
+                except Exception:
+                    pass
+            return True
+        return False
 
     async def _process_message(self, conn: ClientConnection, raw_message: Any):
         if isinstance(raw_message, bytes):
