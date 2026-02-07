@@ -96,8 +96,8 @@ httpx>=0.24.0
 ```python
 import pytest
 from unittest.mock import Mock, AsyncMock
-from megabot.core.orchestrator import MegaBotOrchestrator
-from megabot.core.config import Config
+from core.orchestrator import MegaBotOrchestrator
+from core.config import Config
 
 class TestMegaBotOrchestrator:
     @pytest.fixture
@@ -163,7 +163,7 @@ class TestMegaBotOrchestrator:
 
 ```python
 import pytest
-from megabot.core.permissions import PermissionManager, PermissionLevel
+from core.permissions import PermissionManager, PermissionLevel
 
 class TestPermissionManager:
     @pytest.fixture
@@ -216,7 +216,7 @@ class TestPermissionManager:
 
 ```python
 import pytest
-from megabot.adapters.security.tirith_guard import TirithGuard
+from adapters.security.tirith_guard import TirithGuard
 
 class TestTirithGuard:
     @pytest.fixture
@@ -270,7 +270,7 @@ class TestTirithGuard:
 ```python
 import pytest
 from unittest.mock import AsyncMock
-from megabot.core.admin_handler import AdminHandler
+from core.admin_handler import AdminHandler
 
 class TestAdminHandler:
     @pytest.fixture
@@ -338,8 +338,8 @@ class TestAdminHandler:
 ```python
 import pytest
 from unittest.mock import Mock, patch
-from megabot.adapters.openclaw_adapter import OpenClawAdapter
-from megabot.adapters.memu_adapter import MemUAdapter
+from adapters.openclaw_adapter import OpenClawAdapter
+from adapters.memu_adapter import MemUAdapter
 
 class TestAdapterIntegration:
     @pytest.mark.asyncio
@@ -373,7 +373,7 @@ class TestAdapterIntegration:
     @pytest.mark.asyncio
     async def test_messaging_platform_integration(self):
         """Test messaging platform integration."""
-        from megabot.adapters.messaging import MegaBotMessagingServer
+        from adapters.messaging import MegaBotMessagingServer
 
         server = MegaBotMessagingServer(host="127.0.0.1", port=18790)
 
@@ -393,7 +393,7 @@ class TestAdapterIntegration:
 ```python
 import pytest
 from unittest.mock import Mock, patch
-from megabot.core.llm_providers import get_llm_provider
+from core.llm_providers import get_llm_provider
 
 class TestLLMProviders:
     @pytest.fixture
@@ -463,7 +463,7 @@ import pytest
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-from megabot.core.orchestrator import MegaBotOrchestrator
+from core.orchestrator import MegaBotOrchestrator
 
 class TestLoadPerformance:
     @pytest.fixture
@@ -583,7 +583,7 @@ class TestMemoryUsage:
 ```python
 import pytest
 from playwright.async_api import async_playwright
-from megabot.core.orchestrator import MegaBotOrchestrator
+from core.orchestrator import MegaBotOrchestrator
 
 class TestUserWorkflows:
     @pytest.fixture
@@ -601,7 +601,7 @@ class TestUserWorkflows:
         page = await browser_context.new_page()
 
         # Navigate to MegaBot interface
-        await page.goto("http://localhost:3000")
+        await page.goto("http://localhost:8000")
 
         # Test authentication
         await page.fill("#username", "test_user")
@@ -629,12 +629,12 @@ class TestUserWorkflows:
         user_page = await browser_context.new_page()
 
         # Admin login
-        await admin_page.goto("http://localhost:3000/admin")
+        await admin_page.goto("http://localhost:8000/admin")
         await admin_page.fill("#username", "admin")
         await admin_page.click("#login-button")
 
         # User attempts dangerous action
-        await user_page.goto("http://localhost:3000")
+        await user_page.goto("http://localhost:8000")
         await user_page.fill("#message-input", "!run rm -rf /tmp/test")
         await user_page.click("#send-button")
 
@@ -660,7 +660,7 @@ class TestUserWorkflows:
 
 ```python
 import pytest
-from megabot.core.config import Config
+from core.config import Config
 
 @pytest.fixture
 def minimal_config():

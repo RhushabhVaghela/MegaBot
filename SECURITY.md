@@ -44,7 +44,7 @@ By default, MegaBot is designed to run in **Docker**.
 - Network access is controlled via the `Unified Gateway`.
 
 ## 🧪 Security Benchmarking
-We perform regular "Red Team" tests using `tests/benchmarking.py` and `tests/test_coverage_gaps.py` to ensure:
+We perform regular "Red Team" tests using `tests/benchmarking.py` to ensure:
 1. No sensitive command bypasses the interlock.
 2. Tirith Guard catches injection attempts.
 3. Sub-agents stay within their assigned roles.

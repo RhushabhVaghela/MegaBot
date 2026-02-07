@@ -616,7 +616,7 @@ module "ecs_service" {
       }
 
       healthCheck = {
-        command = ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+        command = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
         interval = 30
         timeout = 5
         retries = 3
@@ -693,9 +693,9 @@ USER megabot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
-EXPOSE 3000
+EXPOSE 8000
 
 CMD ["python", "-m", "megabot"]
 ```
@@ -755,7 +755,7 @@ volumes:
 
 ```python
 from fastapi import APIRouter, Response
-from megabot.core.orchestrator import orchestrator
+from core.orchestrator import orchestrator
 import time
 
 router = APIRouter()
@@ -805,7 +805,7 @@ rule_files:
 scrape_configs:
   - job_name: 'megabot'
     static_configs:
-      - targets: ['localhost:3000']
+      - targets: ['localhost:8000']
     metrics_path: '/metrics'
     scrape_interval: 5s
 

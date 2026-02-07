@@ -42,11 +42,11 @@ pip install sqlalchemy aiosqlite pgvector psycopg2-binary
 #### Quick Start with Docker Compose
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/megabot.git
+git clone https://github.com/RhushabhVaghela/MegaBot.git
 cd megabot
 
 # Create environment file
-cp mega-config.yaml.example mega-config.yaml
+cp mega-config.yaml.template mega-config.yaml
 
 # Edit configuration (see Configuration section below)
 nano mega-config.yaml
@@ -92,7 +92,7 @@ volumes:
 #### 1. Clone and Setup
 ```bash
 # Clone repository
-git clone https://github.com/your-org/megabot.git
+git clone https://github.com/RhushabhVaghela/MegaBot.git
 cd megabot
 
 # Create virtual environment
@@ -130,7 +130,7 @@ GRANT ALL PRIVILEGES ON DATABASE megabot TO megabot;
 #### 3. Configuration
 ```bash
 # Copy example configuration
-cp mega-config.yaml.example mega-config.yaml
+cp mega-config.yaml.template mega-config.yaml
 
 # Edit with your settings
 nano mega-config.yaml
@@ -150,7 +150,7 @@ uvicorn core.orchestrator:app --host 0.0.0.0 --port 3000
 #### Ubuntu/Debian
 ```bash
 # Add repository (if available)
-# sudo add-apt-repository ppa:your-org/megabot
+# sudo add-apt-repository ppa:RhushabhVaghela/MegaBot
 # sudo apt update
 
 # Install package
@@ -277,7 +277,7 @@ adapters:
 ### Health Check
 ```bash
 # Check if MegaBot is running
-curl http://localhost:3000/health
+curl http://localhost:8000/health
 
 # Should return:
 {
@@ -293,7 +293,7 @@ curl http://localhost:3000/health
 ### Basic Functionality Test
 ```bash
 # Test via HTTP API
-curl -X POST http://localhost:3000/chat \
+curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello MegaBot", "platform": "test"}'
 

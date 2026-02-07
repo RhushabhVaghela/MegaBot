@@ -57,7 +57,7 @@ Register webhooks programmatically via API:
 
 ```bash
 # Register a webhook
-curl -X POST http://localhost:3000/api/webhooks \
+curl -X POST http://localhost:8000/api/webhooks \
   -H "Authorization: Bearer ${ADMIN_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -685,7 +685,7 @@ Test webhooks locally using tools like ngrok or webhook.site:
 ngrok http 3000
 
 # Configure webhook to use ngrok URL
-curl -X POST http://localhost:3000/api/webhooks \
+curl -X POST http://localhost:8000/api/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://abc123.ngrok.io/webhook",

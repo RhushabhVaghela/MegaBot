@@ -92,7 +92,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # UI origin only
+    allow_origins=["http://localhost:5173"],  # UI origin only
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization"],
     allow_credentials=True,

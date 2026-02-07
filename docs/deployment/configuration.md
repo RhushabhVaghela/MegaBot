@@ -2,6 +2,8 @@
 
 This document provides a comprehensive reference for all MegaBot configuration options available in `mega-config.yaml`.
 
+> **Legend**: Sections marked **Implemented** reflect fields that exist in `core/config.py` today. Sections marked **Planned** document aspirational features that are not yet wired into the config classes — they are included here as design documentation for future development.
+
 ## Configuration File Structure
 
 MegaBot uses YAML format for configuration. The configuration file is loaded at startup and can be reloaded without restarting (where supported).
@@ -17,7 +19,7 @@ llm:            # Language model configuration
 admins:          # Administrator user IDs
 ```
 
-## System Configuration
+## System Configuration — Implemented
 
 ### Core Settings
 
@@ -27,18 +29,21 @@ system:
   local_only: true                   # Restrict to localhost (recommended for security)
   default_mode: "plan"               # Default AI mode: plan, build, ask, loki
   bind_address: "127.0.0.1"         # Network bind address
-  port: 3000                        # Main API port
-  admin_phone: null                  # Phone number for voice escalation
-  dnd_start: 22                      # Do Not Disturb start hour (24h format)
-  dnd_end: 7                        # Do Not Disturb end hour (24h format)
-  telemetry: false                   # Enable anonymous usage telemetry
-  log_level: "INFO"                  # Logging level: DEBUG, INFO, WARNING, ERROR
-  max_concurrent_requests: 10        # Maximum concurrent API requests
+  port: 8000                        # Main API port (env: MEGABOT_PORT)
+  messaging_host: "127.0.0.1"       # Messaging server bind address
+  messaging_port: 18790              # Messaging server port
+  admin_phone: null                  # Phone number for voice escalation (env: ADMIN_PHONE_NUMBER)
+  dnd_start: 22                      # Do Not Disturb start hour (24h, env: DND_START_HOUR)
+  dnd_end: 7                        # Do Not Disturb end hour (24h, env: DND_END_HOUR)
+  telemetry: false                   # Enable anonymous usage telemetry (boolean)
 ```
 
-### Telemetry Settings
+> **Note**: `telemetry` is a simple boolean toggle. The detailed telemetry sub-object shown below is **planned** but not yet implemented.
+
+### Telemetry Settings — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 system:
   telemetry:
     enabled: false                   # Enable telemetry collection
@@ -48,7 +53,9 @@ system:
     include_usage_stats: true        # Include usage statistics
 ```
 
-## Adapter Configuration
+## Adapter Configuration — Implemented
+
+All adapters share the `AdapterConfig` base fields: `host`, `port`, `bridge_type`, `database_url`, `vector_db`, `servers`, `web_search`, `auth_token`, `encryption_key`. Additional fields shown below (e.g. `reconnect_attempts`, `heartbeat_interval`) are **planned** extensions.
 
 ### OpenClaw Adapter
 
@@ -61,19 +68,20 @@ adapters:
     auth_token: ""                  # Authentication token (if required)
     bridge_type: "websocket"        # Connection type: websocket, http
     encryption_key: ""              # Encryption key for secure communication
-    reconnect_attempts: 5           # Number of reconnection attempts
-    reconnect_delay: 1.0            # Delay between reconnection attempts (seconds)
-    heartbeat_interval: 30          # Heartbeat interval (seconds)
-    request_timeout: 30             # Request timeout (seconds)
+    # --- Planned (not yet in AdapterConfig) ---
+    # reconnect_attempts: 5
+    # reconnect_delay: 1.0
+    # heartbeat_interval: 30
+    # request_timeout: 30
 ```
 
-### MemU Adapter (Memory)
+### MemU Adapter (Memory) — Implemented
 
 ```yaml
 adapters:
   memu:
     host: "127.0.0.1"               # MemU server host
-    port: 3000                      # MemU server port
+    port: 3000                      # MemU server port (AdapterConfig default)
     database_url: "sqlite:///:memory:"  # In-memory SQLite (development)
     # database_url: "postgresql://user:pass@localhost/memu"  # Production
     auth_token: ""                  # Authentication token
@@ -88,13 +96,15 @@ adapters:
       cache_ttl: 3600               # Cache time-to-live (seconds)
 ```
 
-### MCP (Model Context Protocol) Adapter
+> **Note**: `web_search` is stored as `Dict[str, Any]` — the sub-keys above are conventions, not schema-validated.
+
+### MCP (Model Context Protocol) Adapter — Implemented
 
 ```yaml
 adapters:
   mcp:
     host: "127.0.0.1"               # MCP server host
-    port: 3000                      # MCP server port
+    port: 3000                      # MCP server port (AdapterConfig default)
     database_url: "sqlite:///mcp.db"  # MCP database
     auth_token: ""                  # Authentication token
     bridge_type: "websocket"        # Connection type
@@ -110,9 +120,12 @@ adapters:
     web_search: {}                   # Web search configuration (same as memu)
 ```
 
-### Messaging Adapter
+### Messaging Adapter — Planned
+
+> The messaging system uses `system.messaging_host` / `system.messaging_port` for its server bind. The detailed per-platform adapter config below is **planned** — individual messaging adapters currently read tokens from environment variables directly.
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 adapters:
   messaging:
     host: "127.0.0.1"               # Messaging server host
@@ -144,9 +157,10 @@ adapters:
         signing_secret: "${SLACK_SIGNING_SECRET}"
 ```
 
-### Unified Gateway
+### Unified Gateway — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 adapters:
   gateway:
     host: "127.0.0.1"               # Gateway server host
@@ -169,27 +183,39 @@ adapters:
 
 ## LLM Configuration
 
-### Provider Settings
+### Provider API Keys — Implemented
 
 ```yaml
 llm:
-  # Primary provider (used unless overridden)
-  provider: "anthropic"             # Default LLM provider
+  # All API keys are implemented — set via config or environment variables
+  anthropic_api_key: null           # env: ANTHROPIC_API_KEY
+  openai_api_key: null              # env: OPENAI_API_KEY
+  groq_api_key: null                # env: GROQ_API_KEY
+  deepseek_api_key: null            # env: DEEPSEEK_API_KEY
+  deepinfra_api_key: null           # env: DEEPINFRA_API_KEY
+  fireworks_api_key: null           # env: FIREWORKS_API_KEY
+  gemini_api_key: null              # env: GEMINI_API_KEY
+  sambanova_api_key: null           # env: SAMBANOVA_API_KEY
+  xai_api_key: null                 # env: XAI_API_KEY
+  perplexity_api_key: null          # env: PERPLEXITY_API_KEY
+  openrouter_api_key: null          # env: OPENROUTER_API_KEY
+  mistral_api_key: null             # env: MISTRAL_API_KEY
+  cerebras_api_key: null            # env: CEREBRAS_API_KEY
+  github_token: null                # env: GITHUB_TOKEN (GitHub models)
 
-  # Provider API keys (environment variables recommended)
-  anthropic_api_key: null
-  openai_api_key: null
-  groq_api_key: null
-  deepinfra_api_key: null
-  fireworks_api_key: null
-  gemini_api_key: null
-  sambanova_api_key: null
-  xai_api_key: null
-  perplexity_api_key: null
-  openrouter_api_key: null
-  mistral_api_key: null
-  cerebras_api_key: null
-  github_token: null                # For GitHub models
+  # Local model endpoints
+  lm_studio_url: null               # env: LM_STUDIO_URL
+  llama_cpp_url: null               # env: LLAMA_CPP_URL
+  vllm_url: null                    # env: VLLM_URL
+  vllm_api_key: null                # env: VLLM_API_KEY
+```
+
+### Provider Selection & Advanced LLM Settings — Planned
+
+```yaml
+# NOT YET IMPLEMENTED — design documentation only
+llm:
+  provider: "anthropic"             # Default LLM provider
 
   # Provider-specific settings
   anthropic:
@@ -204,13 +230,13 @@ llm:
     temperature: 0.7
     timeout: 30
 
-  # Fallback providers (used if primary fails)
   fallback_providers: ["openai", "groq"]
 ```
 
-### Advanced LLM Settings
+### Advanced LLM Settings — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 llm:
   # Request optimization
   max_concurrent_requests: 5        # Maximum concurrent LLM requests
@@ -235,41 +261,37 @@ llm:
 
 ## Security Configuration
 
-### Core Security Settings
+### Core Security Settings — Partially Implemented
+
+> Only `megabot_backup_key`, `megabot_encryption_salt`, and `megabot_media_path` exist in `SecurityConfig`. All other fields below are **planned**.
 
 ```yaml
 security:
-  megabot_backup_key: null          # Backup encryption key
-  megabot_encryption_salt: "megabot-static-salt"  # Encryption salt
-  megabot_media_path: "./media"     # Media storage path
+  # --- Implemented ---
+  megabot_backup_key: null          # Backup encryption key (env: MEGABOT_BACKUP_KEY)
+  megabot_encryption_salt: "megabot-static-salt"  # Encryption salt (env: MEGABOT_ENCRYPTION_SALT, min 16 chars)
+  megabot_media_path: "./media"     # Media storage path (env: MEGABOT_MEDIA_PATH)
 
-  # Content security
-  enable_content_filtering: true    # Enable content filtering
-  content_filter_level: "strict"    # Filtering level: lenient, moderate, strict
-
-  # Visual redaction
-  enable_image_redaction: true      # Enable automatic image redaction
-  redaction_sensitivity: "high"     # Redaction sensitivity: low, medium, high
-
-  # Network security
-  allowed_ips: []                   # IP whitelist (empty = allow all)
-  blocked_ips: []                   # IP blacklist
-  enable_ip_filtering: false        # Enable IP filtering
-
-  # Session security
-  session_timeout: 3600             # Session timeout (seconds)
-  max_sessions_per_user: 5          # Maximum concurrent sessions per user
-  enable_session_locking: true      # Lock sessions to IP address
+  # --- Planned (not yet in SecurityConfig) ---
+  # enable_content_filtering: true
+  # content_filter_level: "strict"
+  # enable_image_redaction: true
+  # redaction_sensitivity: "high"
+  # allowed_ips: []
+  # blocked_ips: []
+  # enable_ip_filtering: false
+  # session_timeout: 3600
+  # max_sessions_per_user: 5
+  # enable_session_locking: true
 ```
 
-### Permission System
+### Permission System — Partially Implemented
+
+> `policies` is `Dict[str, Any]` with `allow`/`deny` lists implemented. `default_permission`, `time_restricted`, and `ip_restricted` are **planned**.
 
 ```yaml
 policies:
-  # Default permission level for all actions
-  default_permission: "ASK_EACH"    # AUTO, ASK_EACH, NEVER
-
-  # Whitelist policies (automatically allowed)
+  # --- Implemented ---
   allow:
     - "git status"
     - "git log --oneline"
@@ -277,7 +299,6 @@ policies:
     - "read *.txt"
     - "ls -la"
 
-  # Blacklist policies (always blocked)
   deny:
     - "rm -rf /"
     - "rm -rf /*"
@@ -286,20 +307,23 @@ policies:
     - "* > /dev/null"               # Prevent output redirection attacks
     - "curl * | bash"               # Prevent pipe-to-shell attacks
 
-  # Advanced policies
-  time_restricted:                  # Time-based restrictions
-    - action: "shell.*"
-      allowed_hours: "9-17"         # 9 AM to 5 PM
-      weekdays_only: true
-
-  ip_restricted:                    # IP-based restrictions
-    - action: "admin.*"
-      allowed_ips: ["192.168.1.0/24"]
+  # --- Planned (not yet enforced) ---
+  # default_permission: "ASK_EACH"  # AUTO, ASK_EACH, NEVER
+  # time_restricted:
+  #   - action: "shell.*"
+  #     allowed_hours: "9-17"
+  #     weekdays_only: true
+  # ip_restricted:
+  #   - action: "admin.*"
+  #     allowed_ips: ["192.168.1.0/24"]
 ```
 
-### Tirith Guard (Content Sanitization)
+### Tirith Guard (Content Sanitization) — Planned
+
+> Homoglyph detection is implemented in `core/tirith.py` but not configurable via `mega-config.yaml`.
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 security:
   tirith_guard:
     enabled: true                   # Enable content sanitization
@@ -311,7 +335,9 @@ security:
     suspicious_chars_threshold: 0.1 # Threshold for suspicious character ratio
 ```
 
-## Path Configuration
+## Path Configuration — Implemented
+
+> `paths` is `Dict[str, str]` — any key/value pair is valid. The keys below are conventions used by the codebase.
 
 ### Directory Paths
 
@@ -335,9 +361,12 @@ paths:
   ssl_certs: "/etc/megabot/ssl"               # SSL certificates
 ```
 
-### File Permissions
+### File Permissions — Planned
+
+> `paths` is a flat `Dict[str, str]`. Nested `permissions` sub-object is not supported.
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 paths:
   permissions:
     workspaces: "755"               # Directory permissions
@@ -347,11 +376,14 @@ paths:
     backups: "600"                  # Backup file permissions
 ```
 
-## Advanced Configuration
+## Advanced Configuration — Planned
 
-### Performance Tuning
+> The `performance`, `monitoring`, and `database` top-level sections below are **not yet implemented** in `core/config.py`. They are included as design documentation for future development.
+
+### Performance Tuning — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 performance:
   # Memory management
   max_memory_usage: "2GB"           # Maximum memory usage
@@ -374,9 +406,10 @@ performance:
   keep_alive_timeout: 60            # Keep-alive timeout (seconds)
 ```
 
-### Monitoring and Observability
+### Monitoring and Observability — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 monitoring:
   # Health checks
   health_check_interval: 30         # Health check interval (seconds)
@@ -402,9 +435,10 @@ monitoring:
     alert_levels: ["ERROR", "CRITICAL"]  # Alert levels
 ```
 
-### Database Configuration
+### Database Configuration — Planned
 
 ```yaml
+# NOT YET IMPLEMENTED — design documentation only
 database:
   # Connection settings
   connection_pool_size: 10          # Connection pool size
@@ -427,44 +461,45 @@ database:
   backup_encryption: true           # Encrypt backups
 ```
 
-## Environment Variables
+## Environment Variables — Implemented
 
-MegaBot supports environment variable substitution in configuration files using the `${VAR_NAME}` syntax.
+MegaBot supports environment variable substitution in configuration files using the `${VAR_NAME}` syntax. The following environment variables are auto-populated by `_populate_from_environment()` in `core/config.py`.
 
 ### Common Environment Variables
 
 ```bash
-# API Keys
+# API Keys (all implemented — see LLM section above)
 export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."
 export TELEGRAM_BOT_TOKEN="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
 
-# Database
-export DATABASE_URL="postgresql://user:password@localhost/megabot"
+# System
+export MEGABOT_PORT="8000"
+export ADMIN_PHONE_NUMBER="+1234567890"
+export DND_START_HOUR="22"
+export DND_END_HOUR="7"
+export AUTHORIZED_ADMINS="admin1,admin2"
 
 # Security
-export MEGABOT_SECRET_ENCRYPTION_KEY="your-256-bit-key"
-export MEGABOT_SECRET_BACKUP_KEY="backup-encryption-key"
+export MEGABOT_ENCRYPTION_SALT="your-salt-min-16-chars"
+export MEGABOT_BACKUP_KEY="backup-encryption-key"
+export MEGABOT_MEDIA_PATH="./media"
 
-# Platform-specific
+# Platform-specific (read directly by adapters)
 export DISCORD_BOT_TOKEN="your-discord-token"
 export SLACK_BOT_TOKEN="xoxb-your-slack-token"
-export CLOUDFLARE_TOKEN="your-cloudflare-token"
 ```
 
 ### Secret Management
 
 ```bash
 # Load secrets from files
-export MEGABOT_SECRET_API_KEY="$(cat /etc/megabot/secrets/api_key)"
-export MEGABOT_SECRET_DB_PASSWORD="$(cat /etc/megabot/secrets/db_password)"
+export MEGABOT_BACKUP_KEY="$(cat /etc/megabot/secrets/backup_key)"
+export MEGABOT_ENCRYPTION_SALT="$(cat /etc/megabot/secrets/encryption_salt)"
 
 # Use in configuration
 llm:
-  anthropic_api_key: "${MEGABOT_SECRET_API_KEY}"
-
-database:
-  password: "${MEGABOT_SECRET_DB_PASSWORD}"
+  anthropic_api_key: "${ANTHROPIC_API_KEY}"
 ```
 
 ## Configuration Validation
@@ -475,11 +510,10 @@ MegaBot validates configuration files against a JSON schema. Invalid configurati
 
 ```bash
 # Validate configuration
-python -c "
-from megabot.config import Config
-config = Config.from_yaml('mega-config.yaml')
-config.validate()
-print('Configuration is valid')
+python3 -c "
+from core.config import load_config
+config = load_config('mega-config.yaml')
+print('Configuration loaded successfully')
 "
 ```
 
@@ -497,11 +531,11 @@ Some configuration changes can be applied without restarting MegaBot:
 
 ```bash
 # Reload configuration via API
-curl -X POST http://localhost:3000/admin/reload-config \
+curl -X POST http://localhost:8000/admin/reload-config \
   -H "Authorization: Bearer ${ADMIN_TOKEN}"
 
 # Check reload status
-curl http://localhost:3000/admin/config-status
+curl http://localhost:8000/admin/config-status
 ```
 
 **Note**: Security-related changes (permissions, admins) require a full restart for security reasons.
@@ -514,7 +548,6 @@ curl http://localhost:3000/admin/config-status
 system:
   name: "MegaBot Dev"
   local_only: true
-  log_level: "DEBUG"
 
 admins: ["dev_user_id"]
 
@@ -538,30 +571,27 @@ policies:
 system:
   name: "MegaBot Production"
   local_only: false
+  port: 8000
   telemetry: false
 
 admins: ["admin_user_1", "admin_user_2"]
 
 llm:
   anthropic_api_key: "${ANTHROPIC_API_KEY}"
-  fallback_providers: ["openai"]
 
 adapters:
   openclaw:
     database_url: "${DATABASE_URL}"
   memu:
     database_url: "${DATABASE_URL}"
-  messaging:
-    enable_encryption: true
 
 policies:
-  default_permission: "ASK_EACH"
   allow: ["git status", "read *.md"]
   deny: ["rm -rf /", "sudo *"]
 
 security:
-  enable_content_filtering: true
-  enable_image_redaction: true
+  megabot_encryption_salt: "${MEGABOT_ENCRYPTION_SALT}"
+  megabot_backup_key: "${MEGABOT_BACKUP_KEY}"
 ```
 
 ### High-Security Configuration
@@ -575,21 +605,13 @@ system:
 admins: ["security_admin"]
 
 policies:
-  default_permission: "NEVER"
   allow: ["git status", "read *.md"]
   deny: ["*"]
 
 security:
-  allowed_ips: ["192.168.1.0/24"]
-  enable_ip_filtering: true
-  enable_content_filtering: true
-  content_filter_level: "strict"
-  enable_image_redaction: true
-  redaction_sensitivity: "high"
-  tirith_guard:
-    enabled: true
-    homoglyph_detection: true
+  megabot_encryption_salt: "${MEGABOT_ENCRYPTION_SALT}"
+  megabot_backup_key: "${MEGABOT_BACKUP_KEY}"
 ```
 
-This configuration reference covers all available options. For specific use cases or advanced scenarios, refer to the deployment and security documentation.</content>
+This configuration reference covers all available and planned options. For specific use cases or advanced scenarios, refer to the deployment and security documentation.</content>
 <parameter name="filePath">docs/deployment/configuration.md

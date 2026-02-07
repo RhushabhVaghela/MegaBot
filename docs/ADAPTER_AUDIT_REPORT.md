@@ -70,7 +70,7 @@ An audit of all 8 adapter files (plus supporting infrastructure) in the MegaBot 
 
 **Role:** Comprehensive standalone Telegram adapter with rich data models.
 **Base class:** Does NOT extend `PlatformAdapter`.
-**Used by:** Tests only (`test_telegram_adapter.py`, `test_integration_adapters.py`, `test_coverage_gaps.py`).
+**Used by:** Tests only (`test_telegram_adapter.py`, `test_integration_adapters.py`).
 
 #### Shutdown Handling
 - **Has `shutdown()`**: Yes — closes `aiohttp.ClientSession`, clears handlers. **Proper async.**

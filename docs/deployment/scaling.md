@@ -726,7 +726,7 @@ Establish performance baselines:
 
 ```bash
 # Load testing script
-ab -n 1000 -c 10 http://localhost:3000/api/chat
+ab -n 1000 -c 10 http://localhost:8000/api/chat
 
 # LLM throughput testing
 python benchmark_llm.py \

@@ -8,10 +8,10 @@ This guide helps diagnose and resolve common issues with MegaBot deployments.
 
 ```bash
 # Check overall system health
-curl http://localhost:3000/health
+curl http://localhost:8000/health
 
 # Check component status
-curl http://localhost:3000/health/components
+curl http://localhost:8000/health/components
 
 # View recent logs
 docker-compose logs --tail=50 megabot
@@ -52,10 +52,10 @@ ls -la mega-config.yaml
 curl http://localhost:18789/health
 
 # Memory server
-curl http://localhost:3000/memory/health
+curl http://localhost:8000/memory/health
 
 # MCP servers
-curl http://localhost:3000/mcp/health
+curl http://localhost:8000/mcp/health
 ```
 
 ## Component-Specific Issues
@@ -129,7 +129,7 @@ sqlite3 megabot.db "PRAGMA integrity_check;"
 
 # Recreate database if corrupted
 rm megabot.db
-python -c "from megabot.memory import init_db; init_db()"
+python -c "from core.memory import init_db; init_db()"
 ```
 
 **PostgreSQL Solutions:**
@@ -324,7 +324,7 @@ Error: Permission denied for action
 **Solutions:**
 1. **Check current permissions:**
    ```bash
-   curl http://localhost:3000/admin/policies
+   curl http://localhost:8000/admin/policies
    ```
 
 2. **Update permission policies:**
@@ -360,7 +360,7 @@ Error: Permission denied for action
 
 3. **Check approval queue:**
    ```bash
-   curl http://localhost:3000/admin/approvals
+   curl http://localhost:8000/admin/approvals
    ```
 
 ### Database Issues
@@ -449,7 +449,7 @@ Error: Request timeout
 **Solutions:**
 1. **Check LLM provider latency:**
    ```bash
-   time curl -X POST http://localhost:3000/chat \
+   time curl -X POST http://localhost:8000/chat \
      -d '{"message": "test"}'
    ```
 
@@ -641,7 +641,7 @@ docker-compose down --remove-orphans --volumes
 tar -xzf backup.tar.gz -C /recovery/path
 
 # Verify integrity
-python -c "from megabot.memory import verify_backup; verify_backup('/path/to/backup')"
+python -c "from core.memory import verify_backup; verify_backup('/path/to/backup')"
 
 # Restore database
 pg_restore -d megabot /path/to/backup.sql
@@ -701,7 +701,7 @@ df -h / | awk 'NR==2 {if ($5 > 80) print "WARNING: Disk usage above 80%"}'
 find /backups -name "*.sql" -mtime +7 -exec echo "Old backup: {}" \;
 
 # Health check
-curl -f http://localhost:3000/health || echo "Health check failed"
+curl -f http://localhost:8000/health || echo "Health check failed"
 ```
 
 ### Monitoring Setup

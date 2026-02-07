@@ -22,7 +22,7 @@ The WebSocket API enables real-time communication between clients and MegaBot, s
 ### WebSocket URL
 
 ```
-ws://localhost:3000/ws
+ws://localhost:8000/ws
 wss://api.megabot.ai/ws  # Production with SSL
 ```
 
@@ -32,13 +32,13 @@ WebSocket connections support URL query parameters for authentication and config
 
 ```javascript
 // Basic connection
-const ws = new WebSocket('ws://localhost:3000/ws');
+const ws = new WebSocket('ws://localhost:8000/ws');
 
 // With authentication
-const ws = new WebSocket('ws://localhost:3000/ws?token=your_jwt_token');
+const ws = new WebSocket('ws://localhost:8000/ws?token=your_jwt_token');
 
 // With user context
-const ws = new WebSocket('ws://localhost:3000/ws?user_id=user123&platform=web');
+const ws = new WebSocket('ws://localhost:8000/ws?user_id=user123&platform=web');
 ```
 
 **Query Parameters:**
@@ -63,14 +63,14 @@ const response = await fetch('/api/auth/login', {
 const { token } = await response.json();
 
 // Use token in WebSocket connection
-const ws = new WebSocket(`ws://localhost:3000/ws?token=${token}`);
+const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`);
 ```
 
 #### API Key Authentication
 
 ```javascript
 // Direct API key authentication
-const ws = new WebSocket('ws://localhost:3000/ws', {
+const ws = new WebSocket('ws://localhost:8000/ws', {
   headers: {
     'Authorization': 'Bearer your_api_key',
     'X-API-Key': 'your_api_key'
@@ -656,7 +656,7 @@ const wss = new WebSocket.Server({
 });
 
 // Client-side compression
-const ws = new WebSocket('ws://localhost:3000/ws', {
+const ws = new WebSocket('ws://localhost:8000/ws', {
   perMessageDeflate: true
 });
 ```
@@ -670,7 +670,7 @@ const ws = new WebSocket('ws://localhost:3000/ws', {
 class MegaBotWebSocket {
   constructor(options = {}) {
     this.options = {
-      url: 'ws://localhost:3000/ws',
+      url: 'ws://localhost:8000/ws',
       reconnect: true,
       maxRetries: 5,
       ...options
@@ -716,7 +716,7 @@ class MegaBotWebSocketClient:
         pass
 
 # Usage
-client = MegaBotWebSocketClient('ws://localhost:3000/ws', token='your_token')
+client = MegaBotWebSocketClient('ws://localhost:8000/ws', token='your_token')
 asyncio.run(client.connect())
 ```
 

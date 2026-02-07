@@ -74,14 +74,13 @@ MegaBot is an open-source project. We welcome contributions!
 
 - **[Development Guide](development/index.md)** - Coding standards and contribution guidelines
 - **[Documentation Contributing](development/contributing.md)** - How to contribute to documentation
-- **[Issue Tracker](https://github.com/your-org/megabot/issues)** - Report bugs and request features
-- **[Discussions](https://github.com/your-org/megabot/discussions)** - Community discussions and support
+- **[Issue Tracker](https://github.com/RhushabhVaghela/MegaBot/issues)** - Report bugs and request features
+- **[Discussions](https://github.com/RhushabhVaghela/MegaBot/discussions)** - Community discussions and support
 
 ## Support
 
-- **Documentation Issues**: [Open an issue](https://github.com/your-org/megabot/issues) if you find errors or missing information
-- **Community Support**: Join our [Discord server](https://discord.gg/megabot) for real-time help
-- **Professional Services**: Contact our team for enterprise support and custom development
+- **Documentation Issues**: [Open an issue](https://github.com/RhushabhVaghela/MegaBot/issues) if you find errors or missing information
+- **Community Support**: [GitHub Discussions](https://github.com/RhushabhVaghela/MegaBot/discussions) for questions and help
 
 ---
 

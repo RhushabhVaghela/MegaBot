@@ -2,8 +2,14 @@ system:
   name: MegaBot
   local_only: true
   bind_address: "0.0.0.0" # Listen on all interfaces for Docker
+  port: 8000               # HTTP API port (env: MEGABOT_PORT)
+  messaging_host: "127.0.0.1"
+  messaging_port: 18790    # WebSocket messaging server port
   telemetry: false
-  default_mode: "plan" # build, plan, architect, ask, debug
+  default_mode: "plan"     # build, plan, architect, ask, debug
+  # admin_phone: "+1234567890"  # env: ADMIN_PHONE_NUMBER
+  dnd_start: 22            # Do-not-disturb start hour (10 PM) — env: DND_START_HOUR
+  dnd_end: 7               # Do-not-disturb end hour (7 AM) — env: DND_END_HOUR
 
 adapters:
   openclaw:
