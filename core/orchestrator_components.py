@@ -104,9 +104,17 @@ class MessageHandler:
                 print(f"Voice-Agent: Transcribing attachment from {sender_id}...")
                 audio_data = attachment.get("data")
                 if audio_data:
-                    # Audio transcription logic would go here
-                    # For now, just indicate it was processed
-                    pass
+                    try:
+                        from adapters.voice_adapter import VoiceAdapter
+
+                        voice = VoiceAdapter()
+                        transcript = await voice.transcribe_audio(
+                            audio_data if isinstance(audio_data, bytes) else audio_data.encode()
+                        )
+                        if transcript:
+                            vision_context += f"\n[Audio Transcript]: {transcript}\n"
+                    except Exception as e:
+                        print(f"Voice-Agent: Transcription failed for {sender_id}: {e}")
 
         return vision_context
 

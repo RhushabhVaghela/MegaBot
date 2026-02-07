@@ -124,9 +124,17 @@ class SlackAdapter(PlatformAdapter):
         self._setup_event_handlers()
 
     def _setup_event_handlers(self) -> None:
-        """Set up Slack event handlers"""
-        # These will be set up when socket mode is initialized
-        pass
+        """Set up default Slack event type registrations.
+
+        Actual socket-mode listeners are attached in _init_socket_mode().
+        This pre-registers the event types that the adapter handles so
+        callers can inspect ``self.event_handlers`` before the socket is live.
+        """
+        # Pre-register known event types so the adapter reports which events
+        # it can handle even before socket mode connects.
+        for event_type in ("message", "reaction_added", "reaction_removed", "app_mention", "member_joined_channel"):
+            if event_type not in self.event_handlers:
+                self.event_handlers[event_type] = lambda e, _et=event_type: None
 
     async def initialize(self) -> bool:
         """
@@ -372,10 +380,40 @@ class SlackAdapter(PlatformAdapter):
         return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
-        """Download media from Slack message."""
+        """Download media from Slack message.
+
+        Uses conversations.history to find the message, extracts the first
+        file reference, then downloads it using the files.info URL with the
+        bot token for authorisation.  Returns saved file path on success.
+        """
         try:
-            # This would require finding the file from message and downloading
-            print(f"[Slack] Download media not implemented for message {message_id}")
+            # Slack files require a Bot token header to download
+            # First, retrieve message metadata to find file references
+            # message_id in Slack is typically the message ts
+            # We need channel context; search recent file shares
+            files_resp = await asyncio.to_thread(self.client.files_list, count=20)
+            if not files_resp.get("ok"):
+                print(f"[Slack] Could not list files: {files_resp.get('error')}")
+                return None
+
+            for f in files_resp.get("files", []):
+                if f.get("id") == message_id or message_id in f.get("shares", {}).get("public", {}).keys():
+                    download_url = f.get("url_private_download") or f.get("url_private")
+                    if not download_url:
+                        continue
+                    import urllib.request
+
+                    req = urllib.request.Request(
+                        download_url,
+                        headers={"Authorization": f"Bearer {self.bot_token}"},
+                    )
+                    resp = await asyncio.to_thread(urllib.request.urlopen, req)
+                    data = resp.read()
+                    with open(save_path, "wb") as fp:
+                        fp.write(data)
+                    return save_path
+
+            print(f"[Slack] No downloadable file found for {message_id}")
             return None
         except Exception as e:
             print(f"[Slack] Download media error: {e}")

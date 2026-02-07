@@ -709,11 +709,26 @@ class DiscordAdapter(PlatformAdapter):
         return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
-        """Download media from Discord message."""
+        """Download media from Discord message.
+
+        Searches cached channels for the message, then downloads the first
+        attachment to *save_path*.  Returns the saved file path on success,
+        or None if the message/attachment cannot be found.
+        """
         try:
-            # This would require fetching the message and downloading attachments
-            # For now, return None as it's complex with Discord API
-            print(f"[Discord] Download media not implemented for message {message_id}")
+            # Try every guild channel the bot can see
+            for guild in self.bot.guilds:
+                for channel in guild.text_channels:
+                    try:
+                        message = await channel.fetch_message(int(message_id))
+                    except Exception:
+                        continue
+                    if not message.attachments:
+                        return None
+                    attachment = message.attachments[0]
+                    await attachment.save(save_path)
+                    return save_path
+            print(f"[Discord] Message {message_id} not found in any channel")
             return None
         except Exception as e:
             print(f"[Discord] Download media error: {e}")
