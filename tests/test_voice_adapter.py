@@ -91,34 +91,27 @@ class TestVoiceAdapter:
 
     @pytest.mark.asyncio
     async def test_transcribe_audio(self, voice_adapter):
-        """Test audio transcription"""
-        text = await voice_adapter.transcribe_audio(b"dummy_audio")
-        assert "simulated transcription" in text.lower()
+        """Test audio transcription raises NotImplementedError (no STT configured)"""
+        with pytest.raises(NotImplementedError, match="speech-to-text"):
+            await voice_adapter.transcribe_audio(b"dummy_audio")
 
     @pytest.mark.asyncio
     async def test_speak(self, voice_adapter):
-        """Test text-to-speech"""
-        audio = await voice_adapter.speak("Hello")
-        assert audio.startswith(b"RIFF")
+        """Test text-to-speech raises NotImplementedError (no TTS configured)"""
+        with pytest.raises(NotImplementedError, match="text-to-speech"):
+            await voice_adapter.speak("Hello")
 
     @pytest.mark.asyncio
     async def test_get_call_logs(self, voice_adapter):
-        """Test getting call logs"""
-        logs = await voice_adapter.get_call_logs(limit=5)
-        assert len(logs) == 5
-        assert logs[0]["status"] == "completed"
+        """Test getting call logs raises NotImplementedError (no Twilio integration)"""
+        with pytest.raises(NotImplementedError, match="Twilio API"):
+            await voice_adapter.get_call_logs(limit=5)
 
     @pytest.mark.asyncio
     async def test_get_call_logs_error(self, voice_adapter):
-        """Test get_call_logs error handling"""
-        # Mock the list comprehension to fail
-        original_uuid = voice_adapter.__class__.__dict__.get("get_call_logs").__code__
-        # Since it's hard to mock the list comprehension, let's patch uuid to raise
-        with patch(
-            "adapters.voice_adapter.uuid.uuid4", side_effect=Exception("UUID Error")
-        ):
-            logs = await voice_adapter.get_call_logs(limit=1)
-            assert logs == []
+        """Test get_call_logs raises NotImplementedError"""
+        with pytest.raises(NotImplementedError, match="Twilio API"):
+            await voice_adapter.get_call_logs(limit=1)
 
     @pytest.mark.asyncio
     async def test_shutdown(self, voice_adapter):

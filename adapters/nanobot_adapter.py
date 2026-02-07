@@ -124,10 +124,15 @@ class NanobotAdapter(MessagingInterface):
             print(f"Nanobot: Unsupported platform {platform} or recipient {recipient}")
 
     async def receive_message(self) -> Message:
-        """Receive message from integrated platforms (mock implementation)."""
-        # In a real implementation, this would poll or webhook for messages
-        # For now, return an empty message
-        return Message(content="", sender="", metadata={})
+        """Receive message from integrated platforms.
+
+        Raises:
+            NotImplementedError: Message receiving requires webhook or polling setup
+        """
+        raise NotImplementedError(
+            "receive_message requires webhook or polling integration. "
+            "Configure a webhook endpoint or implement platform-specific polling."
+        )
 
     async def analyze_market(self, symbol: str) -> dict:
         """Analyze market data for a given symbol."""

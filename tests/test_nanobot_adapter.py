@@ -162,14 +162,11 @@ async def test_send_message_whatsapp_by_recipient_prefix(capsys):
 
 @pytest.mark.asyncio
 async def test_receive_message():
-    """Test receiving message (mock implementation)."""
+    """Test receiving message raises NotImplementedError (no webhook configured)."""
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
-    message = await adapter.receive_message()
-
-    assert isinstance(message, Message)
-    assert message.content == ""
-    assert message.sender == ""
+    with pytest.raises(NotImplementedError, match="webhook or polling"):
+        await adapter.receive_message()
 
 
 @pytest.mark.asyncio

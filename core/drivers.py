@@ -85,32 +85,20 @@ class ComputerDriver:
 
     async def analyze_image(self, image_data: str) -> str:
         """
-        Placeholder for vision analysis.
-        In a real scenario, this would call a vision model (like Claude 3.5 Vision or GPT-4o).
-        For this driver, we simulate the analysis.
+        Analyze an image using a vision model (e.g. Claude 3.5 Vision, GPT-4o).
+
+        Args:
+            image_data: Base64-encoded image data
+
+        Returns:
+            JSON string with analysis results including bounding boxes
+
+        Raises:
+            NotImplementedError: Vision model integration not yet implemented
         """
-        # Simulated vision analysis identifying sensitive areas
-        # In a real implementation, this would return a JSON with bounding boxes
-        return json.dumps(
-            {
-                "description": "A technical screenshot with potentially sensitive info.",
-                "sensitive_regions": [
-                    {
-                        "x": 100,
-                        "y": 100,
-                        "width": 200,
-                        "height": 30,
-                        "label": "password",
-                    },
-                    {
-                        "x": 400,
-                        "y": 250,
-                        "width": 150,
-                        "height": 20,
-                        "label": "api_key",
-                    },
-                ],
-            }
+        raise NotImplementedError(
+            "analyze_image requires a vision model integration (e.g. Claude 3.5 Vision, GPT-4o). "
+            "See docs/developer_notes.md for implementation guidance."
         )
 
     def blur_regions(self, image_base64: str, regions: List[Dict[str, int]]) -> str:

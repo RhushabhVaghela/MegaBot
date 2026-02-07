@@ -347,8 +347,12 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
         return "Security Audit: Passed"
 
     async def _deploy_product(self) -> str:
-        """Final build and deploy step"""
-        print("🚀 Deploying Product...")
-        # Placeholder for build/deploy scripts
-        await asyncio.sleep(2)
-        return "Deployment successful to 'deployments/v1'"
+        """Final build and deploy step.
+
+        Raises:
+            NotImplementedError: Deployment pipeline not yet configured
+        """
+        raise NotImplementedError(
+            "_deploy_product requires a configured deployment pipeline. "
+            "Set MEGABOT_DEPLOY_SCRIPT or implement a deployment driver."
+        )

@@ -200,9 +200,9 @@ class TestLokiMode:
 
     @pytest.mark.asyncio
     async def test_deploy_product(self, loki_mode):
-        """Test _deploy_product completes"""
-        result = await loki_mode._deploy_product()
-        assert "successful" in result
+        """Test _deploy_product raises NotImplementedError (no deployment pipeline)"""
+        with pytest.raises(NotImplementedError, match="deployment pipeline"):
+            await loki_mode._deploy_product()
 
     @pytest.mark.asyncio
     async def test_activate_full_pipeline_no_conflict(self, loki_mode):

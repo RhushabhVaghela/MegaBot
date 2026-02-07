@@ -145,55 +145,55 @@ class VoiceAdapter(VoiceInterface):
 
     async def transcribe_audio(self, audio_data: bytes) -> str:
         """
-        Transcribe audio data to text.
-        (Implementation would use Whisper or Twilio Transcription)
+        Transcribe audio data to text using Whisper or Twilio Transcription.
 
         Args:
             audio_data: Raw audio bytes
 
         Returns:
             Transcribed text
+
+        Raises:
+            NotImplementedError: STT integration not yet implemented
         """
-        # Simulated transcription
-        print(f"[Voice] Transcribing {len(audio_data)} bytes of audio...")
-        await asyncio.sleep(1)
-        return "This is a simulated transcription of the audio input."
+        raise NotImplementedError(
+            "transcribe_audio requires a speech-to-text integration "
+            "(e.g. OpenAI Whisper, Twilio Transcription)."
+        )
 
     async def speak(self, text: str) -> bytes:
         """
-        Convert text to speech.
-        (Implementation would use OpenAI TTS or Google TTS)
+        Convert text to speech using OpenAI TTS or Google TTS.
 
         Args:
             text: Text to speak
 
         Returns:
             Audio data bytes
+
+        Raises:
+            NotImplementedError: TTS integration not yet implemented
         """
-        # Simulated TTS
-        print(f"[Voice] Converting text to speech: {text[:50]}...")
-        await asyncio.sleep(1)
-        # Return dummy bytes
-        return b"RIFF" + b"\x00" * 100
+        raise NotImplementedError(
+            "speak requires a text-to-speech integration "
+            "(e.g. OpenAI TTS, Google Cloud TTS)."
+        )
 
     async def get_call_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recent call logs"""
-        try:
-            # Simulated call logs
-            return [
-                {
-                    "sid": "CA" + uuid.uuid4().hex,
-                    "to": "+1234567890",
-                    "from": self.from_number,
-                    "status": "completed",
-                    "start_time": datetime.now().isoformat(),
-                    "duration": "45s",
-                }
-                for _ in range(limit)
-            ]
-        except Exception as e:
-            print(f"[Voice] Get logs error: {e}")
-            return []
+        """Get recent call logs from Twilio.
+
+        Args:
+            limit: Maximum number of logs to return
+
+        Returns:
+            List of call log dictionaries
+
+        Raises:
+            NotImplementedError: Twilio call log retrieval not yet implemented
+        """
+        raise NotImplementedError(
+            "get_call_logs requires Twilio API integration for call history retrieval."
+        )
 
     async def shutdown(self):
         """Clean up resources"""

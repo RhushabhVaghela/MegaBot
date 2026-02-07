@@ -152,14 +152,9 @@ class TestComputerDriver:
 
     @pytest.mark.asyncio
     async def test_analyze_image(self, driver):
-        """Test image analysis"""
-        result = await driver.analyze_image("dummy_data")
-        import json
-
-        data = json.loads(result)
-        assert "description" in data
-        assert "sensitive_regions" in data
-        assert len(data["sensitive_regions"]) == 2
+        """Test image analysis raises NotImplementedError (no vision model configured)"""
+        with pytest.raises(NotImplementedError, match="vision model"):
+            await driver.analyze_image("dummy_data")
 
     def test_blur_regions(self, driver):
         """Test blurring regions in image"""
