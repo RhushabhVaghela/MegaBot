@@ -2,6 +2,8 @@ import ast
 import csv
 import json
 import logging
+import signal
+import threading
 from typing import Any, Dict, List, Union
 from core.llm_providers import LLMProvider
 from core.resource_guard import LRUCache
@@ -317,7 +319,27 @@ class DashDataAgent:
         local_vars = {"data": data, "result": None}
 
         try:
-            exec(python_code, sandbox_globals, local_vars)  # noqa: S102
-            return str(local_vars.get("result", "Code executed but no 'result' variable set."))
+            # Run exec() in a thread with a 5-second timeout to prevent
+            # infinite loops or CPU-intensive code from blocking the server.
+            exec_error: List[Exception] = []
+
+            def _run_sandboxed():
+                try:
+                    exec(python_code, sandbox_globals, local_vars)  # noqa: S102
+                except Exception as e:
+                    exec_error.append(e)
+
+            t = threading.Thread(target=_run_sandboxed, daemon=True)
+            t.start()
+            t.join(timeout=5.0)
+            if t.is_alive():
+                return "Python execution error: code exceeded 5-second time limit"
+            if exec_error:
+                return f"Python execution error: {exec_error[0]}"
+            result_str = str(local_vars.get("result", "Code executed but no 'result' variable set."))
+            # Cap output size to prevent memory exhaustion
+            if len(result_str) > 100_000:
+                result_str = result_str[:100_000] + "\n... [output truncated at 100KB]"
+            return result_str
         except Exception as e:
             return f"Python execution error: {e}"

@@ -6,6 +6,7 @@ Provides integration with telephony services (Twilio) for voice calls.
 import asyncio
 import uuid
 from typing import Any, Dict, List, Optional
+from xml.sax.saxutils import escape as xml_escape
 
 from core.interfaces import VoiceInterface
 
@@ -88,20 +89,23 @@ class VoiceAdapter(VoiceInterface):
         try:
             # If script doesn't look like a URL, treat it as text to speak
             if not script.startswith("http"):
+                # Escape user-supplied text to prevent XML/TwiML injection
+                safe_script = xml_escape(script)
                 if ivr and action_id and self.callback_url:
                     # TwiML for IVR: Say script, then wait for digit 1
                     # Append action_id to the callback URL
-                    action_url = f"{self.callback_url}/ivr?action_id={action_id}"
+                    safe_action_id = xml_escape(action_id)
+                    action_url = f"{self.callback_url}/ivr?action_id={safe_action_id}"
                     twiml = f"""
                     <Response>
-                        <Gather numDigits="1" timeout="10" action="{action_url}">
-                            <Say>{script} Press 1 to authorize this action, or any other key to reject.</Say>
+                        <Gather numDigits="1" timeout="10" action="{xml_escape(action_url)}">
+                            <Say>{safe_script} Press 1 to authorize this action, or any other key to reject.</Say>
                         </Gather>
                         <Say>We did not receive any input. Goodbye.</Say>
                     </Response>
                     """
                 else:
-                    twiml = f"<Response><Say>{script}</Say></Response>"
+                    twiml = f"<Response><Say>{safe_script}</Say></Response>"
             else:
                 twiml = None
 

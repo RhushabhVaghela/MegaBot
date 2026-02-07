@@ -10,7 +10,7 @@ from core.resource_guard import LRUCache
 
 class OpenClawAdapter(MessagingInterface):
     def __init__(self, host: str, port: int, auth_token: Optional[str] = None):
-        self.uri = f"ws://{host}:{port}"
+        self.uri = f"wss://{host}:{port}"
         self.websocket = None
         self.on_event = None
         self.pending_requests: LRUCache[str, Any] = LRUCache(maxsize=256)
@@ -27,7 +27,8 @@ class OpenClawAdapter(MessagingInterface):
         import secrets
 
         token = secrets.token_urlsafe(32)
-        print(f"WARNING: No auth token provided. Generated temporary token: {token}")
+        print("WARNING: No auth token provided. Generated temporary token (see logs for first 8 chars).")
+        print(f"  Token prefix: {token[:8]}...")
         return token
 
     async def connect(self, on_event=None):

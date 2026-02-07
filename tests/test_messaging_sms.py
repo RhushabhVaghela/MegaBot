@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 mock_twilio = MagicMock()
 sys.modules["twilio"] = mock_twilio
 sys.modules["twilio.rest"] = mock_twilio
+sys.modules["twilio.request_validator"] = mock_twilio
 
 from adapters.messaging.sms import SMSAdapter
 

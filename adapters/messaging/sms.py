@@ -17,7 +17,9 @@ class SMSAdapter(PlatformAdapter):
         self.account_sid = self.config.get("twilio_account_sid")
         self.auth_token = self.config.get("twilio_auth_token")
         self.from_number = self.config.get("twilio_from_number")
+        self.webhook_url = self.config.get("twilio_webhook_url", "")
         self.client = None
+        self._request_validator = None
 
     async def initialize(self) -> bool:
         if not self.account_sid or not self.auth_token:
@@ -25,8 +27,10 @@ class SMSAdapter(PlatformAdapter):
             return False
         try:
             from twilio.rest import Client
+            from twilio.request_validator import RequestValidator
 
             self.client = Client(self.account_sid, self.auth_token)
+            self._request_validator = RequestValidator(self.auth_token)
             logger.info("[SMS] Twilio client initialized")
             return True
         except Exception as e:
@@ -108,8 +112,12 @@ class SMSAdapter(PlatformAdapter):
             logger.error("[SMS] MMS send failed: %s", e)
             return None
 
-    async def handle_webhook(self, data: Dict) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, data: Dict, signature: str = "", url: str = "") -> Optional[PlatformMessage]:
         """Parse an incoming Twilio SMS/MMS webhook.
+
+        If a request validator is available and *signature* / *url* are
+        supplied, the Twilio X-Twilio-Signature header is verified before
+        processing.  Unsigned or invalid requests are rejected.
 
         Twilio sends form-encoded POST data with keys like:
         - MessageSid, From, To, Body
@@ -117,6 +125,13 @@ class SMSAdapter(PlatformAdapter):
         """
         if not data:
             return None
+
+        # Verify Twilio webhook signature when possible
+        if self._request_validator and signature:
+            request_url = url or self.webhook_url
+            if request_url and not self._request_validator.validate(request_url, data, signature):
+                logger.warning("[SMS] Webhook signature verification failed — rejecting request")
+                return None
 
         msg_sid = data.get("MessageSid")
         if not msg_sid:

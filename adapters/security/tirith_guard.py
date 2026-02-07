@@ -54,24 +54,51 @@ class TirithGuard:
 
         return sanitized
 
+    # Unicode script ranges that contain characters visually confusable with
+    # basic Latin (ASCII a-z, A-Z, 0-9).  Only these scripts are flagged —
+    # legitimate non-Latin text (CJK, Arabic, Devanagari, emoji, etc.) passes.
+    _CONFUSABLE_RANGES = (
+        (0x0400, 0x04FF),  # Cyrillic
+        (0x0370, 0x03FF),  # Greek and Coptic
+        (0x0500, 0x052F),  # Cyrillic Supplement
+        (0x2DE0, 0x2DFF),  # Cyrillic Extended-A
+        (0xA640, 0xA69F),  # Cyrillic Extended-B
+        (0x1C80, 0x1C8F),  # Cyrillic Extended-C
+    )
+
     def check_homoglyphs(self, text: str) -> bool:
         """
-        Check if text contains suspicious homoglyphs (e.g. Cyrillic 'а' instead of Latin 'a').
-        Returns True if suspicious homoglyphs are found.
-        """
-        for char in text:
-            if unicodedata.category(char).startswith("Mn") or unicodedata.category(
-                char
-            ).startswith("Me"):
-                continue  # Skip non-spacing marks
+        Check if text contains suspicious homoglyphs from scripts that are
+        visually confusable with Latin (e.g. Cyrillic 'а' vs Latin 'a').
 
-            # This is a very basic check. Real Tirith uses punycode comparison.
-            # Here we just check for non-ASCII characters that might be used for phishing.
-            if ord(char) > 127:
-                # If it's not a common localized character (this part is hard to get right without a library)
-                # we flag it as suspicious for high-security environments.
+        Returns True if suspicious characters are found.  Legitimate non-Latin
+        text (CJK, accented Latin, emoji, etc.) is NOT flagged.
+        """
+        has_latin = False
+        has_confusable = False
+        for char in text:
+            cp = ord(char)
+            cat = unicodedata.category(char)
+            if cat.startswith("Mn") or cat.startswith("Me"):
+                continue  # Skip combining marks
+
+            # Check for bi-directional override characters (always suspicious)
+            if char in self._BIDI_CHARS:
                 return True
-        return False
+
+            # Track whether we have Latin letters
+            if 0x41 <= cp <= 0x5A or 0x61 <= cp <= 0x7A:
+                has_latin = True
+
+            # Check confusable script ranges
+            for start, end in self._CONFUSABLE_RANGES:
+                if start <= cp <= end:
+                    has_confusable = True
+                    break
+
+        # Only flag if BOTH Latin and confusable-script chars appear together
+        # (mixed-script is the actual attack vector for homoglyph phishing)
+        return has_latin and has_confusable
 
     def validate(self, text: str) -> bool:
         """

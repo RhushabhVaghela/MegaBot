@@ -58,9 +58,7 @@ class MediaAttachment:
             size=data["size"],
             data=base64.b64decode(data["data"]),
             caption=data.get("caption"),
-            thumbnail=base64.b64decode(data["thumbnail"])
-            if data.get("thumbnail")
-            else None,
+            thumbnail=base64.b64decode(data["thumbnail"]) if data.get("thumbnail") else None,
         )
 
 
@@ -114,14 +112,9 @@ class SecureWebSocket:
     def _init_cipher(self) -> Fernet:
         salt_val = os.environ.get("MEGABOT_ENCRYPTION_SALT")
         if not salt_val:
-            raise ValueError(
-                "MEGABOT_ENCRYPTION_SALT must be set in environment. "
-                "Refusing to use a hardcoded default."
-            )
+            raise ValueError("MEGABOT_ENCRYPTION_SALT must be set in environment. Refusing to use a hardcoded default.")
         salt = salt_val.encode()
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000
-        )
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
         key = base64.urlsafe_b64encode(kdf.derive(self.password.encode()))
         return Fernet(key)
 
@@ -138,8 +131,7 @@ class SecureWebSocket:
             return self.cipher.decrypt(encrypted_data.encode()).decode()
         except Exception as e:
             raise ValueError(
-                f"Decryption failed: {e}. "
-                "This may indicate a key mismatch, corrupted data, or a replay attack."
+                f"Decryption failed: {e}. This may indicate a key mismatch, corrupted data, or a replay attack."
             ) from e
 
 
@@ -148,9 +140,7 @@ class PlatformAdapter:
         self.platform_name = platform_name
         self.server = server
 
-    async def send_text(
-        self, chat_id: str, text: str, reply_to: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
         return PlatformMessage(
             id=str(uuid.uuid4()),
             platform=self.platform_name,
@@ -179,16 +169,12 @@ class PlatformAdapter:
         return None
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
-        print(
-            f"[{self.platform_name}] Initiating {'video' if is_video else 'voice'} call to {chat_id}"
-        )
+        print(f"[{self.platform_name}] Initiating {'video' if is_video else 'voice'} call to {chat_id}")
         return True
 
 
 class MegaBotMessagingServer:
-    def __init__(
-        self, host: str = "127.0.0.1", port: int = 18790, enable_encryption: bool = True
-    ):
+    def __init__(self, host: str = "127.0.0.1", port: int = 18790, enable_encryption: bool = True):
         self.host = host
         self.port = port
         self.enable_encryption = enable_encryption
@@ -207,9 +193,7 @@ class MegaBotMessagingServer:
     def register_handler(self, handler: Callable[[PlatformMessage], Any]):
         self.message_handlers.append(handler)
 
-    async def initialize_memu(
-        self, memu_path: str = "./memu", db_url: str = "sqlite:///megabot_memory.db"
-    ):
+    async def initialize_memu(self, memu_path: str = "./memu", db_url: str = "sqlite:///megabot_memory.db"):
         try:
             from adapters.memu_adapter import MemUAdapter
 
@@ -218,9 +202,7 @@ class MegaBotMessagingServer:
         except Exception as e:
             print(f"Failed to initialize memU: {e}")
 
-    async def initialize_voice(
-        self, account_sid: str, auth_token: str, from_number: str
-    ):
+    async def initialize_voice(self, account_sid: str, auth_token: str, from_number: str):
         try:
             from adapters.voice_adapter import VoiceAdapter
 
@@ -245,16 +227,12 @@ class MegaBotMessagingServer:
         """Signal the server to stop accepting connections and shut down."""
         self._shutdown_event.set()
 
-    async def send_message(
-        self, message: PlatformMessage, target_client: Optional[str] = None
-    ):
+    async def send_message(self, message: PlatformMessage, target_client: Optional[str] = None):
         data = json.dumps(message.to_dict())
         if self.enable_encryption and self.secure_ws:
             data = self.secure_ws.encrypt(data)
         clients_to_send = (
-            [target_client]
-            if target_client and target_client in self.clients
-            else list(self.clients.keys())
+            [target_client] if target_client and target_client in self.clients else list(self.clients.keys())
         )
         for client_id in clients_to_send:
             if client_id not in self.clients:
@@ -279,8 +257,10 @@ class MegaBotMessagingServer:
                 if isinstance(message, bytes):
                     message = message.decode("utf-8")
                 await self._process_message(client_id, message)
-        except Exception:
-            pass
+        except Exception as e:
+            # Log unexpected errors; ConnectionClosed is expected on disconnect
+            if "ConnectionClosed" not in type(e).__name__:
+                print(f"[Server] WebSocket handler error for {client_id}: {e}")
         finally:
             if client_id in self.clients:
                 del self.clients[client_id]
@@ -313,9 +293,7 @@ class MegaBotMessagingServer:
             chat_id=data["chat_id"],
             content=data.get("content", ""),
             message_type=MessageType(data.get("message_type", "text")),
-            timestamp=datetime.fromisoformat(data["timestamp"])
-            if data.get("timestamp")
-            else datetime.now(),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.now(),
             metadata=data.get("metadata", {}),
         )
         if "attachments" in data:
@@ -396,9 +374,7 @@ class MegaBotMessagingServer:
                         self.signal = signal_adapter
 
                     async def send_text(self, chat_id, text, reply_to=None):
-                        msg_id = await self.signal.send_message(
-                            chat_id, text, quote_message_id=reply_to
-                        )
+                        msg_id = await self.signal.send_message(chat_id, text, quote_message_id=reply_to)
                         return PlatformMessage(
                             id=f"signal_{msg_id}" if msg_id else str(uuid.uuid4()),
                             platform=self.platform_name,
@@ -409,13 +385,9 @@ class MegaBotMessagingServer:
                             reply_to=reply_to,
                         )
 
-                self.platform_adapters[platform] = SignalPlatformAdapter(
-                    platform, self, adapter
-                )
+                self.platform_adapters[platform] = SignalPlatformAdapter(platform, self, adapter)
                 # Hook Signal message handler back to this server
-                adapter.register_message_handler(
-                    self._handle_platform_message_from_adapter
-                )
+                adapter.register_message_handler(self._handle_platform_message_from_adapter)
                 asyncio.create_task(adapter.initialize())
                 print(f"Initialized Signal adapter for {phone}")
         elif platform == "discord":

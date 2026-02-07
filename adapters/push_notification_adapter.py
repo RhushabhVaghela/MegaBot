@@ -22,9 +22,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
-import firebase_admin
-from firebase_admin import credentials, messaging
-from firebase_admin import App as firebase_app
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    from firebase_admin import App as firebase_app
+
+    _HAS_FIREBASE = True
+except ImportError:
+    firebase_admin = None  # type: ignore[assignment]
+    credentials = None  # type: ignore[assignment]
+    messaging = None  # type: ignore[assignment]
+    firebase_app = None  # type: ignore[assignment]
+    _HAS_FIREBASE = False
 
 from core.resource_guard import LRUCache
 
@@ -373,6 +383,9 @@ class PushNotificationAdapter:
         Returns:
             True if initialization successful
         """
+        if not _HAS_FIREBASE:
+            print("[Push] firebase-admin not installed — push notifications unavailable")
+            return False
         try:
             self._initialize_fcm()
             self._load_tokens()
