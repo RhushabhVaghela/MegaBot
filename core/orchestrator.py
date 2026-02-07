@@ -521,7 +521,9 @@ class MegaBotOrchestrator:
             if not (isinstance(task_obj, asyncio.Task) or asyncio.isfuture(task_obj)):
                 try:
                     coro.close()
-                except Exception:
+                except (
+                    Exception
+                ):  # pragma: no cover — defensive; coro.close() rarely fails
                     pass
             else:
                 self._health_task = task_obj
@@ -1685,9 +1687,11 @@ class MegaBotOrchestrator:
                         if asyncio.iscoroutine(possible_coro):
                             try:
                                 possible_coro.close()
-                            except Exception:
+                            except (
+                                Exception
+                            ):  # pragma: no cover — mock-detection fallback
                                 pass
-                except Exception:
+                except Exception:  # pragma: no cover — mock-detection fallback
                     pass
 
                 if cls_name and ("Magic" in cls_name or "Mock" in cls_name):
