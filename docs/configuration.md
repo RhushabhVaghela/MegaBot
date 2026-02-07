@@ -1,6 +1,6 @@
 # MegaBot: Configuration Guide
 
-MegaBot uses a central `meta-config.yaml` file for all settings. This guide explains each section and how to optimize for local performance.
+MegaBot uses a central `mega-config.yaml` file for all settings. This guide explains each section and how to optimize for local performance.
 
 ## 1. System Settings
 ```yaml

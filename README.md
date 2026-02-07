@@ -1,5 +1,10 @@
 # MegaBot: The Ultimate Unified AI Orchestrator 🤖🚀
 
+[![CI](https://github.com/RhushabhVaghela/MegaBot/actions/workflows/ci.yml/badge.svg)](https://github.com/RhushabhVaghela/MegaBot/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/RhushabhVaghela/MegaBot)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 MegaBot is a production-ready, local-first AI assistant that unifies the world's most powerful agentic frameworks into a single, secure, and modular brain. By combining the execution power of **OpenClaw**, the proactive memory of **memU**, the tool-standardization of **MCP**, and the terminal-centric philosophy of **OpenCode**, MegaBot delivers a future-proof agentic experience.
 
 ---

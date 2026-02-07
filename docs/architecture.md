@@ -10,7 +10,7 @@ Located in `core/orchestrator.py`, the Brain is responsible for:
 - Routing messages between adapters.
 - Managing system state and active "Modes" (Plan, Build, etc.).
 - Coordinating background synchronization tasks (e.g., Memory Sync).
-- **Policy Enforcement**: Intercepts sensitive commands and checks against local policies (`meta-config.yaml`). Supports runtime updates via chat commands (`!allow`, `!deny`).
+- **Policy Enforcement**: Intercepts sensitive commands and checks against local policies (`mega-config.yaml`). Supports runtime updates via chat commands (`!allow`, `!deny`).
 
 ### 2. The Hands & Feet (Adapters)
 Adapters are thin wrappers located in `adapters/` that implement the standardized interfaces defined in `core/interfaces.py`.

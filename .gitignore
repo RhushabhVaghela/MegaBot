@@ -15,7 +15,8 @@ coverage/
 
 # Config & Secret
 .env
-meta-config.yaml # Users should use the template
+meta-config.yaml  # Legacy name — users should use mega-config.yaml
+mega-config.yaml  # Users should copy from mega-config.yaml.template
 api-credentials.py # Central API manager
 credentials/
 data/push_tokens.json

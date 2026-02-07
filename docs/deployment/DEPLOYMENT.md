@@ -110,7 +110,9 @@ docker-compose restart
 For multi-server, highly available deployments.
 
 ```bash
-kubectl apply -f k8s/
+# Kubernetes manifests are not yet provided.
+# Create your own k8s/ directory with Deployment, Service, and ConfigMap manifests,
+# then run: kubectl apply -f k8s/
 ```
 
 #### Option 3: Bare Metal
@@ -136,7 +138,7 @@ uvicorn core.orchestrator:app --host 0.0.0.0 --port 8000
 
 ## Configuration
 
-### meta-config.yaml
+### mega-config.yaml
 
 Primary configuration file for MegaBot.
 
@@ -343,7 +345,7 @@ OLLAMA_MODEL=phi3 docker-compose up -d
 Enable detailed logging:
 
 ```yaml
-# meta-config.yaml
+# mega-config.yaml
 orchestrator:
   log_level: "DEBUG"
 ```

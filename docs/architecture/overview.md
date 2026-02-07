@@ -30,7 +30,7 @@ Frontend:     React/TypeScript (Dashboard)
 Backend:      Python 3.12+, FastAPI, AsyncIO
 Database:     SQLite + pgvector (Memory), PostgreSQL (optional)
 Messaging:    WebSocket, HTTP/2, Platform APIs
-Security:     AES-256, JWT, Policy Engine
+Security:     Fernet (AES-128-CBC), JWT, Policy Engine
 Deployment:   Docker, Docker Compose, Kubernetes
 ```
 

@@ -57,4 +57,4 @@ MegaBot supports multiple web search providers, ranging from genuinely unlimited
   ```
 
 ## 🧪 Switching Providers
-Simply change the `active_provider` field in `meta-config.yaml` and restart MegaBot.
+Simply change the `active_provider` field in `mega-config.yaml` and restart MegaBot.

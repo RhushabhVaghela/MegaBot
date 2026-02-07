@@ -14,7 +14,7 @@ MegaBot can place outbound phone calls to real mobile or landline numbers.
 - **Use Case**: Emergency alerts, appointment booking, or simple "Pick up the milk" reminders to a family member.
 - **Setup**:
   1. Get a Twilio account and a phone number.
-  2. Add credentials to `meta-config.yaml` under the `twilio-voice` MCP section.
+  2. Add credentials to `mega-config.yaml` under the `twilio-voice` MCP section.
   3. Commands: `!call +123456789 "Message to speak"`
 
 ### 3. AI Voice Agent (Vapi/Retell)

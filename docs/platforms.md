@@ -17,7 +17,7 @@ MegaBot works perfectly on macOS.
 ### native Windows
 1. Install Python 3.13 and Node.js from their respective websites.
 2. Run `pip install -r requirements.txt`.
-3. **Note**: Update `meta-config.yaml` to use Windows-style paths (e.g., `D:\\Agents and other repos`).
+3. **Note**: Update `mega-config.yaml` to use Windows-style paths (e.g., `D:\\Agents and other repos`).
 
 ### WSL2 (Recommended for Windows)
 MegaBot runs exceptionally well inside WSL2 (Ubuntu).
@@ -27,7 +27,7 @@ MegaBot runs exceptionally well inside WSL2 (Ubuntu).
 ## 🐳 Docker (Any Platform)
 Docker is the easiest way to run MegaBot without cluttering your host system.
 ```bash
-cp meta-config.yaml.template meta-config.yaml
+cp mega-config.yaml.template mega-config.yaml
 docker-compose up --build
 ```
 This will start both the backend and frontend in a single isolated environment.
