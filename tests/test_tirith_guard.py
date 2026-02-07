@@ -161,3 +161,67 @@ class TestTirithGuardSingleton:
         """Test using singleton for validation"""
         assert guard.validate("Safe text") is True
         assert guard.validate("\u202eUnsafe") is False
+
+
+class TestValidateCommandInput:
+    """Test suite for TirithGuard.validate_command_input (Phase 3C / VULN-014)"""
+
+    def setup_method(self):
+        self.tg = TirithGuard()
+
+    def test_empty_string(self):
+        """Empty string is valid"""
+        assert self.tg.validate_command_input("") is True
+
+    def test_clean_text(self):
+        """Normal text passes validation"""
+        assert self.tg.validate_command_input("hello world") is True
+
+    def test_shell_metachar_semicolon(self):
+        """Semicolon enables command chaining"""
+        assert self.tg.validate_command_input("rm -rf ; ls") is False
+
+    def test_shell_metachar_pipe(self):
+        """Pipe enables command piping"""
+        assert self.tg.validate_command_input("cat file | grep") is False
+
+    def test_shell_metachar_ampersand(self):
+        """Ampersand enables background execution"""
+        assert self.tg.validate_command_input("cmd &") is False
+
+    def test_shell_metachar_backtick(self):
+        """Backtick enables command substitution"""
+        assert self.tg.validate_command_input("echo `whoami`") is False
+
+    def test_shell_metachar_dollar(self):
+        """Dollar sign enables variable expansion"""
+        assert self.tg.validate_command_input("echo $HOME") is False
+
+    def test_injection_dollar_paren(self):
+        """$(cmd) is a command substitution injection"""
+        assert self.tg.validate_command_input("$(whoami)") is False
+
+    def test_injection_double_ampersand(self):
+        """&& enables conditional command chaining"""
+        assert self.tg.validate_command_input("cmd1 && cmd2") is False
+
+    def test_injection_etc_passwd(self):
+        """/etc/passwd is a common file read target"""
+        assert self.tg.validate_command_input("cat /etc/passwd") is False
+
+    def test_cyrillic_homoglyph(self):
+        """Cyrillic characters should be rejected (homoglyph attack via validate())"""
+        # Cyrillic 'е' (U+0435) looks like Latin 'e'
+        assert self.tg.validate_command_input("h\u0435llo") is False
+
+    def test_bidi_char(self):
+        """Bi-directional override chars should be rejected (via validate())"""
+        assert self.tg.validate_command_input("safe\u202efile.txt") is False
+
+    def test_newline_injection(self):
+        """Newline in input enables command injection"""
+        assert self.tg.validate_command_input("cmd\nrm -rf /") is False
+
+    def test_carriage_return_injection(self):
+        """Carriage return in input enables injection"""
+        assert self.tg.validate_command_input("cmd\rrm -rf /") is False

@@ -3361,3 +3361,71 @@ async def test_orchestrator_extra_branches(orchestrator):
             if str(e) != "stop":
                 raise
     assert orchestrator.restart_component.called
+
+
+# ── Phase 5-7: Audio transcription in _process_attachments ──
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_audio_success(mock_orchestrator_components):
+    """Test _process_attachments handles audio attachment with successful transcription"""
+    handler = MessageHandler(mock_orchestrator_components)
+
+    mock_voice = AsyncMock()
+    mock_voice.transcribe_audio = AsyncMock(return_value="Hello from audio")
+
+    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+        result = await handler._process_attachments(
+            [{"type": "audio", "data": b"fake_audio_bytes"}], "sender1", "computer"
+        )
+
+    assert "[Audio Transcript]: Hello from audio" in result
+    mock_voice.transcribe_audio.assert_called_once_with(b"fake_audio_bytes")
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_audio_string_data(mock_orchestrator_components):
+    """Test _process_attachments encodes string audio data to bytes"""
+    handler = MessageHandler(mock_orchestrator_components)
+
+    mock_voice = AsyncMock()
+    mock_voice.transcribe_audio = AsyncMock(return_value="Transcribed text")
+
+    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+        result = await handler._process_attachments(
+            [{"type": "audio", "data": "string_audio_data"}], "sender1", "computer"
+        )
+
+    assert "[Audio Transcript]: Transcribed text" in result
+    # String data should be encoded to bytes
+    mock_voice.transcribe_audio.assert_called_once_with(b"string_audio_data")
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_audio_exception(mock_orchestrator_components):
+    """Test _process_attachments handles transcription exception gracefully"""
+    handler = MessageHandler(mock_orchestrator_components)
+
+    with patch(
+        "adapters.voice_adapter.VoiceAdapter",
+        side_effect=Exception("VoiceAdapter init failed"),
+    ):
+        result = await handler._process_attachments([{"type": "audio", "data": b"fake_audio"}], "sender1", "computer")
+
+    # Should not crash, should return empty or context without transcript
+    assert "[Audio Transcript]" not in result
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_audio_empty_transcript(mock_orchestrator_components):
+    """Test _process_attachments handles empty transcript (no STT configured)"""
+    handler = MessageHandler(mock_orchestrator_components)
+
+    mock_voice = AsyncMock()
+    mock_voice.transcribe_audio = AsyncMock(return_value="")
+
+    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+        result = await handler._process_attachments([{"type": "audio", "data": b"audio_data"}], "sender1", "computer")
+
+    # Empty transcript should not be added
+    assert "[Audio Transcript]" not in result

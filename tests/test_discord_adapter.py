@@ -1997,3 +1997,84 @@ async def test_discord_adapter_final():
     server = MagicMock()
     adapter = DiscordAdapter("discord", server, token="token")
     assert adapter._generate_id() is not None
+
+
+class TestDownloadMedia:
+    """Phase 5-4: Tests for discord download_media implementation"""
+
+    @pytest.fixture
+    def adapter(self):
+        """Create Discord adapter instance"""
+        return DiscordAdapter("discord", Mock(), token="fake_token")
+
+    @pytest.mark.asyncio
+    async def test_download_media_success(self, adapter):
+        """Test download_media success path: finds message with attachment"""
+        mock_attachment = AsyncMock()
+        mock_attachment.save = AsyncMock()
+
+        mock_message = AsyncMock()
+        mock_message.attachments = [mock_attachment]
+
+        mock_channel = AsyncMock()
+        mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+
+        mock_guild = MagicMock()
+        mock_guild.text_channels = [mock_channel]
+
+        adapter.bot = MagicMock()
+        adapter.bot.guilds = [mock_guild]
+
+        result = await adapter.download_media("123456", "/tmp/save.png")
+
+        assert result == "/tmp/save.png"
+        mock_channel.fetch_message.assert_called_once_with(123456)
+        mock_attachment.save.assert_called_once_with("/tmp/save.png")
+
+    @pytest.mark.asyncio
+    async def test_download_media_no_attachments(self, adapter):
+        """Test download_media returns None when message has no attachments"""
+        mock_message = AsyncMock()
+        mock_message.attachments = []
+
+        mock_channel = AsyncMock()
+        mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+
+        mock_guild = MagicMock()
+        mock_guild.text_channels = [mock_channel]
+
+        adapter.bot = MagicMock()
+        adapter.bot.guilds = [mock_guild]
+
+        result = await adapter.download_media("123456", "/tmp/save.png")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_download_media_message_not_found(self, adapter):
+        """Test download_media returns None when message not found in any channel"""
+        mock_channel = AsyncMock()
+        mock_channel.fetch_message = AsyncMock(side_effect=Exception("Not Found"))
+
+        mock_guild = MagicMock()
+        mock_guild.text_channels = [mock_channel]
+
+        adapter.bot = MagicMock()
+        adapter.bot.guilds = [mock_guild]
+
+        result = await adapter.download_media("999999", "/tmp/save.png")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_download_media_outer_exception(self, adapter):
+        """Test download_media returns None on outer exception"""
+        adapter.bot = MagicMock()
+        adapter.bot.guilds = property(lambda s: (_ for _ in ()).throw(RuntimeError("boom")))
+
+        # Force guilds iteration to raise
+        type(adapter.bot).guilds = property(lambda self: (_ for _ in ()).throw(RuntimeError("boom")))
+
+        result = await adapter.download_media("123", "/tmp/save.png")
+
+        assert result is None

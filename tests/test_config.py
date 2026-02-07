@@ -271,3 +271,39 @@ class TestConfigCoverage:
         cfg = load_config(path)
         assert cfg.system.name == "MegaBot"
         assert os.path.exists(path)
+
+
+class TestSystemConfigDefaults:
+    """Phase 5-6: Tests for SystemConfig field defaults (Phase 3D)"""
+
+    def test_default_port(self):
+        """Default port is 8000"""
+        assert SystemConfig().port == 8000
+
+    def test_default_messaging_host(self):
+        """Default messaging_host is 127.0.0.1"""
+        assert SystemConfig().messaging_host == "127.0.0.1"
+
+    def test_default_messaging_port(self):
+        """Default messaging_port is 18790"""
+        assert SystemConfig().messaging_port == 18790
+
+    def test_default_dnd_start(self):
+        """Default dnd_start is 22 (10 PM)"""
+        assert SystemConfig().dnd_start == 22
+
+    def test_default_dnd_end(self):
+        """Default dnd_end is 7 (7 AM)"""
+        assert SystemConfig().dnd_end == 7
+
+    def test_port_override(self):
+        """Port can be overridden"""
+        assert SystemConfig(port=9000).port == 9000
+
+    def test_default_bind_address(self):
+        """Default bind_address is 127.0.0.1"""
+        assert SystemConfig().bind_address == "127.0.0.1"
+
+    def test_default_name(self):
+        """Default name is MegaBot"""
+        assert SystemConfig().name == "MegaBot"

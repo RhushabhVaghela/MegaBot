@@ -921,3 +921,41 @@ async def test_slack_adapter_final():
             # Must be awaited since process_socket_mode_request is async
             await listener_fn(mock_socket_client, mock_req)
     await adapter.shutdown()
+
+
+class TestSetupEventHandlers:
+    """Phase 5-5: Tests for _setup_event_handlers (Phase 3B)"""
+
+    @pytest.fixture
+    def adapter(self):
+        """Create SlackAdapter with mocked deps"""
+        with (
+            patch("adapters.slack_adapter.WebClient") as mock_wc,
+            patch("adapters.slack_adapter.SocketModeClient") as mock_sc,
+        ):
+            mock_wc.return_value = MagicMock()
+            mock_sc.return_value = MagicMock()
+            adapter = SlackAdapter(
+                platform_name="slack",
+                server=MagicMock(),
+                bot_token="xoxb-test",
+                app_token="xapp-test",
+                signing_secret="secret",
+            )
+            return adapter
+
+    def test_event_handlers_registers_five_types(self, adapter):
+        """_setup_event_handlers registers all 5 expected event types"""
+        expected = {"message", "reaction_added", "reaction_removed", "app_mention", "member_joined_channel"}
+        assert set(adapter.event_handlers.keys()) == expected
+
+    def test_event_handlers_are_callable(self, adapter):
+        """Each registered event handler is callable"""
+        for event_type, handler in adapter.event_handlers.items():
+            assert callable(handler), f"Handler for '{event_type}' is not callable"
+
+    def test_event_handlers_noop_by_default(self, adapter):
+        """Default event handlers return None (no-op stubs)"""
+        for event_type, handler in adapter.event_handlers.items():
+            result = handler({"type": event_type})
+            assert result is None, f"Handler for '{event_type}' should return None"

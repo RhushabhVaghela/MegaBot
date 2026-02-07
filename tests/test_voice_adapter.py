@@ -2,8 +2,9 @@
 Tests for VoiceAdapter
 """
 
+import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from adapters.voice_adapter import VoiceAdapter
 
 
@@ -185,3 +186,151 @@ class TestVoiceAdapter:
             call = client.calls.create(to="+123")
             assert call.sid.startswith("CA")
             assert len(call.sid) == 34  # CA + 32 hex
+
+    # ── Phase 5-2: Additional coverage for transcribe/speak/call_logs/make_call ──
+
+    @pytest.mark.asyncio
+    async def test_transcribe_audio_whisper_success(self, voice_adapter):
+        """Test transcribe_audio success path using OpenAI Whisper"""
+        mock_openai = MagicMock()
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        mock_client.audio.transcriptions.create.return_value = MagicMock(text="hello world")
+
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            result = await voice_adapter.transcribe_audio(b"fake_audio_data")
+
+        assert result == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_transcribe_audio_import_error(self, voice_adapter):
+        """Test transcribe_audio returns empty string when openai is not installed"""
+        # Remove openai from sys.modules to force ImportError
+        with patch.dict("sys.modules", {"openai": None}):
+            result = await voice_adapter.transcribe_audio(b"fake_audio_data")
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_transcribe_audio_general_exception(self, voice_adapter):
+        """Test transcribe_audio returns empty string on general exception"""
+        mock_openai = MagicMock()
+        mock_openai.OpenAI.side_effect = RuntimeError("API key invalid")
+
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            result = await voice_adapter.transcribe_audio(b"fake_audio_data")
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_speak_tts_success(self, voice_adapter):
+        """Test speak success path using OpenAI TTS"""
+        mock_openai = MagicMock()
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        mock_client.audio.speech.create.return_value = MagicMock(content=b"audio_bytes_here")
+
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            result = await voice_adapter.speak("Hello there")
+
+        assert result == b"audio_bytes_here"
+
+    @pytest.mark.asyncio
+    async def test_speak_import_error(self, voice_adapter):
+        """Test speak returns empty bytes when openai is not installed"""
+        with patch.dict("sys.modules", {"openai": None}):
+            result = await voice_adapter.speak("Hello there")
+
+        assert result == b""
+
+    @pytest.mark.asyncio
+    async def test_speak_general_exception(self, voice_adapter):
+        """Test speak returns empty bytes on general exception"""
+        mock_openai = MagicMock()
+        mock_openai.OpenAI.side_effect = RuntimeError("TTS quota exceeded")
+
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            result = await voice_adapter.speak("Hello there")
+
+        assert result == b""
+
+    @pytest.mark.asyncio
+    async def test_get_call_logs_success(self, voice_adapter):
+        """Test get_call_logs success path with mock Twilio client"""
+        mock_call1 = MagicMock()
+        mock_call1.sid = "CA111"
+        mock_call1.from_formatted = "+1-555-0100"
+        mock_call1.to_formatted = "+1-555-0200"
+        mock_call1.status = "completed"
+        mock_call1.direction = "outbound-api"
+        mock_call1.duration = "30"
+        mock_call1.start_time = "2025-01-01T12:00:00Z"
+
+        mock_call2 = MagicMock()
+        mock_call2.sid = "CA222"
+        mock_call2.from_formatted = "+1-555-0300"
+        mock_call2.to_formatted = "+1-555-0400"
+        mock_call2.status = "busy"
+        mock_call2.direction = "inbound"
+        mock_call2.duration = "0"
+        mock_call2.start_time = "2025-01-02T08:00:00Z"
+
+        voice_adapter.client.calls.list.return_value = [mock_call1, mock_call2]
+
+        result = await voice_adapter.get_call_logs(limit=5)
+
+        assert len(result) == 2
+        assert result[0]["sid"] == "CA111"
+        assert result[0]["from"] == "+1-555-0100"
+        assert result[0]["to"] == "+1-555-0200"
+        assert result[0]["status"] == "completed"
+        assert result[0]["direction"] == "outbound-api"
+        assert result[0]["duration"] == "30"
+        assert result[1]["sid"] == "CA222"
+        assert result[1]["status"] == "busy"
+
+    @pytest.mark.asyncio
+    async def test_get_call_logs_exception(self, voice_adapter):
+        """Test get_call_logs returns empty list on Twilio API exception"""
+        voice_adapter.client.calls.list.side_effect = Exception("Twilio API error")
+
+        result = await voice_adapter.get_call_logs(limit=5)
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_make_call_xml_escaping(self, voice_adapter):
+        """Test make_call escapes XML special chars in script text"""
+        mock_call = MagicMock()
+        mock_call.sid = "CA_ESC"
+        voice_adapter.client.calls.create.return_value = mock_call
+
+        sid = await voice_adapter.make_call("+1987654321", '<script>alert("xss")</script>')
+
+        assert sid == "CA_ESC"
+        args = voice_adapter.client.calls.create.call_args[1]
+        twiml = args["twiml"]
+        # The angle brackets must be escaped
+        assert "&lt;script&gt;" in twiml
+        assert "<script>" not in twiml
+
+    @pytest.mark.asyncio
+    async def test_make_call_ivr_action_id_escaping(self, voice_adapter_with_callback):
+        """Test make_call IVR path escapes action_id special characters"""
+        mock_call = MagicMock()
+        mock_call.sid = "CA_IVR_ESC"
+        voice_adapter_with_callback.client.calls.create.return_value = mock_call
+
+        sid = await voice_adapter_with_callback.make_call(
+            "+1987654321", "Approve this?", ivr=True, action_id='act<>&"123'
+        )
+
+        assert sid == "CA_IVR_ESC"
+        args = voice_adapter_with_callback.client.calls.create.call_args[1]
+        twiml = args["twiml"]
+        # xml_escape is applied twice: once to action_id, once to the full action URL
+        # So < becomes &lt; then &lt; becomes &amp;lt; in the final twiml
+        # The raw < > & " should NOT appear unescaped
+        assert 'act<>&"123' not in twiml
+        # The first-pass escaped action_id should be present somewhere
+        assert "action_id=act" in twiml

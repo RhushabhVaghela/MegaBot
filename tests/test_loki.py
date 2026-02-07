@@ -2,6 +2,8 @@
 Tests for Loki Mode
 """
 
+import subprocess
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -308,3 +310,94 @@ class TestLokiMode:
                 assert "Passed" in result
                 # Check for warning print
                 mock_print.assert_any_call("⚠️ SECURITY WARNING: Potential secret leak detected (pattern: api[_-]?key)")
+
+
+class TestDeployProduct:
+    """Tests for LokiMode._deploy_product (Phase 3A graceful degradation)."""
+
+    @pytest.fixture
+    def loki(self):
+        orchestrator = MagicMock()
+        return LokiMode(orchestrator)
+
+    @pytest.mark.asyncio
+    async def test_deploy_script_success(self, loki):
+        """Test deployment succeeds when script exits 0."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Deployed to staging"
+
+        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
+            with patch("os.path.isfile", return_value=True):
+                with patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result):
+                    result = await loki._deploy_product()
+
+        assert "succeeded" in result.lower()
+        assert "Deployed to staging" in result
+
+    @pytest.mark.asyncio
+    async def test_deploy_script_failure(self, loki):
+        """Test deployment failure when script exits non-zero."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Build failed"
+
+        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
+            with patch("os.path.isfile", return_value=True):
+                with patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result):
+                    result = await loki._deploy_product()
+
+        assert "failed" in result.lower()
+        assert "exit 1" in result
+        assert "Build failed" in result
+
+    @pytest.mark.asyncio
+    async def test_deploy_script_timeout(self, loki):
+        """Test deployment timeout after 300 seconds."""
+        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
+            with patch("os.path.isfile", return_value=True):
+                with patch(
+                    "asyncio.to_thread",
+                    new_callable=AsyncMock,
+                    side_effect=subprocess.TimeoutExpired(cmd="/tmp/deploy.sh", timeout=300),
+                ):
+                    result = await loki._deploy_product()
+
+        assert "timed out" in result.lower()
+        assert "300" in result
+
+    @pytest.mark.asyncio
+    async def test_deploy_script_general_exception(self, loki):
+        """Test deployment handles general exceptions."""
+        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
+            with patch("os.path.isfile", return_value=True):
+                with patch(
+                    "asyncio.to_thread",
+                    new_callable=AsyncMock,
+                    side_effect=OSError("Permission denied"),
+                ):
+                    result = await loki._deploy_product()
+
+        assert "error" in result.lower()
+        assert "Permission denied" in result
+
+    @pytest.mark.asyncio
+    async def test_deploy_no_script_env(self, loki):
+        """Test deployment skipped when MEGABOT_DEPLOY_SCRIPT not set."""
+        with patch.dict("os.environ", {}, clear=False):
+            # Ensure the env var is absent
+            import os
+
+            os.environ.pop("MEGABOT_DEPLOY_SCRIPT", None)
+            result = await loki._deploy_product()
+
+        assert "skipped" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_deploy_script_not_a_file(self, loki):
+        """Test deployment skipped when script path doesn't point to a file."""
+        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/nonexistent/deploy.sh"}):
+            with patch("os.path.isfile", return_value=False):
+                result = await loki._deploy_product()
+
+        assert "skipped" in result.lower()
