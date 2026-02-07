@@ -1,4 +1,7 @@
-from core.config import load_config
+import os
+import pytest
+from unittest.mock import patch
+from core.config import load_config, Config, SystemConfig, SecurityConfig
 
 
 def test_load_config(temp_config_file):
@@ -35,10 +38,7 @@ def test_load_config_with_web_search(tmp_path):
 
     config = load_config(str(config_file))
     assert config.adapters["openclaw"].web_search["active_provider"] == "perplexity"
-    assert (
-        config.adapters["openclaw"].web_search["providers"]["perplexity"]["api_key"]
-        == "abc"
-    )
+    assert config.adapters["openclaw"].web_search["providers"]["perplexity"]["api_key"] == "abc"
 
 
 def test_config_save(tmp_path):
@@ -97,9 +97,7 @@ def test_load_api_credentials(tmp_path, monkeypatch):
 
     # Create a dummy api-credentials.py in tmp_path
     cred_file = tmp_path / "api-credentials.py"
-    cred_file.write_text(
-        "TEST_KEY = 'test-value'\nAUTHORIZED_ADMINS = ['user1', 'user2']\n"
-    )
+    cred_file.write_text("TEST_KEY = 'test-value'\nAUTHORIZED_ADMINS = ['user1', 'user2']\n")
 
     # Change current working directory to tmp_path
     monkeypatch.chdir(tmp_path)
@@ -112,22 +110,47 @@ def test_load_api_credentials(tmp_path, monkeypatch):
     assert os.environ.get("AUTHORIZED_ADMINS") == "user1,user2"
 
 
-def test_load_api_credentials_exception(tmp_path, monkeypatch):
-    """Test exception handling in load_api_credentials (lines 26-27)"""
+def test_load_api_credentials_exception(tmp_path, monkeypatch, caplog):
+    """Test that invalid lines are safely skipped (VULN-004: no code execution).
+
+    The safe regex parser simply skips lines that don't match
+    KEY = "value" format — no exception is raised for 'invalid Python'
+    because no Python code is executed at all.
+    """
     monkeypatch.chdir(tmp_path)
-    # Create invalid python file
+    # Create file with non-matching content — should be silently skipped
     cred_file = tmp_path / "api-credentials.py"
     cred_file.write_text("INVALID PYTHON")
 
-    import io
-    from contextlib import redirect_stdout
+    import logging
     from core.config import load_api_credentials
 
-    output = io.StringIO()
-    with redirect_stdout(output):
+    with caplog.at_level(logging.INFO):
         load_api_credentials()
 
-    assert "⚠️ Error loading" in output.getvalue()
+    # Safe parser succeeds (skips invalid lines) — no error expected
+    assert "Loaded API credentials" in caplog.text
+
+
+def test_load_api_credentials_file_error(tmp_path, monkeypatch, caplog):
+    """Test exception handling when the file cannot be read."""
+    monkeypatch.chdir(tmp_path)
+    cred_file = tmp_path / "api-credentials.py"
+    cred_file.write_text("KEY = 'value'")
+    # Make file unreadable
+    cred_file.chmod(0o000)
+
+    import logging
+    from core.config import load_api_credentials
+
+    with caplog.at_level(logging.ERROR):
+        load_api_credentials()
+
+    # Should hit the except branch
+    assert "Error loading" in caplog.text
+
+    # Restore permissions for cleanup
+    cred_file.chmod(0o644)
 
 
 def test_security_config_validation(monkeypatch):
@@ -226,3 +249,25 @@ def test_set_nested_attr_no_attr():
     # Should return early without raising
     _set_nested_attr(obj, "nonexistent.attr", "val")
     assert not hasattr(obj, "nonexistent")
+
+
+# =====================================================================
+# FROM test_coverage_completion_final.py
+# =====================================================================
+
+
+class TestConfigCoverage:
+    """Target missing lines in core/config.py"""
+
+    def test_validate_environment_missing(self):
+        c = Config(system=SystemConfig(), adapters={}, paths={}, security=SecurityConfig())
+        # Force missing env
+        with patch.dict("os.environ", {}, clear=True):
+            assert c.validate_environment() is False
+
+    def test_load_config_not_found(self, tmp_path):
+        path = str(tmp_path / "notfound.yaml")
+        # Should create default and return it
+        cfg = load_config(path)
+        assert cfg.system.name == "MegaBot"
+        assert os.path.exists(path)

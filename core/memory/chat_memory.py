@@ -14,44 +14,45 @@ class ChatMemoryManager:
 
     def __init__(self, db_path: str, executor=None):
         self.db_path = db_path
-        self._executor = executor or ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="db"
-        )
+        self._executor = executor or ThreadPoolExecutor(max_workers=4, thread_name_prefix="db")
         self._local = threading.local()  # Thread-local storage for connections
         self._init_tables()
 
     def _init_tables(self):
         """Initialize chat history tables and indexes."""
         conn = self._get_connection()
-        conn.execute(
-            "PRAGMA journal_mode=WAL"
-        )  # Enable WAL mode for better concurrency
+        conn.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
         conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id TEXT,
-                platform TEXT,
-                role TEXT,
+                chat_id TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                role TEXT NOT NULL,
                 content TEXT,
                 metadata TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_id ON chat_history(chat_id)")
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_history(timestamp)"
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chat_platform ON chat_history(platform)"
-        )
+        # Composite index for the primary query pattern: WHERE chat_id = ? ORDER BY timestamp DESC
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_id_timestamp ON chat_history(chat_id, timestamp DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_platform ON chat_history(platform)")
         conn.commit()
 
     def _get_connection(self):
         """Get a thread-local database connection."""
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.execute("PRAGMA journal_mode=WAL")  # Ensure WAL mode
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s on lock
         return self._local.conn
+
+    def close(self):
+        """Close the thread-local database connection if it exists."""
+        if hasattr(self._local, "conn"):
+            try:
+                self._local.conn.close()
+            except Exception:
+                pass
 
     async def write(
         self,
@@ -79,9 +80,7 @@ class ChatMemoryManager:
             logger.error(f"Error writing chat history: {e}")
             return False
 
-    def _sync_write(
-        self, chat_id: str, platform: str, role: str, content: str, metadata_json: str
-    ):
+    def _sync_write(self, chat_id: str, platform: str, role: str, content: str, metadata_json: str):
         """Synchronous write operation."""
         conn = self._get_connection()
         conn.execute(
@@ -97,9 +96,7 @@ class ChatMemoryManager:
         """Retrieve recent chat history for a specific context."""
         try:
             loop = asyncio.get_running_loop()
-            rows = await loop.run_in_executor(
-                self._executor, self._sync_read, chat_id, limit
-            )
+            rows = await loop.run_in_executor(self._executor, self._sync_read, chat_id, limit)
             # Reverse to get chronological order
             return [
                 {
@@ -136,9 +133,7 @@ class ChatMemoryManager:
         """
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_forget, chat_id, max_history
-            )
+            return await loop.run_in_executor(self._executor, self._sync_forget, chat_id, max_history)
         except Exception as e:
             logger.error(f"Error cleaning chat history for {chat_id}: {e}")
             return False
@@ -181,9 +176,7 @@ class ChatMemoryManager:
         """Retrieve all unique chat_ids from history."""
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_get_all_chat_ids
-            )
+            return await loop.run_in_executor(self._executor, self._sync_get_all_chat_ids)
         except Exception as e:
             logger.error(f"Error getting chat IDs: {e}")
             return []
@@ -198,9 +191,7 @@ class ChatMemoryManager:
         """Get statistics for a specific chat."""
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_get_chat_stats, chat_id
-            )
+            return await loop.run_in_executor(self._executor, self._sync_get_chat_stats, chat_id)
         except Exception as e:
             logger.error(f"Error getting chat stats for {chat_id}: {e}")
             return {"error": str(e)}
@@ -218,4 +209,29 @@ class ChatMemoryManager:
             "message_count": count,
             "oldest_message": oldest,
             "newest_message": newest,
+        }
+
+    async def get_aggregate_stats(self) -> Dict[str, Any]:
+        """Get aggregate statistics across all chats."""
+        try:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(self._executor, self._sync_get_aggregate_stats)
+        except Exception as e:
+            logger.error(f"Error getting aggregate chat stats: {e}")
+            return {"error": str(e)}
+
+    def _sync_get_aggregate_stats(self) -> Dict[str, Any]:
+        """Synchronous aggregate stats operation."""
+        conn = self._get_connection()
+        total = conn.execute("SELECT COUNT(*) FROM chat_history").fetchone()[0]
+        unique_chats = conn.execute("SELECT COUNT(DISTINCT chat_id) FROM chat_history").fetchone()[0]
+        platforms = conn.execute("SELECT platform, COUNT(*) FROM chat_history GROUP BY platform").fetchall()
+        recent = conn.execute(
+            "SELECT COUNT(*) FROM chat_history WHERE timestamp >= datetime('now', '-7 days')"
+        ).fetchone()[0]
+        return {
+            "total_messages": total,
+            "unique_chats": unique_chats,
+            "by_platform": dict(platforms),
+            "recent_messages_7d": recent,
         }

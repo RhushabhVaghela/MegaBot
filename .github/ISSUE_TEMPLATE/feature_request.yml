@@ -1,0 +1,47 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your feature suggestion! Help us understand the problem and your proposed solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this feature solve? Is it related to a frustration?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or workarounds you've considered.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which area of MegaBot would this affect?
+      options:
+        - Core Orchestrator
+        - Memory System
+        - New Adapter / Integration
+        - Security
+        - UI Dashboard
+        - Developer Experience
+        - Documentation
+        - Other

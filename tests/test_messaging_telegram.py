@@ -12,9 +12,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_send_text_success(self, telegram_adapter):
         """Test send_text with successful response"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 123}
             result = await telegram_adapter.send_text("chat123", "Hello world")
 
@@ -28,9 +26,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_send_text_failure(self, telegram_adapter):
         """Test send_text with failed response"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = None
             result = await telegram_adapter.send_text("chat123", "Hello world")
 
@@ -43,13 +39,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_send_photo(self, telegram_adapter):
         """Test send_photo method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 456}
-            result = await telegram_adapter.send_photo(
-                "chat123", "photo.jpg", caption="Test photo"
-            )
+            result = await telegram_adapter.send_photo("chat123", "photo.jpg", caption="Test photo")
 
             mock_req.assert_called_once_with(
                 "sendPhoto",
@@ -59,85 +51,18 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_send_document(self, telegram_adapter):
         """Test send_document method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 789}
             result = await telegram_adapter.send_document("chat123", "doc.pdf")
 
-            mock_req.assert_called_once_with(
-                "sendDocument", {"chat_id": "chat123", "document": "doc.pdf"}
-            )
-
-    @pytest.mark.asyncio
-    async def test_send_audio(self, telegram_adapter):
-        """Test send_audio method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
-            mock_req.return_value = {"message_id": 101}
-            result = await telegram_adapter.send_audio(
-                "chat123", "song.mp3", title="Test Song"
-            )
-
-            mock_req.assert_called_once_with(
-                "sendAudio",
-                {"chat_id": "chat123", "audio": "song.mp3", "title": "Test Song"},
-            )
-
-    @pytest.mark.asyncio
-    async def test_send_voice(self, telegram_adapter):
-        """Test send_voice method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
-            mock_req.return_value = {"message_id": 112}
-            result = await telegram_adapter.send_voice("chat123", "voice.ogg")
-
-            mock_req.assert_called_once_with(
-                "sendVoice", {"chat_id": "chat123", "voice": "voice.ogg"}
-            )
-
-    @pytest.mark.asyncio
-    async def test_send_video(self, telegram_adapter):
-        """Test send_video method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
-            mock_req.return_value = {"message_id": 131}
-            result = await telegram_adapter.send_video(
-                "chat123", "video.mp4", caption="Test video"
-            )
-
-            mock_req.assert_called_once_with(
-                "sendVideo",
-                {"chat_id": "chat123", "video": "video.mp4", "caption": "Test video"},
-            )
-
-    @pytest.mark.asyncio
-    async def test_send_location(self, telegram_adapter):
-        """Test send_location method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
-            mock_req.return_value = {"message_id": 141}
-            result = await telegram_adapter.send_location("chat123", 40.7128, -74.0060)
-
-            mock_req.assert_called_once_with(
-                "sendLocation",
-                {"chat_id": "chat123", "latitude": 40.7128, "longitude": -74.0060},
-            )
+            mock_req.assert_called_once_with("sendDocument", {"chat_id": "chat123", "document": "doc.pdf"})
 
     @pytest.mark.asyncio
     async def test_send_contact(self, telegram_adapter):
         """Test send_contact method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 151}
-            result = await telegram_adapter.send_contact(
-                "chat123", "+1234567890", "John"
-            )
+            result = await telegram_adapter.send_contact("chat123", "+1234567890", "John")
 
             mock_req.assert_called_once_with(
                 "sendContact",
@@ -151,13 +76,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_send_poll(self, telegram_adapter):
         """Test send_poll method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 161}
-            result = await telegram_adapter.send_poll(
-                "chat123", "What's your favorite?", ["A", "B", "C"]
-            )
+            result = await telegram_adapter.send_poll("chat123", "What's your favorite?", ["A", "B", "C"])
 
             mock_req.assert_called_once_with(
                 "sendPoll",
@@ -171,13 +92,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_edit_message_text(self, telegram_adapter):
         """Test edit_message_text method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 171}
-            result = await telegram_adapter.edit_message_text(
-                "chat123", 123, "Updated text"
-            )
+            result = await telegram_adapter.edit_message_text("chat123", 123, "Updated text")
 
             mock_req.assert_called_once_with(
                 "editMessageText",
@@ -187,23 +104,17 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_delete_message(self, telegram_adapter):
         """Test delete_message method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.delete_message("chat123", 123)
 
             assert result is True
-            mock_req.assert_called_once_with(
-                "deleteMessage", {"chat_id": "chat123", "message_id": 123}
-            )
+            mock_req.assert_called_once_with("deleteMessage", {"chat_id": "chat123", "message_id": 123})
 
     @pytest.mark.asyncio
     async def test_delete_message_failure(self, telegram_adapter):
         """Test delete_message method with failure"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = None
             result = await telegram_adapter.delete_message("chat123", 123)
 
@@ -212,13 +123,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_answer_callback_query(self, telegram_adapter):
         """Test answer_callback_query method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
-            result = await telegram_adapter.answer_callback_query(
-                "query123", text="Answered"
-            )
+            result = await telegram_adapter.answer_callback_query("query123", text="Answered")
 
             assert result is True
             mock_req.assert_called_once_with(
@@ -229,35 +136,25 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_create_chat_invite_link(self, telegram_adapter):
         """Test create_chat_invite_link method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"invite_link": "https://t.me/joinchat/abc123"}
             result = await telegram_adapter.create_chat_invite_link("chat123")
 
-            mock_req.assert_called_once_with(
-                "createChatInviteLink", {"chat_id": "chat123"}
-            )
+            mock_req.assert_called_once_with("createChatInviteLink", {"chat_id": "chat123"})
 
     @pytest.mark.asyncio
     async def test_export_chat_invite_link(self, telegram_adapter):
         """Test export_chat_invite_link method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"invite_link": "https://t.me/joinchat/def456"}
             result = await telegram_adapter.export_chat_invite_link("chat123")
 
-            mock_req.assert_called_once_with(
-                "exportChatInviteLink", {"chat_id": "chat123"}
-            )
+            mock_req.assert_called_once_with("exportChatInviteLink", {"chat_id": "chat123"})
 
     @pytest.mark.asyncio
     async def test_get_chat(self, telegram_adapter):
         """Test get_chat method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"id": 123, "type": "group"}
             result = await telegram_adapter.get_chat("chat123")
 
@@ -266,23 +163,17 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_chat_administrators(self, telegram_adapter):
         """Test get_chat_administrators method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = [{"user": {"id": 1}, "status": "creator"}]
             result = await telegram_adapter.get_chat_administrators("chat123")
 
             assert result == [{"user": {"id": 1}, "status": "creator"}]
-            mock_req.assert_called_once_with(
-                "getChatAdministrators", {"chat_id": "chat123"}
-            )
+            mock_req.assert_called_once_with("getChatAdministrators", {"chat_id": "chat123"})
 
     @pytest.mark.asyncio
     async def test_get_chat_administrators_failure(self, telegram_adapter):
         """Test get_chat_administrators method with failure"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = None
             result = await telegram_adapter.get_chat_administrators("chat123")
 
@@ -291,23 +182,17 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_chat_members_count(self, telegram_adapter):
         """Test get_chat_members_count method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = 150
             result = await telegram_adapter.get_chat_members_count("chat123")
 
             assert result == 150
-            mock_req.assert_called_once_with(
-                "getChatMembersCount", {"chat_id": "chat123"}
-            )
+            mock_req.assert_called_once_with("getChatMembersCount", {"chat_id": "chat123"})
 
     @pytest.mark.asyncio
     async def test_get_chat_members_count_failure(self, telegram_adapter):
         """Test get_chat_members_count method with failure"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = None
             result = await telegram_adapter.get_chat_members_count("chat123")
 
@@ -316,36 +201,26 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_chat_member(self, telegram_adapter):
         """Test get_chat_member method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"user": {"id": 123}, "status": "member"}
             result = await telegram_adapter.get_chat_member("chat123", 123)
 
-            mock_req.assert_called_once_with(
-                "getChatMember", {"chat_id": "chat123", "user_id": 123}
-            )
+            mock_req.assert_called_once_with("getChatMember", {"chat_id": "chat123", "user_id": 123})
 
     @pytest.mark.asyncio
     async def test_ban_chat_member(self, telegram_adapter):
         """Test ban_chat_member method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.ban_chat_member("chat123", 123)
 
             assert result is True
-            mock_req.assert_called_once_with(
-                "banChatMember", {"chat_id": "chat123", "user_id": 123}
-            )
+            mock_req.assert_called_once_with("banChatMember", {"chat_id": "chat123", "user_id": 123})
 
     @pytest.mark.asyncio
     async def test_ban_chat_member_failure(self, telegram_adapter):
         """Test ban_chat_member method with failure"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = None
             result = await telegram_adapter.ban_chat_member("chat123", 123)
 
@@ -354,28 +229,20 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_unban_chat_member(self, telegram_adapter):
         """Test unban_chat_member method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.unban_chat_member("chat123", 123)
 
             assert result is True
-            mock_req.assert_called_once_with(
-                "unbanChatMember", {"chat_id": "chat123", "user_id": 123}
-            )
+            mock_req.assert_called_once_with("unbanChatMember", {"chat_id": "chat123", "user_id": 123})
 
     @pytest.mark.asyncio
     async def test_restrict_chat_member(self, telegram_adapter):
         """Test restrict_chat_member method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             permissions = {"can_send_messages": False}
-            result = await telegram_adapter.restrict_chat_member(
-                "chat123", 123, permissions
-            )
+            result = await telegram_adapter.restrict_chat_member("chat123", 123, permissions)
 
             assert result is True
             mock_req.assert_called_once_with(
@@ -386,13 +253,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_promote_chat_member(self, telegram_adapter):
         """Test promote_chat_member method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
-            result = await telegram_adapter.promote_chat_member(
-                "chat123", 123, can_manage_chat=True
-            )
+            result = await telegram_adapter.promote_chat_member("chat123", 123, can_manage_chat=True)
 
             assert result is True
             mock_req.assert_called_once_with(
@@ -403,23 +266,17 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_pin_chat_message(self, telegram_adapter):
         """Test pin_chat_message method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.pin_chat_message("chat123", 123)
 
             assert result is True
-            mock_req.assert_called_once_with(
-                "pinChatMessage", {"chat_id": "chat123", "message_id": 123}
-            )
+            mock_req.assert_called_once_with("pinChatMessage", {"chat_id": "chat123", "message_id": 123})
 
     @pytest.mark.asyncio
     async def test_unpin_chat_message(self, telegram_adapter):
         """Test unpin_chat_message method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.unpin_chat_message("chat123")
 
@@ -429,9 +286,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_leave_chat(self, telegram_adapter):
         """Test leave_chat method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.leave_chat("chat123")
 
@@ -441,9 +296,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_me(self, telegram_adapter):
         """Test get_me method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"id": 123456, "username": "testbot"}
             result = await telegram_adapter.get_me()
 
@@ -453,9 +306,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_me_exception(self, telegram_adapter):
         """Test get_me method with exception"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.side_effect = Exception("Network error")
             result = await telegram_adapter.get_me()
 
@@ -464,9 +315,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_updates(self, telegram_adapter):
         """Test get_updates method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = [{"update_id": 1}, {"update_id": 2}]
             result = await telegram_adapter.get_updates(offset=100)
 
@@ -476,9 +325,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_get_updates_exception(self, telegram_adapter):
         """Test get_updates method with exception"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.side_effect = Exception("Network error")
             result = await telegram_adapter.get_updates()
 
@@ -487,9 +334,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_delete_webhook(self, telegram_adapter):
         """Test delete_webhook method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"ok": True}
             result = await telegram_adapter.delete_webhook()
 
@@ -499,9 +344,7 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_delete_webhook_exception(self, telegram_adapter):
         """Test delete_webhook method with exception"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.side_effect = Exception("Network error")
             result = await telegram_adapter.delete_webhook()
 
@@ -556,13 +399,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_forward_message(self, telegram_adapter):
         """Test forward_message method"""
-        with patch.object(
-            telegram_adapter, "_make_request", new_callable=AsyncMock
-        ) as mock_req:
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
             mock_req.return_value = {"message_id": 123}
-            result = await telegram_adapter.forward_message(
-                "chat123", "from_chat456", 789
-            )
+            result = await telegram_adapter.forward_message("chat123", "from_chat456", 789)
 
             mock_req.assert_called_once_with(
                 "forwardMessage",
@@ -580,6 +419,8 @@ class TestTelegramAdapter:
             "update_id": 123,
             "callback_query": {
                 "id": "callback123",
+                "from": {"id": 101112, "first_name": "TestUser"},
+                "data": "button_clicked",
                 "message": {
                     "message_id": 456,
                     "chat": {"id": 789},
@@ -588,29 +429,31 @@ class TestTelegramAdapter:
                 },
             },
         }
-        result = await telegram_adapter.handle_webhook(webhook_data)
+        with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock):
+            result = await telegram_adapter.handle_webhook(webhook_data)
 
         assert result is not None
-        assert result.id == "tg_456"
+        assert result.id == "tg_cb_callback123"
         assert result.platform == "telegram"
         assert result.sender_id == "101112"
         assert result.chat_id == "789"
-        assert result.content == "Callback message"
+        assert result.content == "button_clicked"
 
     @pytest.mark.asyncio
     async def test_make_request_exception_path(self, telegram_adapter):
         """Test _make_request exception handling"""
+        import aiohttp
         from unittest.mock import AsyncMock, MagicMock
 
         mock_session = MagicMock()
         telegram_adapter.session = mock_session
 
-        # Mock the post method to raise exception when used as context manager
+        # Mock the post method to raise aiohttp.ClientError (which _make_request catches)
         mock_cm = AsyncMock()
-        mock_cm.__aenter__.side_effect = Exception("Network error")
+        mock_cm.__aenter__.side_effect = aiohttp.ClientError("Network error")
         mock_cm.__aexit__ = AsyncMock(return_value=None)
         mock_session.post.return_value = mock_cm
 
-        result = await telegram_adapter._make_request("testMethod", {"param": "value"})
+        result = await telegram_adapter._make_request("testMethod", {"param": "value"}, retries=1)
 
         assert result is None

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -330,23 +331,33 @@ class UnifiedGateway:
         rate_bucket[conn.client_id].append(now_obj)
         return True
 
+    def _cleanup_rate_limits(self, client_id: str) -> None:
+        """Remove all rate-limit entries for a disconnected client."""
+        for bucket in self.rate_limits.values():
+            bucket.pop(client_id, None)
+
     async def _start_tailscale_vpn(self) -> bool:
         if not self.tailscale_auth_key:
             self.health_status[ConnectionType.VPN.value] = False
             return False
         try:
-            result = subprocess.run(
-                [
-                    "sudo",
-                    "tailscale",
-                    "up",
-                    "--authkey",
-                    self.tailscale_auth_key,
-                    "--hostname",
-                    "megabot-gateway",
-                ]
+            proc = await asyncio.create_subprocess_exec(
+                "sudo",
+                "tailscale",
+                "up",
+                "--authkey",
+                self.tailscale_auth_key,
+                "--hostname",
+                "megabot-gateway",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
             )
-            self.health_status[ConnectionType.VPN.value] = result.returncode == 0
+            try:
+                returncode = await asyncio.wait_for(proc.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                proc.kill()
+                returncode = -1
+            self.health_status[ConnectionType.VPN.value] = returncode == 0
             return self.health_status[ConnectionType.VPN.value]
         except Exception as exc:  # pragma: no cover - safety
             self.logger.error("Tailscale start failed: %s", exc)
@@ -358,11 +369,24 @@ class UnifiedGateway:
             self.health_status[ConnectionType.CLOUDFLARE.value] = False
             return False
         try:
-            check = subprocess.run(["cloudflared", "--version"])
-            if check.returncode != 0:
+            # Non-blocking version check
+            proc = await asyncio.create_subprocess_exec(
+                "cloudflared",
+                "--version",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            try:
+                returncode = await asyncio.wait_for(proc.wait(), timeout=10)
+            except asyncio.TimeoutError:
+                proc.kill()
+                returncode = -1
+            if returncode != 0:
                 self.health_status[ConnectionType.CLOUDFLARE.value] = False
                 return False
 
+            # Popen is acceptable here — it starts a long-lived background
+            # process and returns immediately (does not block the event loop).
             self.cloudflare_process = subprocess.Popen(
                 [
                     "cloudflared",
@@ -462,8 +486,6 @@ class UnifiedGateway:
         user_agent = headers.get("User-Agent", "unknown")
 
         # Generate a more stable client_id using IP and User-Agent hash
-        import hashlib
-
         client_hash = hashlib.sha256(f"{ip}-{user_agent}".encode()).hexdigest()[:12]
         client_id = f"{conn_type.value}-{client_hash}"
 
@@ -488,10 +510,12 @@ class UnifiedGateway:
                 if not authenticated:
                     await self._send_error(conn, "Authentication failed")
                     self.clients.pop(conn.client_id, None)
+                    self._cleanup_rate_limits(conn.client_id)
                     return
             except Exception:
                 await self._send_error(conn, "Authentication timeout")
                 self.clients.pop(conn.client_id, None)
+                self._cleanup_rate_limits(conn.client_id)
                 return
         else:
             # Local connections or no token configured: auto-authenticate
@@ -528,6 +552,7 @@ class UnifiedGateway:
                 await self._process_message(conn, payload)
         finally:
             self.clients.pop(conn.client_id, None)
+            self._cleanup_rate_limits(conn.client_id)
             close_fn = getattr(ws, "close", None)
             if asyncio.iscoroutinefunction(close_fn):
                 await close_fn()
@@ -641,7 +666,10 @@ class UnifiedGateway:
             host = (
                 request.headers.get("Host", "") if hasattr(request, "headers") else ""
             )
-            if not any(h in host for h in ["127.0.0.1", "localhost", "::1"]):
+            # VULN-011 fix: exact hostname match instead of substring
+            # Strip port if present (e.g. "localhost:8080" → "localhost")
+            hostname = host.split(":")[0].strip()
+            if hostname not in ("127.0.0.1", "localhost", "::1"):
                 return (403, [], b"Localhost only")
             return None
 
@@ -691,13 +719,31 @@ class UnifiedGateway:
 
             if self.enable_vpn:
                 try:
-                    result = subprocess.run(["tailscale", "status"])
-                    if result.returncode != 0:
+                    proc = await asyncio.create_subprocess_exec(
+                        "tailscale",
+                        "status",
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.DEVNULL,
+                    )
+                    try:
+                        returncode = await asyncio.wait_for(proc.wait(), timeout=5)
+                    except asyncio.TimeoutError:
+                        proc.kill()
+                        returncode = -1
+                    if returncode != 0:
                         self.health_status[ConnectionType.VPN.value] = False
                     else:
                         self.health_status[ConnectionType.VPN.value] = True
                 except Exception:
                     self.health_status[ConnectionType.VPN.value] = False
+
+            # Sweep rate-limit entries for clients that are no longer connected
+            active_ids = set(self.clients.keys())
+            for bucket in self.rate_limits.values():
+                stale = [cid for cid in bucket if cid not in active_ids]
+                for cid in stale:
+                    del bucket[cid]
+
             await asyncio.sleep(5)
 
 

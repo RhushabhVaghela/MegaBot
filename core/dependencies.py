@@ -2,6 +2,12 @@
 """
 Centralized dependency injection system for MegaBot.
 Provides service registration, resolution, and lifecycle management.
+
+Note: Registration methods use a threading.Lock because they run at startup
+*before* the async event loop serves requests.  resolve() is lock-free
+because the dictionaries are only mutated during startup.  If you ever need
+to register services while the event loop is running, switch to
+asyncio.Lock (and make the registration methods ``async``).
 """
 
 from typing import Any, Dict, Type, TypeVar, Callable
@@ -37,7 +43,12 @@ class DependencyContainer:
             self._singletons[service_type] = implementation
 
     def resolve(self, service_type: Type[T]) -> T:
-        """Resolve a service instance."""
+        """Resolve a service instance.
+
+        This method is intentionally lock-free for performance.
+        It is safe as long as registrations only happen during startup
+        (before the event loop serves concurrent requests).
+        """
         # Check singletons first
         if service_type in self._singletons:
             return self._singletons[service_type]

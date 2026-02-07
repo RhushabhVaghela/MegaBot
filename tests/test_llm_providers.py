@@ -3,29 +3,20 @@ Tests for LLM Providers
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch, Mock
+from unittest.mock import AsyncMock, patch, Mock, MagicMock
 
 from core.llm_providers import (
+    LLMProvider,
     OpenAICompatibleProvider,
     OpenAIProvider,
     AnthropicProvider,
     GeminiProvider,
     OllamaProvider,
+    MistralProvider,
+    OpenRouterProvider,
+    GitHubCopilotProvider,
     get_llm_provider,
 )
-
-
-class AsyncContextMock:
-    """Mock async context manager"""
-
-    def __init__(self, response):
-        self.response = response
-
-    async def __aenter__(self):
-        return self.response
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        return None
 
 
 @pytest.fixture
@@ -58,20 +49,16 @@ class TestOpenAICompatibleProvider:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"choices": [{"message": {"content": "test response"}}]}
-        )
+        mock_response.json = AsyncMock(return_value={"choices": [{"message": {"content": "test response"}}]})
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
-            result = await provider.generate(
-                prompt="test prompt", context="test context"
-            )
+            result = await provider.generate(prompt="test prompt", context="test context")
             assert result == "test response"
 
     @pytest.mark.asyncio
@@ -81,20 +68,16 @@ class TestOpenAICompatibleProvider:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"choices": [{"message": {"tool_calls": [{"id": "call_1"}]}}]}
-        )
+        mock_response.json = AsyncMock(return_value={"choices": [{"message": {"tool_calls": [{"id": "call_1"}]}}]})
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
-            result = await provider.generate(
-                prompt="test", tools=[{"name": "test_tool"}]
-            )
+            result = await provider.generate(prompt="test", tools=[{"name": "test_tool"}])
             assert "tool_calls" in result
 
     @pytest.mark.asyncio
@@ -104,15 +87,13 @@ class TestOpenAICompatibleProvider:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"choices": [{"message": {"content": "response"}}]}
-        )
+        mock_response.json = AsyncMock(return_value={"choices": [{"message": {"content": "response"}}]})
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             messages = [{"role": "user", "content": "test message"}]
@@ -132,7 +113,7 @@ class TestOpenAICompatibleProvider:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             result = await provider.generate(prompt="test")
@@ -174,15 +155,13 @@ class TestAnthropicProvider:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"content": [{"text": "test response"}]}
-        )
+        mock_response.json = AsyncMock(return_value={"content": [{"text": "test response"}]})
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             result = await provider.generate(prompt="test")
@@ -195,15 +174,13 @@ class TestAnthropicProvider:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"stop_reason": "tool_use", "content": [{"tool_call": "data"}]}
-        )
+        mock_response.json = AsyncMock(return_value={"stop_reason": "tool_use", "content": [{"tool_call": "data"}]})
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             tools = [{"name": "computer"}]
@@ -235,16 +212,14 @@ class TestGeminiProvider:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(
-            return_value={
-                "candidates": [{"content": {"parts": [{"text": "test response"}]}}]
-            }
+            return_value={"candidates": [{"content": {"parts": [{"text": "test response"}]}}]}
         )
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             result = await provider.generate(prompt="test")
@@ -258,16 +233,14 @@ class TestGeminiProvider:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(
-            return_value={
-                "candidates": [{"content": {"parts": [{"functionCall": "call_data"}]}}]
-            }
+            return_value={"candidates": [{"content": {"parts": [{"functionCall": "call_data"}]}}]}
         )
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             result = await provider.generate(prompt="test")
@@ -296,7 +269,7 @@ class TestOllamaProvider:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             result = await provider.generate(prompt="test prompt", context="context")
@@ -315,7 +288,7 @@ class TestOllamaProvider:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             messages = [{"role": "user", "content": "test"}]
@@ -335,7 +308,7 @@ class TestOllamaProvider:
             mock_session = Mock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session.post = Mock(return_value=AsyncContextMock(mock_response))
+            mock_session.post = AsyncMock(return_value=mock_response)
             mock_session_class.return_value = mock_session
 
             tools = [{"name": "tool1"}]
@@ -379,3 +352,417 @@ class TestGetLLMProvider:
         config = {"provider": "groq"}
         provider = get_llm_provider(config)
         assert provider.model == "llama3-70b-8192"  # Default for Groq
+
+
+# ---------------------------------------------------------------------------
+# Tests migrated from test_llm_providers_coverage.py
+# ---------------------------------------------------------------------------
+
+
+class ConcreteProvider(LLMProvider):
+    """Concrete subclass to test the abstract LLMProvider.reason() method."""
+
+    async def generate(self, prompt=None, context=None, tools=None, messages=None):
+        if prompt == "think_msg":
+            return "thought"
+        if "Thought: thought" in (prompt or ""):
+            if "search results" in prompt:
+                return "search_info"
+            return "queries"
+        if "Context/Search Data: search_info" in (prompt or ""):
+            return "final answer"
+        return "default"
+
+
+@pytest.mark.asyncio
+async def test_llm_provider_reason():
+    """Test the 3-step reason() method with and without search_tool."""
+    provider = ConcreteProvider()
+
+    # With search_tool
+    with patch.object(
+        provider,
+        "generate",
+        side_effect=[
+            "thought",  # THINK
+            "queries",  # SEARCH queries
+            "final answer",  # ANSWER
+        ],
+    ) as mock_gen:
+        search_tool = AsyncMock()
+        search_tool.search.return_value = "search_info"
+
+        result = await provider.reason("test prompt", search_tool=search_tool)
+        assert result == "final answer"
+        assert mock_gen.call_count == 3
+
+    # Without search_tool
+    with patch.object(
+        provider,
+        "generate",
+        side_effect=[
+            "thought",  # THINK
+            "search_info",  # SEARCH (internal)
+            "final answer",  # ANSWER
+        ],
+    ) as mock_gen:
+        result = await provider.reason("test prompt", search_tool=None)
+        assert result == "final answer"
+        assert mock_gen.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_errors():
+    """Test Ollama provider error status and connection exception."""
+    provider = OllamaProvider(model="test-model")
+
+    # Error status (non-retryable)
+    mock_resp = AsyncMock()
+    mock_resp.status = 400
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "Ollama error: 400" in result
+
+    # Exception
+    with patch(
+        "aiohttp.ClientSession.post",
+        new_callable=AsyncMock,
+        side_effect=Exception("Connection failed"),
+    ):
+        result = await provider.generate(prompt="test")
+        assert "Ollama connection failed: Connection failed" in result
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_error_and_exception():
+    """Test Anthropic provider error 403 and timeout exception."""
+    provider = AnthropicProvider(api_key="test-key")
+
+    # Error status
+    mock_resp = AsyncMock()
+    mock_resp.status = 403
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "Anthropic error: 403" in result
+
+    # Exception
+    with patch(
+        "aiohttp.ClientSession.post",
+        new_callable=AsyncMock,
+        side_effect=Exception("Timeout"),
+    ):
+        result = await provider.generate(prompt="test")
+        assert "Anthropic connection failed: Timeout" in result
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_extended():
+    """Test Gemini messages handling, tools, error status, no candidates, exception."""
+    provider = GeminiProvider(api_key="test-key")
+
+    # Messages handling
+    messages = [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
+
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.json.return_value = {"candidates": [{"content": {"parts": [{"text": "response"}]}}]}
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
+        await provider.generate(messages=messages, tools=[{"name": "test_tool"}])
+        args, kwargs = mock_post.call_args
+        payload = kwargs["json"]
+        assert len(payload["contents"]) == 2
+        assert payload["contents"][0]["role"] == "user"
+        assert payload["contents"][1]["role"] == "model"
+        assert "tools" in payload
+
+    # Error status (non-retryable)
+    mock_resp.status = 400
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "Gemini error: 400" in result
+
+    # No candidates
+    mock_resp.status = 200
+    mock_resp.json.return_value = {"candidates": []}
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "No candidates in Gemini response" in result
+
+    # Exception
+    with patch(
+        "aiohttp.ClientSession.post",
+        new_callable=AsyncMock,
+        side_effect=Exception("API Error"),
+    ):
+        result = await provider.generate(prompt="test")
+        assert "Gemini connection failed: API Error" in result
+
+
+@pytest.mark.asyncio
+async def test_openrouter_provider():
+    """Test OpenRouter provider: success, tool_call, missing key, error, exception."""
+    provider = OpenRouterProvider(api_key="test-key")
+
+    # Success
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.json.return_value = {"choices": [{"message": {"content": "openrouter response"}}]}
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test", tools=[{"name": "t"}])
+        assert result == "openrouter response"
+
+    # Tool call
+    mock_resp.json.return_value = {"choices": [{"message": {"content": None, "tool_calls": [{"id": "1"}]}}]}
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert result["tool_calls"] == [{"id": "1"}]
+
+    # Missing API key
+    provider.api_key = None
+    result = await provider.generate(prompt="test")
+    assert "OpenRouter API key missing" in result
+
+    # Error status (non-retryable)
+    provider.api_key = "test-key"
+    mock_resp.status = 400
+    mock_resp.text.return_value = "Bad Request"
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "OpenRouter error: 400" in result
+
+    # Exception
+    with patch(
+        "aiohttp.ClientSession.post",
+        new_callable=AsyncMock,
+        side_effect=Exception("Fail"),
+    ):
+        result = await provider.generate(prompt="test")
+        assert "OpenRouter connection failed: Fail" in result
+
+
+@pytest.mark.asyncio
+async def test_github_copilot_provider():
+    """Test GitHub Copilot provider: success, tool_call, missing key, error, exception."""
+    provider = GitHubCopilotProvider(api_key="test-key")
+
+    # Success
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.json.return_value = {"choices": [{"message": {"content": "copilot response"}}]}
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test", tools=[{"name": "t"}])
+        assert result == "copilot response"
+
+    # Tool call
+    mock_resp.json.return_value = {"choices": [{"message": {"content": None, "tool_calls": [{"id": "1"}]}}]}
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert result["tool_calls"] == [{"id": "1"}]
+
+    # Missing API key
+    provider.api_key = None
+    result = await provider.generate(prompt="test")
+    assert "GitHub Token missing" in result
+
+    # Error status (non-retryable)
+    provider.api_key = "test-key"
+    mock_resp.status = 401
+    mock_resp.text.return_value = "Unauthorized"
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        result = await provider.generate(prompt="test")
+        assert "GitHub Copilot error: 401" in result
+
+    # Exception
+    with patch(
+        "aiohttp.ClientSession.post",
+        new_callable=AsyncMock,
+        side_effect=Exception("Fail"),
+    ):
+        result = await provider.generate(prompt="test")
+        assert "GitHub Copilot connection failed: Fail" in result
+
+
+def test_get_llm_provider_all_branches():
+    """Test factory function covers all 18 provider strings."""
+    providers = [
+        "openai",
+        "anthropic",
+        "gemini",
+        "groq",
+        "deepseek",
+        "xai",
+        "perplexity",
+        "cerebras",
+        "sambanova",
+        "fireworks",
+        "deepinfra",
+        "mistral",
+        "openrouter",
+        "github-copilot",
+        "lmstudio",
+        "llamacpp",
+        "vllm",
+        "other",
+    ]
+    for p in providers:
+        provider = get_llm_provider({"provider": p, "model": "test"})
+        assert provider is not None
+
+
+def test_mistral_init():
+    """Test MistralProvider init sets correct base_url."""
+    p = MistralProvider(api_key="key")
+    assert p.api_key == "key"
+    assert p.base_url == "https://api.mistral.ai/v1/chat/completions"
+
+
+# =====================================================================
+# FROM test_coverage_completion.py & test_coverage_completion_final.py
+# =====================================================================
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_llm_dispatch_tool_use(orchestrator):
+    # Test line 100-101 in llm_providers (tool_calls)
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.json = AsyncMock(
+        return_value={"choices": [{"message": {"tool_calls": [{"id": "1", "function": {"name": "test"}}]}}]}
+    )
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        provider = OpenAIProvider(api_key="test")
+        res = await provider.generate(prompt="test", tools=[{"name": "test"}])
+        assert "tool_calls" in res
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_computer_use():
+    provider = AnthropicProvider(api_key="test")
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.json = AsyncMock(
+        return_value={
+            "stop_reason": "tool_use",
+            "content": [{"type": "tool_use", "id": "1", "name": "computer"}],
+        }
+    )
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        res = await provider.generate(prompt="test", tools=[{"name": "computer"}])
+        assert res[0]["type"] == "tool_use"
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_tool_use():
+    provider = GeminiProvider(api_key="test")
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.json = AsyncMock(
+        return_value={"candidates": [{"content": {"parts": [{"functionCall": {"name": "test"}}]}}]}
+    )
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        res = await provider.generate(prompt="test", tools=[{"name": "test"}])
+        assert "functionCall" in res[0]
+
+
+class TestLLMProviderCoverage:
+    """Target missing lines in core/llm_providers.py"""
+
+    @pytest.mark.asyncio
+    async def test_openai_provider_error_paths(self):
+        p = OpenAIProvider(api_key="key")
+
+        # API missing key
+        p.api_key = None
+        assert "key missing" in await p.generate("hi")
+
+        # Connection failed
+        p.api_key = "key"
+        with patch(
+            "aiohttp.ClientSession.post",
+            new_callable=AsyncMock,
+            side_effect=Exception("Conn fail"),
+        ):
+            assert "connection failed" in await p.generate("hi")
+
+        # Error status (use 400 to avoid retry delays)
+        mock_resp = MagicMock()
+        mock_resp.status = 400
+        mock_resp.text = AsyncMock(return_value="Bad request")
+        with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+            assert "error: 400" in await p.generate("hi")
+
+    @pytest.mark.asyncio
+    async def test_anthropic_provider_error_paths(self):
+        p = AnthropicProvider(api_key="key")
+        p.api_key = None
+        assert "key missing" in await p.generate("hi")
+
+        p.api_key = "key"
+        with patch(
+            "aiohttp.ClientSession.post",
+            new_callable=AsyncMock,
+            side_effect=Exception("Fail"),
+        ):
+            assert "connection failed" in await p.generate("hi")
+
+    @pytest.mark.asyncio
+    async def test_gemini_provider_error_paths(self):
+        p = GeminiProvider(api_key="key")
+        p.api_key = None
+        assert "key missing" in await p.generate("hi")
+
+        p.api_key = "key"
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.json = AsyncMock(return_value={"candidates": []})  # No candidates
+        with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+            assert "No candidates" in await p.generate("hi")
+
+
+@pytest.mark.asyncio
+async def test_llm_providers_mopup():
+    from core.llm_providers import (
+        OpenAIProvider,
+        OllamaProvider,
+        GeminiProvider,
+    )
+
+    # 1. OpenAI error response (use 400 to avoid retry delays)
+    mock_resp = MagicMock()
+    mock_resp.status = 400
+    mock_resp.text = AsyncMock(return_value="Bad Request")
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        p = OpenAIProvider(api_key="test")
+        res = await p.generate(prompt="test")
+        assert "error: 400" in res
+
+    # 2. Ollama error response
+    mock_resp = MagicMock()
+    mock_resp.status = 404
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        p = OllamaProvider()
+        res = await p.generate(prompt="test")
+        assert "Ollama error: 404" in res
+
+    # 3. Gemini no parts
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.json = AsyncMock(return_value={"candidates": [{"content": {"parts": []}}]})
+
+    with patch("aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp):
+        p = GeminiProvider(api_key="test")
+        res = await p.generate(prompt="test")
+        assert "No text in response" in res or "No candidates" in res

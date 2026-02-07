@@ -26,7 +26,6 @@ services:
     ports:
       - "8000:8000"
       - "18790:18790"
-      - "5173:5173"    # Web UI dev server
 
   ollama:
     # In development, expose all GPUs

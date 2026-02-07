@@ -1,16 +1,34 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import App from './App'
 
-interface MockWebSocketStatic {
-  instances: Array<{
-    onmessage: ((ev: { data: string }) => void) | null;
-    close: () => void;
-  }>;
+interface MockWebSocketInstance {
+  onmessage: ((ev: { data: string }) => void) | null;
+  onopen: (() => void) | null;
+  onclose: (() => void) | null;
+  onerror: (() => void) | null;
+  readyState: number;
+  close: () => void;
+  send: (data: string) => void;
 }
 
-function getMockWS() {
+interface MockWebSocketStatic {
+  instances: MockWebSocketInstance[];
+  OPEN: number;
+  CLOSED: number;
+}
+
+function getMockWS(): MockWebSocketInstance {
   return (window.WebSocket as unknown as MockWebSocketStatic).instances[0]
+}
+
+/**
+ * Helper: get a tab button from the desktop sidebar (the <aside>).
+ * The mobile nav also renders the same labels, so we scope to the aside.
+ */
+function getDesktopTab(name: RegExp): HTMLElement {
+  const sidebar = screen.getByLabelText(/Navigation sidebar/i)
+  return within(sidebar).getByText(name)
 }
 
 describe('App Component', () => {
@@ -23,21 +41,38 @@ describe('App Component', () => {
     expect(screen.getByText(/MegaBot/i)).toBeInTheDocument()
   })
 
-  it('switches tabs', () => {
+  it('renders skip-to-content link for accessibility', () => {
     render(<App />)
-    const memoryTab = screen.getByText(/Memory Hub/i)
-    fireEvent.click(memoryTab)
-    expect(screen.getByText(/Hierarchical Memory/i)).toBeInTheDocument()
-    
-    const terminalTab = screen.getByText(/Terminal/i)
-    fireEvent.click(terminalTab)
+    expect(screen.getByText(/Skip to main content/i)).toBeInTheDocument()
+  })
+
+  it('shows connection status', () => {
+    render(<App />)
+    // Connection status should be visible (connecting initially)
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0)
+  })
+
+  it('switches to terminal tab', () => {
+    render(<App />)
+    fireEvent.click(getDesktopTab(/Terminal/i))
     expect(screen.getByText(/megabot@local:~\$/i)).toBeInTheDocument()
   })
 
-  it('sends a message', async () => {
+  it('switches to memory tab', () => {
     render(<App />)
-    const input = screen.getByPlaceholderText(/Ask anything.../i)
-    const sendButton = screen.getByText(/Send/i)
+    fireEvent.click(getDesktopTab(/Memory/i))
+    expect(screen.getByText(/Hierarchical Memory/i)).toBeInTheDocument()
+  })
+
+  it('sends a chat message and clears input', async () => {
+    render(<App />)
+    // Wait for connection to establish
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 10))
+    })
+
+    const input = screen.getByPlaceholderText(/Ask anything/i)
+    const sendButton = screen.getByLabelText(/Send message/i)
 
     fireEvent.change(input, { target: { value: 'test message' } })
     fireEvent.click(sendButton)
@@ -46,31 +81,38 @@ describe('App Component', () => {
     expect((input as HTMLInputElement).value).toBe('')
   })
 
-  it('triggers sendMessage on Enter', () => {
+  it('sends message on Enter key', async () => {
     render(<App />)
-    const input = screen.getByPlaceholderText(/Ask anything.../i)
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 10))
+    })
+
+    const input = screen.getByPlaceholderText(/Ask anything/i)
     fireEvent.change(input, { target: { value: 'enter message' } })
-    fireEvent.keyPress(input, { key: 'Enter', charCode: 13 })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
     expect(screen.getByText('enter message')).toBeInTheDocument()
   })
 
-  it('clicks chat tab', () => {
+  it('does not send empty messages', async () => {
     render(<App />)
-    const chatTab = screen.getByText(/Chat/i)
-    fireEvent.click(chatTab)
-    expect(screen.getByPlaceholderText(/Ask anything.../i)).toBeInTheDocument()
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 10))
+    })
+
+    const sendButton = screen.getByLabelText(/Send message/i)
+    expect(sendButton).toBeDisabled()
   })
 
   it('changes system mode', async () => {
     render(<App />)
-    const select = screen.getByRole('combobox')
+    const select = screen.getByLabelText(/System mode/i)
     fireEvent.change(select, { target: { value: 'build' } })
     await waitFor(() => {
       expect((select as HTMLSelectElement).value).toBe('build')
     })
   })
 
-  it('handles openclaw events', async () => {
+  it('handles openclaw_event from WebSocket', async () => {
     render(<App />)
     const ws = getMockWS()
     act(() => {
@@ -86,11 +128,11 @@ describe('App Component', () => {
     expect(screen.getByText('OpenClawBot')).toBeInTheDocument()
   })
 
-  it('handles search results', async () => {
+  it('handles search_results from WebSocket', async () => {
     render(<App />)
-    fireEvent.click(screen.getByText(/Memory Hub/i))
-    
-    const refreshButton = screen.getByText(/Refresh/i)
+    fireEvent.click(getDesktopTab(/Memory/i))
+
+    const refreshButton = screen.getByLabelText(/Refresh memory items/i)
     fireEvent.click(refreshButton)
 
     const ws = getMockWS()
@@ -103,7 +145,7 @@ describe('App Component', () => {
     expect(screen.getByText('memory item 1')).toBeInTheDocument()
   })
 
-  it('handles generic messages', async () => {
+  it('handles generic text messages', async () => {
     render(<App />)
     const ws = getMockWS()
     act(() => {
@@ -121,24 +163,36 @@ describe('App Component', () => {
         mode: 'debug'
       }) })
     })
-    const select = screen.getByRole('combobox')
+    const select = screen.getByLabelText(/System mode/i)
     expect((select as HTMLSelectElement).value).toBe('debug')
   })
 
-  it('handles sendMessage when ws is null', async () => {
-    // First render with working websocket
+  it('handles terminal_output from WebSocket', async () => {
     render(<App />)
+    fireEvent.click(getDesktopTab(/Terminal/i))
+
     const ws = getMockWS()
-    
-    // Close the websocket to make ws.current null
     act(() => {
-      ws.close()
+      ws.onmessage?.({ data: JSON.stringify({
+        type: 'terminal_output',
+        content: 'Build complete.'
+      })})
     })
-    
-    const input = screen.getByPlaceholderText(/Ask anything.../i)
-    fireEvent.change(input, { target: { value: 'test without ws' } })
-    fireEvent.keyPress(input, { key: 'Enter', charCode: 13 })
-    // Message should still appear in UI even if ws is closed
-    expect(screen.getByText('test without ws')).toBeInTheDocument()
+    expect(screen.getByText('Build complete.')).toBeInTheDocument()
+  })
+
+  it('sends terminal commands', async () => {
+    render(<App />)
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 10))
+    })
+
+    fireEvent.click(getDesktopTab(/Terminal/i))
+
+    const termInput = screen.getByLabelText(/Terminal command input/i)
+    fireEvent.change(termInput, { target: { value: 'help' } })
+    fireEvent.keyDown(termInput, { key: 'Enter', code: 'Enter' })
+
+    expect(screen.getByText('> help')).toBeInTheDocument()
   })
 })

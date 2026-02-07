@@ -3,12 +3,15 @@ Core orchestrator components extracted from monolithic orchestrator.
 Handles message routing, health monitoring, and system coordination.
 """
 
+from collections import OrderedDict
 from typing import Dict, Any, List
 import asyncio
+import os
 
 from core.dependencies import resolve_service
 from core.interfaces import Message
 from core.drivers import ComputerDriver
+from core.task_utils import safe_create_task
 
 
 class MessageHandler:
@@ -16,9 +19,11 @@ class MessageHandler:
 
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
-        self.chat_contexts: Dict[
-            str, List[Dict]
-        ] = {}  # chat_id -> List[Dict] for recent conversation history
+        # LRU-evicting cache: keeps at most 1000 recent chat contexts.
+        # Each entry holds up to 10 messages (~2KB).  Without a cap the
+        # dict grows indefinitely in long-running processes (PERF-05).
+        self._MAX_CACHED_CONTEXTS = 1000
+        self.chat_contexts: OrderedDict[str, List[Dict]] = OrderedDict()
         self._computer_driver = None  # Lazily cached DI resolution
 
     async def process_gateway_message(self, data: Dict):
@@ -26,9 +31,7 @@ class MessageHandler:
         print(f"Gateway Message: {data}")
         msg_type = data.get("type")
         sender_id = data.get("sender_id", "unknown")
-        chat_id = data.get(
-            "chat_id", sender_id
-        )  # Default to sender_id if no chat_id (e.g. DM)
+        chat_id = data.get("chat_id", sender_id)  # Default to sender_id if no chat_id (e.g. DM)
         platform = data.get("_meta", {}).get("connection_type", "gateway")
 
         # Identity-Link: Resolve unified chat_id
@@ -37,9 +40,7 @@ class MessageHandler:
         if msg_type == "message":
             await self._handle_user_message(data, sender_id, chat_id, platform)
 
-    async def _handle_user_message(
-        self, data: Dict, sender_id: str, chat_id: str, platform: str
-    ):
+    async def _handle_user_message(self, data: Dict, sender_id: str, chat_id: str, platform: str):
         """Handle user messages with attachments and admin commands."""
         content = data.get("content", "")
         attachments = data.get("attachments", [])
@@ -49,9 +50,7 @@ class MessageHandler:
 
         # Check for Admin Command
         if content.startswith("!"):
-            if await self.orchestrator.admin_handler.handle_command(
-                content, sender_id, chat_id, platform
-            ):
+            if await self.orchestrator.admin_handler.handle_command(content, sender_id, chat_id, platform):
                 # Notify success
                 resp = Message(
                     content=f"Admin command executed: {content}",
@@ -62,9 +61,7 @@ class MessageHandler:
                 return
 
         # Record in Persistent Memory
-        await self.orchestrator.memory.chat_write(
-            chat_id=chat_id, platform=platform, role="user", content=content
-        )
+        await self.orchestrator.memory.chat_write(chat_id=chat_id, platform=platform, role="user", content=content)
 
         # Update chat context
         await self._update_chat_context(chat_id, content)
@@ -89,9 +86,7 @@ class MessageHandler:
                 )
             )
 
-    async def _process_attachments(
-        self, attachments: List[Dict], sender_id: str, content: str
-    ) -> str:
+    async def _process_attachments(self, attachments: List[Dict], sender_id: str, content: str) -> str:
         """Process message attachments (images, audio) and return context."""
         vision_context = ""
         if self._computer_driver is None:
@@ -103,9 +98,7 @@ class MessageHandler:
                 print(f"Vision-Agent: Analyzing attachment from {sender_id}...")
                 image_data = attachment.get("data") or attachment.get("url")
                 if image_data:
-                    description = await computer_driver.execute(
-                        "analyze_image", text=image_data
-                    )
+                    description = await computer_driver.execute("analyze_image", text=image_data)
                     vision_context += f"\n[Attachment Analysis]: {description}\n"
             elif attachment.get("type") == "audio":
                 print(f"Voice-Agent: Transcribing attachment from {sender_id}...")
@@ -118,17 +111,20 @@ class MessageHandler:
         return vision_context
 
     async def _update_chat_context(self, chat_id: str, content: str):
-        """Update local chat context cache."""
+        """Update local chat context cache with LRU eviction."""
         if chat_id not in self.chat_contexts:
             # Load recent history from DB
             history = await self.orchestrator.memory.chat_read(chat_id, limit=10)
-            self.chat_contexts[chat_id] = [
-                {"role": h["role"], "content": h["content"]} for h in history
-            ]
+            self.chat_contexts[chat_id] = [{"role": h["role"], "content": h["content"]} for h in history]
 
         self.chat_contexts[chat_id].append({"role": "user", "content": content})
         # Keep only last 10 messages
         self.chat_contexts[chat_id] = self.chat_contexts[chat_id][-10:]
+
+        # LRU eviction: move accessed entry to end, drop oldest if over limit
+        self.chat_contexts.move_to_end(chat_id)
+        while len(self.chat_contexts) > self._MAX_CACHED_CONTEXTS:
+            self.chat_contexts.popitem(last=False)
 
 
 class HealthMonitor:
@@ -203,6 +199,13 @@ class HealthMonitor:
         except Exception:
             health["mcp"] = {"status": "down"}
 
+        # Resource Guard (RAM/VRAM)
+        if hasattr(self.orchestrator, "resource_guard") and self.orchestrator.resource_guard:
+            try:
+                health["resources"] = self.orchestrator.resource_guard.health_dict()
+            except Exception as e:
+                health["resources"] = {"status": "error", "error": str(e)}
+
         return health
 
     async def start_monitoring(self):
@@ -214,16 +217,12 @@ class HealthMonitor:
                 # Check for regressions and auto-restart
                 for component, data in status.items():
                     current_up = data.get("status") == "up"
-                    was_up = (
-                        self.last_status.get(component, {}).get("status", "up") == "up"
-                    )
+                    was_up = self.last_status.get(component, {}).get("status", "up") == "up"
 
                     if not current_up:
                         count = self.restart_counts.get(component, 0)
                         if count < 3:  # Max 3 retries # pragma: no cover
-                            print(
-                                f"Heartbeat: {component} is down. Triggering restart (attempt {count + 1})..."
-                            )
+                            print(f"Heartbeat: {component} is down. Triggering restart (attempt {count + 1})...")
                             await self.orchestrator.restart_component(component)
                             self.restart_counts[component] = count + 1
 
@@ -232,9 +231,7 @@ class HealthMonitor:
                                 content=f"🚨 Component Down: {component}\nError: {data.get('error', 'Unknown')}\nAuto-restart triggered.",
                                 sender="Security",
                             )
-                            asyncio.create_task(
-                                self.orchestrator.send_platform_message(msg)
-                            )
+                            safe_create_task(self.orchestrator.send_platform_message(msg))
                     else:
                         self.restart_counts[component] = 0  # pragma: no cover
 
@@ -253,16 +250,36 @@ class BackgroundTasks:
         # Track scheduled background tasks so they can be cancelled/awaited on shutdown
         self._tasks: List[asyncio.Task] = []
 
+    async def shutdown(self):
+        """Cancel and await all scheduled background tasks."""
+        for t in list(self._tasks):
+            try:
+                t.cancel()
+            except Exception:
+                pass
+
+        for t in list(self._tasks):
+            try:
+                if isinstance(t, asyncio.Task) or asyncio.isfuture(t):
+                    try:
+                        await t
+                    except (asyncio.CancelledError, Exception):
+                        pass
+            except Exception:
+                pass
+
+        self._tasks.clear()
+
     async def start_all_tasks(self):
         """Start all background tasks."""
 
-        # Defensive scheduling: try asyncio.create_task, fall back to asyncio.ensure_future.
-        # If scheduling fails (tests may patch these functions to raise), close the
-        # coroutine to avoid "coroutine was never awaited" warnings.
+        # Defensive scheduling: use safe_create_task from task_utils,
+        # fall back to asyncio.ensure_future if scheduling fails
+        # (tests may patch these functions to raise).
         def _safe_schedule(coro):
             try:
-                t = asyncio.create_task(coro)
-                print(f"[BackgroundTasks] scheduled via create_task: {coro}")
+                t = safe_create_task(coro)
+                print(f"[BackgroundTasks] scheduled via safe_create_task: {coro}")
                 return t
             except Exception:
                 try:
@@ -273,9 +290,7 @@ class BackgroundTasks:
                     # If coro is a coroutine object, close it to avoid warnings.
                     try:
                         if hasattr(coro, "close"):
-                            print(
-                                f"[BackgroundTasks] closing coro in _safe_schedule: {coro}"
-                            )
+                            print(f"[BackgroundTasks] closing coro in _safe_schedule: {coro}")
                             coro.close()
                     except Exception:
                         pass
@@ -318,6 +333,14 @@ class BackgroundTasks:
         """Synchronization loop for cross-platform data sync."""
         while True:
             try:
+                # Ingest OpenClaw logs into memU (original sync behaviour)
+                log_path = os.path.expanduser("~/.openclaw/sessions.jsonl")
+                if os.path.exists(log_path):
+                    try:
+                        await self.orchestrator.adapters["memu"].ingest_openclaw_logs(log_path)
+                    except Exception as e:
+                        print(f"Sync Loop: OpenClaw log ingest error: {e}")
+
                 print("Sync Loop: Synchronizing user identities across platforms...")
 
                 # Sync user identities and link platform accounts
@@ -357,14 +380,10 @@ class BackgroundTasks:
                 print("Proactive Loop: Checking for updates...")
 
                 # Check memU for proactive tasks
-                anticipations = await self.orchestrator.adapters[
-                    "memu"
-                ].get_anticipations()
+                anticipations = await self.orchestrator.adapters["memu"].get_anticipations()
                 for task in anticipations:
                     print(f"Proactive Trigger (Memory): {task.get('content')}")
-                    message = Message(
-                        content=f"Suggestion: {task.get('content')}", sender="MegaBot"
-                    )
+                    message = Message(content=f"Suggestion: {task.get('content')}", sender="MegaBot")
                     await self.orchestrator.adapters["openclaw"].send_message(message)
 
                 # Check Calendar via MCP
@@ -377,9 +396,7 @@ class BackgroundTasks:
                         resp = Message(  # pragma: no cover
                             content=f"Calendar Reminder: {events}", sender="Calendar"
                         )
-                        await self.orchestrator.send_platform_message(
-                            resp
-                        )  # pragma: no cover
+                        await self.orchestrator.send_platform_message(resp)  # pragma: no cover
                 except Exception as e:  # pragma: no cover
                     print(f"Calendar check failed (expected if not configured): {e}")
 

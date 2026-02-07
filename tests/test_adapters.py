@@ -37,10 +37,9 @@ async def test_sms_adapter():
 
     adapter = SMSAdapter("sms", None)
 
-    # Test send_text (should fallback to print)
+    # Without initialize(), client is None → send_text returns None
     result = await adapter.send_text("+0987654321", "Hello from SMS!")
-    assert result is not None
-    assert result.platform == "sms"
+    assert result is None
 
 
 @pytest.mark.asyncio

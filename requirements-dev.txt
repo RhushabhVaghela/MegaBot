@@ -1,5 +1,17 @@
-pytest
-pytest-asyncio
-pytest-cov
-ruff
-mypy
+# Testing
+pytest>=8.0
+pytest-asyncio>=0.25
+pytest-cov>=6.0
+
+# Linting & formatting
+ruff>=0.11
+
+# Type checking
+mypy>=1.15
+
+# Security scanning
+bandit>=1.9
+pip-audit>=2.9
+
+# Build tools
+build>=1.2

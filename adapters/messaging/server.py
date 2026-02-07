@@ -2,6 +2,7 @@ import asyncio
 import websockets  # type: ignore
 import json
 import os
+import re
 import base64
 import hashlib
 import uuid
@@ -98,13 +99,16 @@ class PlatformMessage:
 
 
 class SecureWebSocket:
+    password: str  # Always set after __init__ (or ValueError is raised)
+
     def __init__(self, password: Optional[str] = None):
-        self.password = password or os.environ.get("MEGABOT_WS_PASSWORD")
-        if not self.password:
+        resolved = password or os.environ.get("MEGABOT_WS_PASSWORD")
+        if not resolved:
             raise ValueError(
                 "MEGABOT_WS_PASSWORD must be set via constructor or environment variable. "
                 "Refusing to use a hardcoded default."
             )
+        self.password = resolved
         self.cipher = self._init_cipher()
 
     def _init_cipher(self) -> Fernet:
@@ -125,10 +129,18 @@ class SecureWebSocket:
         return self.cipher.encrypt(data.encode()).decode()
 
     def decrypt(self, encrypted_data: str) -> str:
+        """Decrypt data using Fernet cipher.
+
+        Raises:
+            ValueError: If decryption fails (invalid token, corrupted data, etc.)
+        """
         try:
             return self.cipher.decrypt(encrypted_data.encode()).decode()
-        except Exception:
-            return encrypted_data
+        except Exception as e:
+            raise ValueError(
+                f"Decryption failed: {e}. "
+                "This may indicate a key mismatch, corrupted data, or a replay attack."
+            ) from e
 
 
 class PlatformAdapter:
@@ -190,6 +202,7 @@ class MegaBotMessagingServer:
         self.memu_adapter = None
         self.voice_adapter = None
         self.openclaw = None
+        self._shutdown_event = asyncio.Event()
 
     def register_handler(self, handler: Callable[[PlatformMessage], Any]):
         self.message_handlers.append(handler)
@@ -218,7 +231,19 @@ class MegaBotMessagingServer:
     async def start(self):
         print(f"Starting Messaging Server on ws://{self.host}:{self.port}")
         async with websockets.serve(self._handle_client, self.host, self.port):
-            await asyncio.Future()
+            await self._shutdown_event.wait()
+        # Gracefully close remaining client connections
+        for client_id, ws in list(self.clients.items()):
+            try:
+                await ws.close()
+            except Exception:
+                pass
+        self.clients.clear()
+        print("Messaging Server shut down.")
+
+    async def shutdown(self):
+        """Signal the server to stop accepting connections and shut down."""
+        self._shutdown_event.set()
 
     async def send_message(
         self, message: PlatformMessage, target_client: Optional[str] = None
@@ -426,9 +451,19 @@ class MegaBotMessagingServer:
 
     async def _save_media(self, attachment: MediaAttachment) -> str:
         file_hash = hashlib.sha256(attachment.data).hexdigest()[:16]
-        filepath = os.path.join(
-            self.media_storage_path, f"{file_hash}_{attachment.filename}"
-        )
+        # Sanitize filename to prevent path traversal (e.g. "../../etc/cron.d/evil")
+        # 1. Strip to basename (removes directory components)
+        # 2. Remove any characters that aren't alphanumeric, dot, hyphen, or underscore
+        safe_name = os.path.basename(attachment.filename or "unnamed")
+        safe_name = re.sub(r"[^\w.\-]", "_", safe_name)
+        if not safe_name or safe_name.startswith("."):
+            safe_name = "unnamed" + safe_name
+        filepath = os.path.join(self.media_storage_path, f"{file_hash}_{safe_name}")
+        # Final defense: ensure resolved path is within media_storage_path
+        resolved = os.path.realpath(filepath)
+        media_root = os.path.realpath(self.media_storage_path)
+        if not resolved.startswith(media_root + os.sep) and resolved != media_root:
+            raise ValueError(f"Path traversal detected: {attachment.filename!r}")
         async with aiofiles.open(filepath, "wb") as f:
             await f.write(attachment.data)
         return filepath

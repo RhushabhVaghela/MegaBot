@@ -106,9 +106,7 @@ class TestSecureWebSocket:
 
 @pytest.fixture
 def messaging_server():
-    server = MegaBotMessagingServer(
-        host="127.0.0.1", port=18791, enable_encryption=False
-    )
+    server = MegaBotMessagingServer(host="127.0.0.1", port=18791, enable_encryption=False)
     server.media_storage_path = "/tmp/megabot_media_test"
     os.makedirs(server.media_storage_path, exist_ok=True)
     return server
@@ -163,17 +161,11 @@ async def test_messaging_server_full_processing(messaging_server):
             }
         ),
     )
-    await server._process_message(
-        "client1", json.dumps({"type": "platform_connect", "platform": "whatsapp"})
-    )
-    await server._process_message(
-        "client1", json.dumps({"type": "platform_connect", "platform": "unknown"})
-    )
+    await server._process_message("client1", json.dumps({"type": "platform_connect", "platform": "whatsapp"}))
+    await server._process_message("client1", json.dumps({"type": "platform_connect", "platform": "unknown"}))
 
     # 4. Command
-    await server._process_message(
-        "client1", json.dumps({"type": "command", "command": "test"})
-    )
+    await server._process_message("client1", json.dumps({"type": "command", "command": "test"}))
 
     # 5. Unknown
     await server._process_message("client1", json.dumps({"type": "invalid"}))
@@ -187,9 +179,7 @@ async def test_messaging_server_handle_client_edge_cases(messaging_server):
     server = messaging_server
     mock_ws = AsyncMock()
     mock_ws.remote_address = ("1.2.3.4", 5555)
-    mock_ws.__aiter__.return_value = [
-        b'{"type": "message", "sender_id": "u", "chat_id": "c"}'
-    ]
+    mock_ws.__aiter__.return_value = [b'{"type": "message", "sender_id": "u", "chat_id": "c"}']
 
     # Normal client
     task = asyncio.create_task(server._handle_client(mock_ws))
@@ -199,9 +189,7 @@ async def test_messaging_server_handle_client_edge_cases(messaging_server):
     # Client without remote_address (trigger Exception)
     mock_ws_no_addr = AsyncMock()
     # Using a property mock to trigger exception on access
-    type(mock_ws_no_addr).remote_address = property(
-        lambda x: (_ for _ in ()).throw(Exception("no addr"))
-    )
+    type(mock_ws_no_addr).remote_address = property(lambda x: (_ for _ in ()).throw(Exception("no addr")))
     mock_ws_no_addr.__aiter__.return_value = []
     await server._handle_client(mock_ws_no_addr)
 
@@ -217,9 +205,7 @@ async def test_messaging_server_broadcast_logic(messaging_server):
     mock2.send.side_effect = Exception("dead")
 
     server.clients = {"c1": mock1, "c2": mock2}
-    msg = PlatformMessage(
-        id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi"
-    )
+    msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
     await server.send_message(msg)
     assert mock1.send.called
@@ -321,9 +307,7 @@ async def test_specialized_media_sending():
                 message_type=MessageType.IMAGE,
             ),
         ):
-            m1 = await wa.send_media(
-                "chat1", "/tmp/t.jpg", "caption", MessageType.IMAGE
-            )
+            m1 = await wa.send_media("chat1", "/tmp/t.jpg", "caption", MessageType.IMAGE)
             assert m1 is not None
             assert m1.platform == "whatsapp"
             assert m1.message_type == MessageType.IMAGE
@@ -415,9 +399,7 @@ async def test_messaging_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [
-        k for k in sys.modules.keys() if k.startswith("adapters.messaging")
-    ]
+    modules_to_clear = [k for k in sys.modules.keys() if k.startswith("adapters.messaging")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
@@ -451,9 +433,7 @@ async def test_messaging_server_send_message_target(messaging_server):
     mock_ws = AsyncMock()
     server.clients["c1"] = mock_ws
 
-    msg = PlatformMessage(
-        id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi"
-    )
+    msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
     await server.send_message(msg, target_client="c1")
     assert mock_ws.send.called
 
@@ -527,9 +507,7 @@ async def test_messaging_server_platform_connect_with_on_connect(messaging_serve
     messaging_server.on_connect = on_connect
 
     # Test iMessage connection
-    await messaging_server._process_message(
-        "client1", json.dumps({"type": "platform_connect", "platform": "imessage"})
-    )
+    await messaging_server._process_message("client1", json.dumps({"type": "platform_connect", "platform": "imessage"}))
 
     assert callback_called
     assert callback_platform == "imessage"
@@ -538,9 +516,7 @@ async def test_messaging_server_platform_connect_with_on_connect(messaging_serve
 @pytest.mark.asyncio
 async def test_messaging_server_sms_platform_connect(messaging_server):
     """Test SMS platform connection"""
-    await messaging_server._process_message(
-        "client1", json.dumps({"type": "platform_connect", "platform": "sms"})
-    )
+    await messaging_server._process_message("client1", json.dumps({"type": "platform_connect", "platform": "sms"}))
 
     assert "sms" in messaging_server.platform_adapters
 
@@ -554,9 +530,7 @@ async def test_messaging_server_send_message_error(messaging_server):
 
     from adapters.messaging import PlatformMessage
 
-    msg = PlatformMessage(
-        id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi"
-    )
+    msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
     # Should not crash
     await messaging_server.send_message(msg)
@@ -585,9 +559,7 @@ async def test_messaging_server_broadcast_error_handling(messaging_server):
 
     from adapters.messaging import PlatformMessage
 
-    msg = PlatformMessage(
-        id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi"
-    )
+    msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
     await messaging_server.send_message(msg)
 
@@ -605,9 +577,7 @@ async def test_messaging_server_send_to_specific_client_error(messaging_server):
 
     from adapters.messaging import PlatformMessage
 
-    msg = PlatformMessage(
-        id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi"
-    )
+    msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
     await messaging_server.send_message(msg, target_client="client1")
     assert mock_ws.send.called
@@ -652,9 +622,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_text_with_markup(self, wa_adapter):
         """Test sending text with WhatsApp markup formatting"""
-        result = await wa_adapter.send_text(
-            "+1234567890", "Hello *bold* and _italic_", markup=True
-        )
+        result = await wa_adapter.send_text("+1234567890", "Hello *bold* and _italic_", markup=True)
 
         assert result is not None
         # Note: The content stores the original text, metadata has formatted version
@@ -678,9 +646,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_document(self, wa_adapter):
         """Test sending document"""
-        result = await wa_adapter.send_document(
-            "+1234567890", "/tmp/document.pdf", caption="Important document"
-        )
+        result = await wa_adapter.send_document("+1234567890", "/tmp/document.pdf", caption="Important document")
 
         assert result is not None
         assert result.message_type == MessageType.DOCUMENT
@@ -948,9 +914,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_push_notification_empty_buttons(self, wa_adapter):
         """Test push notification with no buttons"""
-        result = await wa_adapter.send_push_notification(
-            chat_id="+1234567890", title="Alert", body="Message"
-        )
+        result = await wa_adapter.send_push_notification(chat_id="+1234567890", title="Alert", body="Message")
 
         assert result is not None
         buttons = result.metadata.get("buttons")
@@ -959,9 +923,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_interactive_list_single_row(self, wa_adapter):
         """Test interactive list with single row"""
-        sections = [
-            {"title": "Options", "rows": [{"id": "only", "title": "Only Option"}]}
-        ]
+        sections = [{"title": "Options", "rows": [{"id": "only", "title": "Only Option"}]}]
         result = await wa_adapter.send_interactive_list(
             chat_id="+1234567890",
             header="Choose",
@@ -976,9 +938,7 @@ class TestWhatsAppAdapter:
     async def test_whatsapp_reply_buttons_two(self, wa_adapter):
         """Test reply buttons with two options"""
         buttons = [{"id": "yes", "title": "Yes"}, {"id": "no", "title": "No"}]
-        result = await wa_adapter.send_reply_buttons(
-            chat_id="+1234567890", text="Question?", buttons=buttons
-        )
+        result = await wa_adapter.send_reply_buttons(chat_id="+1234567890", text="Question?", buttons=buttons)
 
         assert result is not None
         assert len(result.metadata.get("buttons", [])) == 2
@@ -1123,15 +1083,11 @@ class TestWhatsAppAdapter:
         from unittest.mock import AsyncMock
 
         mock_openclaw = MagicMock()
-        mock_openclaw.execute_tool = AsyncMock(
-            return_value={"result": {"message_id": "oc_test123"}}
-        )
+        mock_openclaw.execute_tool = AsyncMock(return_value={"result": {"message_id": "oc_test123"}})
         wa_adapter._openclaw = mock_openclaw
         wa_adapter._use_openclaw = True
 
-        result = await wa_adapter._send_via_openclaw(
-            "+1234567890", "Test message", "text"
-        )
+        result = await wa_adapter._send_via_openclaw("+1234567890", "Test message", "text")
 
         assert result is not None
         assert result.metadata.get("source") == "openclaw"
@@ -1142,9 +1098,7 @@ class TestWhatsAppAdapter:
         """Test fallback returns None when OpenClaw not available"""
         wa_adapter.server.openclaw = None
 
-        result = await wa_adapter._send_via_openclaw(
-            "+1234567890", "Test message", "text"
-        )
+        result = await wa_adapter._send_via_openclaw("+1234567890", "Test message", "text")
 
         assert result is None
 
@@ -1185,9 +1139,7 @@ class TestWhatsAppAdapter:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={"id": "media_1234567890123456"})
-        wa_adapter.session.post.return_value.__aenter__ = AsyncMock(
-            return_value=mock_response
-        )
+        wa_adapter.session.post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
         wa_adapter.session.post.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Create a temporary file
@@ -1208,9 +1160,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_text_with_reply_to(self, wa_adapter):
         """Test sending text with reply_to parameter"""
-        result = await wa_adapter.send_text(
-            "+1234567890", "Replying to message", reply_to="original_msg_id"
-        )
+        result = await wa_adapter.send_text("+1234567890", "Replying to message", reply_to="original_msg_id")
 
         assert result is not None
         assert "Replying to message" in result.content
@@ -1218,9 +1168,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_text_without_preview_url(self, wa_adapter):
         """Test sending text with preview_url=False"""
-        result = await wa_adapter.send_text(
-            "+1234567890", "Test message", preview_url=False
-        )
+        result = await wa_adapter.send_text("+1234567890", "Test message", preview_url=False)
 
         assert result is not None
 
@@ -1343,15 +1291,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_webhook_with_statuses(self, wa_adapter):
         """Test webhook with status update only"""
-        webhook_data = {
-            "entry": [
-                {
-                    "changes": [
-                        {"value": {"statuses": [{"id": "msg_123", "status": "read"}]}}
-                    ]
-                }
-            ]
-        }
+        webhook_data = {"entry": [{"changes": [{"value": {"statuses": [{"id": "msg_123", "status": "read"}]}}]}]}
         result = await wa_adapter.handle_webhook(webhook_data)
         assert result is None
 
@@ -1455,9 +1395,7 @@ class TestWhatsAppAdapter:
     async def test_whatsapp_reply_buttons_single(self, wa_adapter):
         """Test reply buttons with single button"""
         buttons = [{"id": "only", "title": "Only Option"}]
-        result = await wa_adapter.send_reply_buttons(
-            chat_id="+1234567890", text="Choose one", buttons=buttons
-        )
+        result = await wa_adapter.send_reply_buttons(chat_id="+1234567890", text="Choose one", buttons=buttons)
 
         assert result is not None
         assert len(result.metadata.get("buttons", [])) == 1
@@ -1472,22 +1410,16 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_media_exception(self, wa_adapter):
         """Test send_media handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
             wa_adapter._send_with_retry = AsyncMock(return_value=None)
-            result = await wa_adapter.send_media(
-                "+1234567890", "/nonexistent/path.jpg", media_type=MessageType.IMAGE
-            )
+            result = await wa_adapter.send_media("+1234567890", "/nonexistent/path.jpg", media_type=MessageType.IMAGE)
             assert result is None
 
     @pytest.mark.asyncio
     async def test_whatsapp_send_location_exception(self, wa_adapter):
         """Test send_location handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
             wa_adapter._send_with_retry = AsyncMock(return_value=None)
             result = await wa_adapter.send_location("+1234567890", 0.0, 0.0)
@@ -1496,9 +1428,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_contact_exception(self, wa_adapter):
         """Test send_contact handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
             result = await wa_adapter.send_contact("+1234567890", {"name": "Test"})
             assert result is None
@@ -1506,9 +1436,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_template_exception(self, wa_adapter):
         """Test send_template handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
             result = await wa_adapter.send_template("+1234567890", "test_template")
             assert result is None
@@ -1516,21 +1444,15 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_send_interactive_list_exception(self, wa_adapter):
         """Test send_interactive_list handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
-            result = await wa_adapter.send_interactive_list(
-                "+1234567890", "Header", "Body", "Button", []
-            )
+            result = await wa_adapter.send_interactive_list("+1234567890", "Header", "Body", "Button", [])
             assert result is None
 
     @pytest.mark.asyncio
     async def test_whatsapp_send_reply_buttons_exception(self, wa_adapter):
         """Test send_reply_buttons handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             wa_adapter.session = MagicMock()
             result = await wa_adapter.send_reply_buttons("+1234567890", "Body", [])
             assert result is None
@@ -1545,9 +1467,7 @@ class TestWhatsAppAdapter:
             side_effect=Exception("Reply buttons error"),
         ):
             wa_adapter.session = MagicMock()
-            result = await wa_adapter.send_order_notification(
-                "+1234567890", "ORD-001", "confirmed", [], "$0"
-            )
+            result = await wa_adapter.send_order_notification("+1234567890", "ORD-001", "confirmed", [], "$0")
             assert result is None
 
     @pytest.mark.asyncio
@@ -1597,9 +1517,7 @@ class TestWhatsAppAdapter:
     @pytest.mark.asyncio
     async def test_whatsapp_handle_webhook_exception(self, wa_adapter):
         """Test handle_webhook handles exceptions gracefully"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             result = await wa_adapter.handle_webhook({"invalid": "data"})
             assert result is None
 
@@ -1657,8 +1575,9 @@ class TestMegaBotMessagingServer:
         mock_serve.return_value.__aenter__ = AsyncMock()
         mock_serve.return_value.__aexit__ = AsyncMock()
 
-        with patch("asyncio.Future", return_value=AsyncMock()):
-            await server.start()
+        # Pre-set the shutdown event so start() doesn't block forever
+        server._shutdown_event.set()
+        await server.start()
 
         mock_serve.assert_called_once()
 
@@ -1669,8 +1588,9 @@ class TestMegaBotMessagingServer:
         mock_serve.return_value.__aenter__ = AsyncMock()
         mock_serve.return_value.__aexit__ = AsyncMock()
 
-        with patch("asyncio.Future", return_value=AsyncMock()):
-            await encrypted_server.start()
+        # Pre-set the shutdown event so start() doesn't block forever
+        encrypted_server._shutdown_event.set()
+        await encrypted_server.start()
 
         mock_serve.assert_called_once()
 
@@ -1679,9 +1599,7 @@ class TestMegaBotMessagingServer:
         """Test client connection handling"""
         mock_websocket = MagicMock()
         mock_websocket.remote_address = ("127.0.0.1", 12345)
-        mock_websocket.recv = AsyncMock(
-            side_effect=websockets.exceptions.ConnectionClosed(rcvd=None, sent=None)
-        )
+        mock_websocket.recv = AsyncMock(side_effect=websockets.exceptions.ConnectionClosed(rcvd=None, sent=None))
 
         with patch.object(server, "_process_message"):
             await server._handle_client(mock_websocket)
@@ -1700,9 +1618,7 @@ class TestMegaBotMessagingServer:
     async def test_process_message_encrypted(self, encrypted_server):
         """Test processing encrypted message"""
         encrypted_server.secure_ws = MagicMock()
-        encrypted_server.secure_ws.decrypt.return_value = (
-            '{"type": "message", "content": "test"}'
-        )
+        encrypted_server.secure_ws.decrypt.return_value = '{"type": "message", "content": "test"}'
 
         with patch.object(encrypted_server, "_handle_platform_message") as mock_handle:
             await encrypted_server._process_message("client1", "encrypted_data")
@@ -1823,9 +1739,7 @@ class TestMegaBotMessagingServer:
 
         with patch("builtins.print") as mock_print:
             await server._handle_command(command_data)
-            mock_print.assert_called_with(
-                "Command: test_command with args: ['arg1', 'arg2']"
-            )
+            mock_print.assert_called_with("Command: test_command with args: ['arg1', 'arg2']")
 
     @pytest.mark.asyncio
     async def test_save_media(self, server):
@@ -1935,9 +1849,7 @@ class TestMainFunction:
 
         await main()
 
-        mock_server_class.assert_called_once_with(
-            host="127.0.0.1", port=18790, enable_encryption=True
-        )
+        mock_server_class.assert_called_once_with(host="127.0.0.1", port=18790, enable_encryption=True)
         mock_server.register_handler.assert_called_once()
 
     @patch("adapters.messaging.MegaBotMessagingServer")
@@ -1963,9 +1875,7 @@ class TestMainFunction:
         finally:
             sys.argv = original_argv
 
-        mock_server_class.assert_called_once_with(
-            host="127.0.0.1", port=18790, enable_encryption=True
-        )
+        mock_server_class.assert_called_once_with(host="127.0.0.1", port=18790, enable_encryption=True)
 
     @patch("adapters.messaging.MegaBotMessagingServer")
     @pytest.mark.asyncio
@@ -2011,9 +1921,7 @@ class TestWhatsAppAdapterSendTemplateSuccess:
     @pytest.mark.asyncio
     async def test_send_template_success_print(self, wa_adapter):
         """Test send_template success path triggers print"""
-        wa_adapter.is_initialized = (
-            False  # Use fallback path that doesn't require session
-        )
+        wa_adapter.is_initialized = False  # Use fallback path that doesn't require session
         result = await wa_adapter.send_template("+1234567890", "welcome_template")
         assert result is not None
         assert result.platform == "whatsapp"
@@ -2048,7 +1956,12 @@ class TestSMSAdapterPrint:
     @pytest.mark.asyncio
     async def test_send_text_print_execution(self, sms_adapter):
         """Test send_text executes print statement"""
-        # Don't mock the method - let it run naturally to trigger the print
+        # Mock client and from_number so send_text doesn't early-return None
+        mock_message = Mock()
+        mock_message.sid = "SM_test_123"
+        sms_adapter.client = Mock()
+        sms_adapter.client.messages.create.return_value = mock_message
+        sms_adapter.from_number = "+15551234567"
         result = await sms_adapter.send_text("chat123", "Hello SMS")
         assert result is not None
         assert result.platform == "sms"
@@ -2137,9 +2050,7 @@ class TestWhatsAppAdapterErrorHandling:
         wa_adapter.session = mock_session
         wa_adapter.is_initialized = True
         wa_adapter.phone_number_id = "12345"
-        wa_adapter._send_with_retry = AsyncMock(
-            return_value={"messages": [{"id": "wa_123"}]}
-        )
+        wa_adapter._send_with_retry = AsyncMock(return_value={"messages": [{"id": "wa_123"}]})
 
         result = await wa_adapter.send_text("+1234567890", "Test message")
         assert result is not None
@@ -2157,9 +2068,7 @@ class TestWhatsAppAdapterErrorHandling:
     async def test_send_text_preview_url_false(self, wa_adapter):
         """Test send_text with preview_url=False"""
         wa_adapter.is_initialized = False
-        result = await wa_adapter.send_text(
-            "+1234567890", "No preview", preview_url=False
-        )
+        result = await wa_adapter.send_text("+1234567890", "No preview", preview_url=False)
         assert result is not None
         assert result.content == "No preview"
 
@@ -2167,13 +2076,9 @@ class TestWhatsAppAdapterErrorHandling:
     async def test_send_text_markup_formatting(self, wa_adapter):
         """Test send_text with markup formatting"""
         wa_adapter.is_initialized = False
-        result = await wa_adapter.send_text(
-            "+1234567890", "*bold* _italic_ ~strike~", markup=True
-        )
+        result = await wa_adapter.send_text("+1234567890", "*bold* _italic_ ~strike~", markup=True)
         assert result is not None
-        assert (
-            result.content == "\\*bold\\* \\_italic\\_ \\~strike\\~"
-        )  # Should be escaped
+        assert result.content == "\\*bold\\* \\_italic\\_ \\~strike\\~"  # Should be escaped
 
     @pytest.mark.asyncio
     async def test_make_call_whatsapp_not_supported(self, wa_adapter):
@@ -2184,19 +2089,7 @@ class TestWhatsAppAdapterErrorHandling:
     @pytest.mark.asyncio
     async def test_handle_webhook_status_update(self, wa_adapter):
         """Test handle_webhook with status update"""
-        webhook_data = {
-            "entry": [
-                {
-                    "changes": [
-                        {
-                            "value": {
-                                "statuses": [{"id": "msg_123", "status": "delivered"}]
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
+        webhook_data = {"entry": [{"changes": [{"value": {"statuses": [{"id": "msg_123", "status": "delivered"}]}}]}]}
 
         wa_adapter._notify_callbacks = AsyncMock()
 
@@ -2321,9 +2214,7 @@ class TestWhatsAppAdapterErrorHandling:
         import uuid
 
         original_uuid = uuid.uuid4
-        uuid.uuid4 = lambda: type(
-            "MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32}
-        )()
+        uuid.uuid4 = lambda: type("MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32})()
         try:
             wa_adapter.session = MagicMock()
             wa_adapter._send_with_retry = AsyncMock(return_value=None)
@@ -2338,14 +2229,10 @@ class TestWhatsAppAdapterErrorHandling:
         import uuid
 
         original_uuid = uuid.uuid4
-        uuid.uuid4 = lambda: type(
-            "MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32}
-        )()
+        uuid.uuid4 = lambda: type("MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32})()
         try:
             wa_adapter.session = MagicMock()
-            result = await wa_adapter.send_media(
-                "+1234567890", "/nonexistent/path.jpg", media_type=MessageType.IMAGE
-            )
+            result = await wa_adapter.send_media("+1234567890", "/nonexistent/path.jpg", media_type=MessageType.IMAGE)
             assert result is not None
         finally:
             uuid.uuid4 = original_uuid
@@ -2356,9 +2243,7 @@ class TestWhatsAppAdapterErrorHandling:
         import uuid
 
         original_uuid = uuid.uuid4
-        uuid.uuid4 = lambda: type(
-            "MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32}
-        )()
+        uuid.uuid4 = lambda: type("MockUUID", (), {"hex": "0" * 32, "__str__": lambda s: "0" * 32})()
         try:
             wa_adapter.session = MagicMock()
             result = await wa_adapter.send_location("+1234567890", 0.0, 0.0)
@@ -2406,9 +2291,7 @@ class TestWhatsAppAdapterErrorHandling:
         try:
             wa_adapter.session = MagicMock()
             wa_adapter._send_with_retry = AsyncMock(return_value=None)
-            result = await wa_adapter.send_interactive_list(
-                "+1234567890", "Header", "Body", "Button", []
-            )
+            result = await wa_adapter.send_interactive_list("+1234567890", "Header", "Body", "Button", [])
             assert result is None
         finally:
             uuid.uuid4 = original_uuid
@@ -2438,9 +2321,7 @@ class TestWhatsAppAdapterErrorHandling:
         try:
             wa_adapter.session = MagicMock()
             wa_adapter._send_with_retry = AsyncMock(return_value=None)
-            result = await wa_adapter.send_order_notification(
-                "+1234567890", "ORD-001", "confirmed", [], "$0"
-            )
+            result = await wa_adapter.send_order_notification("+1234567890", "ORD-001", "confirmed", [], "$0")
             assert result is None
         finally:
             uuid.uuid4 = original_uuid
@@ -2502,15 +2383,9 @@ class TestWhatsAppAdapterErrorHandling:
     @pytest.mark.asyncio
     async def test_handle_webhook_exception_handling(self, wa_adapter):
         """Test handle_webhook exception handling"""
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             result = await wa_adapter.handle_webhook(
-                {
-                    "entry": [
-                        {"changes": [{"value": {"messages": [{"type": "unknown"}]}}]}
-                    ]
-                }
+                {"entry": [{"changes": [{"value": {"messages": [{"type": "unknown"}]}}]}]}
             )
             assert result is None
 
@@ -2577,9 +2452,7 @@ class TestWhatsAppAdapterErrorHandling:
         """Test _send_via_openclaw when PlatformMessage creation fails"""
         wa_adapter.server.openclaw = MagicMock()
 
-        with patch.object(
-            PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")
-        ):
+        with patch.object(PlatformMessage, "__init__", side_effect=Exception("PlatformMessage error")):
             result = await wa_adapter._send_via_openclaw("+1234567890", "test", "text")
             assert result is None
 
@@ -2664,9 +2537,7 @@ class TestWhatsAppAdapterUtilityMethods:
         assert wa_adapter._mime_to_message_type("image/jpeg") == MessageType.IMAGE
         assert wa_adapter._mime_to_message_type("video/mp4") == MessageType.VIDEO
         assert wa_adapter._mime_to_message_type("audio/mpeg") == MessageType.AUDIO
-        assert (
-            wa_adapter._mime_to_message_type("application/pdf") == MessageType.DOCUMENT
-        )
+        assert wa_adapter._mime_to_message_type("application/pdf") == MessageType.DOCUMENT
         assert wa_adapter._mime_to_message_type("unknown/type") == MessageType.DOCUMENT
 
     def test_detect_mime_type(self, wa_adapter):
@@ -2704,7 +2575,46 @@ class TestSMSAdapter:
 
     @pytest.mark.asyncio
     async def test_send_text(self, sms_adapter):
+        mock_message = Mock()
+        mock_message.sid = "SM_test_456"
+        sms_adapter.client = Mock()
+        sms_adapter.client.messages.create.return_value = mock_message
+        sms_adapter.from_number = "+15551234567"
         result = await sms_adapter.send_text("chat123", "Hello SMS")
         assert result is not None
         assert result.platform == "sms"
         assert result.content == "Hello SMS"
+
+
+@pytest.mark.asyncio
+async def test_messaging_adapters_coverage_gaps():
+    from adapters.messaging.imessage import IMessageAdapter
+    from adapters.messaging.sms import SMSAdapter
+    from adapters.messaging.telegram import TelegramAdapter as MessagingTelegramAdapter
+    from adapters.messaging.whatsapp import WhatsAppAdapter
+
+    server = MagicMock()
+    imessage = IMessageAdapter("imessage", server)
+    await imessage.shutdown()
+    sms = SMSAdapter("sms", server)
+    await sms.shutdown()
+    tg = MessagingTelegramAdapter("token", server)
+    mock_session = MagicMock()
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.json = AsyncMock(return_value={"ok": True, "result": {"id": 123}})
+    mock_ctx = MagicMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post.return_value = mock_ctx
+    with patch("adapters.messaging.telegram.aiohttp.ClientSession", return_value=mock_session):
+        res = await tg._make_request("test")
+        assert res == {"id": 123}
+    res = await tg.handle_webhook({"update_id": 1})
+    assert res is None
+    # WhatsApp
+    wa = WhatsAppAdapter("whatsapp", server, {"access_token": "token", "phone_number_id": "123"})
+    wa.session = AsyncMock()
+    # Trigger exception in handle_webhook
+    assert await wa.handle_webhook({"entry": [{"changes": [{"value": {}}]}]}) is None
+    await wa.shutdown()

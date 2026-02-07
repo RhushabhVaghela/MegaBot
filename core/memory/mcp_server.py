@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import logging
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +10,9 @@ from .knowledge_memory import KnowledgeMemoryManager
 from .backup_manager import MemoryBackupManager
 
 logger = logging.getLogger("megabot.memory")
+
+# Schema version — bump this when you add migrations below.
+_SCHEMA_VERSION = 1
 
 
 class MemoryServer:
@@ -24,20 +28,61 @@ class MemoryServer:
             db_path = os.path.join(os.getcwd(), "megabot_memory.db")
         self.db_path = db_path
 
+        # Run schema migrations before initializing managers
+        self._run_migrations()
+
         # Shared executor for all memory managers to avoid over-subscribing threads
-        self._shared_executor = ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="mem-db"
-        )
+        self._shared_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="mem-db")
 
         # Initialize modular managers with shared executor
         self.chat_memory = ChatMemoryManager(db_path, executor=self._shared_executor)
-        self.user_identity = UserIdentityManager(db_path)
-        self.knowledge_memory = KnowledgeMemoryManager(
-            db_path, executor=self._shared_executor
-        )
+        self.user_identity = UserIdentityManager(db_path, executor=self._shared_executor)
+        self.knowledge_memory = KnowledgeMemoryManager(db_path, executor=self._shared_executor)
         self.backup_manager = MemoryBackupManager(db_path)
 
         logger.info(f"Memory database initialized at {self.db_path}")
+
+    # ------------------------------------------------------------------
+    # Schema migration infrastructure
+    # ------------------------------------------------------------------
+    def _run_migrations(self):
+        """Apply schema migrations up to _SCHEMA_VERSION."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS schema_version (
+                    version INTEGER NOT NULL,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            row = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+            current = row[0] if row[0] is not None else 0
+
+            # --- Migration 1: initial schema baseline ----------------------
+            if current < 1:
+                # Tables are created by individual managers via CREATE IF NOT EXISTS,
+                # so migration 1 just records the baseline.
+                conn.execute("INSERT INTO schema_version (version) VALUES (?)", (1,))
+                logger.info("Schema migration 1 applied (baseline)")
+
+            # --- Add future migrations here as `if current < N:` blocks ----
+
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Schema migration failed: {e}")
+            raise
+        finally:
+            conn.close()
+
+    async def close(self):
+        """Shut down the shared thread pool and close DB connections."""
+        self.chat_memory.close()
+        self.knowledge_memory.close()
+        self.user_identity.close()
+        self._shared_executor.shutdown(wait=False)
+        logger.info("Memory server shut down")
 
     # Chat History Methods (delegated to ChatMemoryManager)
     async def chat_write(
@@ -64,22 +109,16 @@ class MemoryServer:
         return await self.chat_memory.get_all_chat_ids()
 
     # User Identity Methods (delegated to UserIdentityManager)
-    async def link_identity(
-        self, internal_id: str, platform: str, platform_id: str
-    ) -> bool:
+    async def link_identity(self, internal_id: str, platform: str, platform_id: str) -> bool:
         """Link a platform-specific ID to a unified internal ID."""
-        return await self.user_identity.link_identity(
-            internal_id, platform, platform_id
-        )
+        return await self.user_identity.link_identity(internal_id, platform, platform_id)
 
     async def get_unified_id(self, platform: str, platform_id: str) -> str:
         """Get the unified internal ID for a platform identity."""
         return await self.user_identity.get_unified_id(platform, platform_id)
 
     # Knowledge Memory Methods (delegated to KnowledgeMemoryManager)
-    async def memory_write(
-        self, key: str, type: str, content: str, tags: Optional[List[str]] = None
-    ) -> str:
+    async def memory_write(self, key: str, type: str, content: str, tags: Optional[List[str]] = None) -> str:
         """Record new knowledge or decisions."""
         return await self.knowledge_memory.write(key, type, content, tags)
 
@@ -107,9 +146,7 @@ class MemoryServer:
     async def memory_stats(self) -> Dict[str, Any]:
         """View analytics on memory usage across all components."""
         try:
-            chat_stats = await self.chat_memory.get_chat_stats(
-                "dummy"
-            )  # Get general stats
+            chat_stats = await self.chat_memory.get_aggregate_stats()
             identity_stats = await self.user_identity.get_identity_stats()
             knowledge_stats = await self.knowledge_memory.get_stats()
             backup_stats = await self.backup_manager.get_backup_stats()

@@ -1,36 +1,15 @@
 import re
 import json
-import os
-import errno
-import stat as _stat
-import tempfile
 from datetime import datetime
 from typing import Dict
-from pathlib import Path
 
 from core.agents import SubAgent
 import logging
-import json as _json
+
+from core.agent_file_ops import _audit
+import core.agent_file_ops as _file_ops
 
 logger = logging.getLogger("megabot.agent_coordinator")
-logger_audit = logging.getLogger("megabot.audit")
-
-
-def _audit(event: str, **data):
-    """Emit a structured JSON audit event to the `megabot.audit` logger.
-
-    This is best-effort and intentionally small: tests and production can
-    attach handlers to `megabot.audit` to route structured events to a file
-    or remote sink. We avoid configuring handlers here to not interfere with
-    test harness logging.
-    """
-    try:
-        payload = {"event": event, "timestamp": datetime.utcnow().isoformat() + "Z"}
-        payload.update(data)
-        logger_audit.info(_json.dumps(payload))
-    except Exception:
-        # Never raise from an audit path
-        logger.debug("Failed to emit audit event: %s", event)
 
 
 class AgentCoordinator:
@@ -112,9 +91,7 @@ class AgentCoordinator:
                 name,
                 validation_res,
             )
-            _audit(
-                "sub_agent.preflight_blocked", agent=name, reason=str(validation_res)
-            )
+            _audit("sub_agent.preflight_blocked", agent=name, reason=str(validation_res))
             return f"Sub-agent {name} blocked by pre-flight check: {validation_res}"
 
         # Register the validated agent as active
@@ -185,9 +162,7 @@ class AgentCoordinator:
                     tags=["synthesis", name, role],
                 )
             except Exception as e:
-                logger.error(
-                    "Failed to write synthesis lesson to memory for %s: %s", name, e
-                )
+                logger.error("Failed to write synthesis lesson to memory for %s: %s", name, e)
 
             # Notify connected clients (best-effort)
             try:
@@ -200,18 +175,14 @@ class AgentCoordinator:
                         }
                     )
             except Exception as e:
-                logger.debug(
-                    "Failed to notify clients about memory update for %s: %s", name, e
-                )
+                logger.debug("Failed to notify clients about memory update for %s: %s", name, e)
 
             return summary
         except Exception as e:
             print(f"Failed to record memory lesson or parse synthesis: {e}")
             return str(synthesis_raw)
 
-    async def _execute_tool_for_sub_agent(
-        self, agent_name: str, tool_call: Dict
-    ) -> str:
+    async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: Dict) -> str:
         """Execute a tool on behalf of a sub-agent with Domain Boundary enforcement"""
         agent = self.orchestrator.sub_agents.get(agent_name)
         if not agent:
@@ -250,317 +221,29 @@ class AgentCoordinator:
             )
             return f"Security Error: Permission denied for scope '{scope}'."
 
-        # Helper: validate path is inside workspace and not a symlink
-        def _validate_path(p: str):
-            try:
-                if not p:
-                    return False, "Empty path"
-                workspace = Path(
-                    self.orchestrator.config.paths.get("workspaces", os.getcwd())
-                ).resolve()
-                candidate = Path(p)
-
-                # Interpret relative paths as relative to the workspace. This
-                # keeps behavior consistent when tests run from different
-                # current working directories.
-                if not candidate.is_absolute():
-                    candidate = workspace.joinpath(candidate)
-
-                # Resolve the final path; on some platforms resolve() may raise
-                # for invalid paths, so catch and report.
-                try:
-                    cand_resolved = candidate.resolve()
-                except Exception:
-                    return False, "Path resolution error"
-
-                # Deny symlinks explicitly (fast path). We'll also perform
-                # lstat checks later to guard against TOCTOU races.
-                if candidate.is_symlink():
-                    return False, "Symlink paths are not allowed"
-
-                try:
-                    cand_resolved.relative_to(workspace)
-                except Exception:
-                    return False, "Path outside workspace"
-
-                return True, str(cand_resolved)
-            except Exception as e:
-                return False, f"Path validation error: {e}"
-
-        def _safe_lstat(path_str: str):
-            try:
-                return os.lstat(path_str)
-            except FileNotFoundError:
-                return None
-            except Exception:
-                return None
-
-        # Implement a few example tools with improved security
+        # Implement tools — file I/O is delegated to core.agent_file_ops
         try:
             if tool_name == "read_file":
-                path = str(tool_input.get("path", ""))
-
-                # If a relative path is supplied, try opening it as-is first.
-                # Tests often patch builtins.open for a relative path; attempting
-                # the direct open preserves that compatibility. If that fails,
-                # fall back to workspace-relative resolution and strict checks.
-                candidate = Path(path)
-                if not candidate.is_absolute():
-                    try:
-                        with open(path, "r", encoding="utf-8", errors="replace") as f:
-                            data = f.read()
-                            if len(data.encode("utf-8")) > self.READ_LIMIT:
-                                return f"Security Error: read_file denied: file too large ({len(data.encode('utf-8'))} bytes)"
-                            return data
-                    except Exception:
-                        # Fall through to workspace-based resolution
-                        pass
-
-                ok, info = _validate_path(path)
-                if not ok:
-                    logger.warning(
-                        "read_file denied: agent=%s path=%s reason=%s",
-                        agent_name,
-                        path,
-                        info,
-                    )
-                    _audit("read_file.denied", agent=agent_name, path=path, reason=info)
-                    return f"Security Error: read_file denied: {info}"
-
-                # Enforce read limit and mitigate TOCTOU by using lstat and
-                # O_NOFOLLOW when available. We capture a pre-open lstat and
-                # verify the file hasn't changed after opening.
-                resolved = info
-                pre_stat = _safe_lstat(resolved)
-
-                flags = os.O_RDONLY
-                use_no_follow = hasattr(os, "O_NOFOLLOW")
-                if use_no_follow:
-                    flags |= os.O_NOFOLLOW
-
-                try:
-                    # Try an fd-based open that does not follow symlinks when
-                    # supported. This prevents a symlink from being followed at
-                    # open time (TOCTOU mitigation).
-                    fd = os.open(resolved, flags)
-                except OSError as e:
-                    # If O_NOFOLLOW caused an ELOOP (symlink) or is not
-                    # supported, return a clear error rather than falling
-                    # through to a potentially unsafe open.
-                    if e.errno in (errno.ELOOP, errno.EPERM, errno.EACCES):
-                        logger.warning(
-                            "read_file os.open denied: agent=%s path=%s errno=%s err=%s",
-                            agent_name,
-                            resolved,
-                            e.errno,
-                            e,
-                        )
-                        _audit(
-                            "read_file.os_open_denied",
-                            agent=agent_name,
-                            path=resolved,
-                            errno=e.errno,
-                            err=str(e),
-                        )
-                        return f"Security Error: read_file denied: possible symlink or permission error ({e})"
-                    # Fallback to safe builtin open as last resort
-                    try:
-                        with open(
-                            resolved, "r", encoding="utf-8", errors="replace"
-                        ) as f:
-                            data = f.read()
-                            if len(data.encode("utf-8")) > self.READ_LIMIT:
-                                return f"Security Error: read_file denied: file too large ({len(data.encode('utf-8'))} bytes)"
-                            return data
-                    except Exception as e2:
-                        return f"Security Error: read_file denied: {e2}"
-
-                try:
-                    post_stat = os.fstat(fd)
-                    # If file existed before and its identity changed -> abort
-                    if pre_stat is not None and (
-                        pre_stat.st_ino != post_stat.st_ino
-                        or pre_stat.st_dev != post_stat.st_dev
-                    ):
-                        os.close(fd)
-                        logger.warning(
-                            "read_file TOCTOU detected: agent=%s path=%s",
-                            agent_name,
-                            resolved,
-                        )
-                        _audit(
-                            "read_file.toctou_detected", agent=agent_name, path=resolved
-                        )
-                        return "Security Error: read_file denied: TOCTOU detected"
-
-                    # enforce size limit
-                    try:
-                        size = post_stat.st_size
-                        if size > self.READ_LIMIT:
-                            os.close(fd)
-                            logger.warning(
-                                "read_file denied (too large): agent=%s path=%s size=%s",
-                                agent_name,
-                                resolved,
-                                size,
-                            )
-                            _audit(
-                                "read_file.too_large",
-                                agent=agent_name,
-                                path=resolved,
-                                size=size,
-                            )
-                            return f"Security Error: read_file denied: file too large ({size} bytes)"
-                    except Exception:
-                        pass
-
-                    # Read file content
-                    chunks = []
-                    remaining = (
-                        post_stat.st_size if hasattr(post_stat, "st_size") else None
-                    )
-                    # Read in chunks to avoid large allocations
-                    while True:
-                        chunk = os.read(fd, 64 * 1024)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                        if remaining is not None:
-                            remaining -= len(chunk)
-                            if remaining <= 0:
-                                break
-                    data = b"".join(chunks).decode("utf-8", errors="replace")
-                    os.close(fd)
-                    return data
-                except Exception as e:
-                    try:
-                        os.close(fd)
-                    except Exception:
-                        pass
-                    logger.warning(
-                        "read_file denied (exception): agent=%s path=%s err=%s",
-                        agent_name,
-                        resolved,
-                        e,
-                    )
-                    _audit(
-                        "read_file.exception",
-                        agent=agent_name,
-                        path=resolved,
-                        err=str(e),
-                    )
-                    return f"Security Error: read_file denied: {e}"
-            elif tool_name == "write_file":
-                path = str(tool_input.get("path", ""))
-                content = str(tool_input.get("content", ""))
-                ok, info = _validate_path(path)
-                if not ok:
-                    logger.warning(
-                        "write_file denied: agent=%s path=%s reason=%s",
-                        agent_name,
-                        path,
-                        info,
-                    )
-                    _audit(
-                        "write_file.denied", agent=agent_name, path=path, reason=info
-                    )
-                    return f"Security Error: write_file denied: {info}"
-
-                # Atomic write: write to temp file in same dir then replace
-                resolved = Path(info)
-                parent_dir = resolved.parent
-                parent_dir.mkdir(parents=True, exist_ok=True)
-
-                # Capture pre-write lstat for TOCTOU checks
-                pre_stat = _safe_lstat(str(resolved))
-
-                fd, tmp_path = tempfile.mkstemp(dir=str(parent_dir))
-                try:
-                    with os.fdopen(fd, "w", encoding="utf-8") as tf:
-                        tf.write(content)
-
-                    # Re-check lstat on destination before replacing. If the
-                    # destination appeared or changed between our pre-check and
-                    # now, abort to avoid overwriting symlinks or unexpected
-                    # files (TOCTOU mitigation).
-                    post_stat = _safe_lstat(str(resolved))
-                    if post_stat is not None:
-                        # If destination is a symlink -> deny
-                        try:
-                            if _stat.S_ISLNK(post_stat.st_mode):
-                                try:
-                                    os.unlink(tmp_path)
-                                except Exception:
-                                    pass
-                                logger.warning(
-                                    "write_file denied (dest symlink): agent=%s path=%s",
-                                    agent_name,
-                                    resolved,
-                                )
-                                _audit(
-                                    "write_file.dest_symlink",
-                                    agent=agent_name,
-                                    path=str(resolved),
-                                )
-                                return "Security Error: write_file denied: destination is a symlink"
-                        except Exception:
-                            pass
-
-                        # If pre-existed and identity changed -> abort
-                        if pre_stat is not None and (
-                            pre_stat.st_ino != post_stat.st_ino
-                            or pre_stat.st_dev != post_stat.st_dev
-                        ):
-                            try:
-                                os.unlink(tmp_path)
-                            except Exception:
-                                pass
-                            logger.warning(
-                                "write_file TOCTOU detected: agent=%s path=%s",
-                                agent_name,
-                                resolved,
-                            )
-                            _audit(
-                                "write_file.toctou_detected",
-                                agent=agent_name,
-                                path=str(resolved),
-                            )
-                            return "Security Error: write_file denied: TOCTOU detected"
-
-                    # If checks pass, atomically replace
-                    os.replace(tmp_path, str(resolved))
-                except Exception as e:
-                    try:
-                        os.unlink(tmp_path)
-                    except Exception:
-                        pass
-                    logger.error(
-                        "write_file failed: agent=%s path=%s err=%s",
-                        agent_name,
-                        resolved,
-                        e,
-                    )
-                    _audit(
-                        "write_file.exception",
-                        agent=agent_name,
-                        path=str(resolved),
-                        err=str(e),
-                    )
-                    return f"Tool execution error: {e}"
-
-                return f"File '{resolved}' written successfully."
-            elif tool_name == "query_rag":
-                return await self.orchestrator.rag.navigate(
-                    str(tool_input.get("query", ""))
+                return await _file_ops.read_file(
+                    self.orchestrator,
+                    agent_name,
+                    tool_input,
+                    self.READ_LIMIT,
                 )
+            elif tool_name == "write_file":
+                return await _file_ops.write_file(
+                    self.orchestrator,
+                    agent_name,
+                    tool_input,
+                )
+            elif tool_name == "query_rag":
+                return await self.orchestrator.rag.navigate(str(tool_input.get("query", "")))
             else:
                 # Fallback to MCP if available. Normalize MCP error responses
                 # to a consistent 'logic not implemented' message so older tests
                 # and callers see the expected string.
                 if "mcp" in self.orchestrator.adapters:
-                    res = await self.orchestrator.adapters["mcp"].call_tool(
-                        None, tool_name, tool_input
-                    )
+                    res = await self.orchestrator.adapters["mcp"].call_tool(None, tool_name, tool_input)
                     # MCP may return structured errors (dict). If it indicates
                     # the tool is not present, return legacy message.
                     if isinstance(res, dict) and ("error" in res or "errors" in res):

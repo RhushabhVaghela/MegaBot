@@ -1,9 +1,11 @@
 import asyncio
+import logging
 import re
 import json
 from datetime import datetime
 from typing import List, Dict
 from core.agents import SubAgent
+from core.task_utils import safe_create_task
 
 
 class LokiMode:
@@ -103,7 +105,7 @@ class LokiMode:
             if chat_id:
                 msg = Message(content=content, sender="Loki")
                 # We use a task so we don't block the pipeline
-                asyncio.create_task(
+                safe_create_task(
                     self.orchestrator.send_platform_message(
                         msg, chat_id=chat_id, platform=platform
                     )

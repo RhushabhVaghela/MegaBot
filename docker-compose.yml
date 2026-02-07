@@ -1,33 +1,77 @@
-version: '3.8'
+# ─────────────────────────────────────────────────────────────
+# MegaBot — Production Docker Compose
+# ─────────────────────────────────────────────────────────────
+# Usage:
+#   Production:   docker compose up -d
+#   Development:  docker compose -f docker-compose.yml -f docker-compose.override.yaml up
+# ─────────────────────────────────────────────────────────────
 
 services:
-  # PostgreSQL database with pgvector for memU
+  # ── PostgreSQL with pgvector ──────────────────────────────
   postgres:
-    image: ankane/pgvector:latest
+    image: pgvector/pgvector:pg16
     container_name: megabot-postgres
     environment:
       POSTGRES_DB: megabot
       POSTGRES_USER: megabot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-megabot_dev_password}
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    networks:
+      - internal
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U megabot"]
+      test: ["CMD-SHELL", "pg_isready -U megabot -d megabot"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          memory: 256M
     restart: unless-stopped
 
-  # Ollama for local LLM inference
+  # ── Redis (caching / pub-sub) ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: megabot-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - internal
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 64M
+    restart: unless-stopped
+
+  # ── Ollama (local LLM inference) ──────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: megabot-ollama
-    ports:
-      - "11434:11434"
+    networks:
+      - internal
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         reservations:
@@ -37,33 +81,49 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
-  # SearXNG meta-search engine
+  # ── SearXNG meta-search engine ────────────────────────────
   searxng:
     image: searxng/searxng:latest
     container_name: megabot-searxng
-    user: root
+    networks:
+      - internal
     ports:
-      - "8080:8080"
+      - "8080:8080"        # SearXNG web UI
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
-      - SEARXNG_BASE_URL=http://localhost:8080/
-      - INSTANCE_NAME=megabot-search
+      SEARXNG_BASE_URL: http://localhost:8080/
+      INSTANCE_NAME: megabot-search
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
     restart: unless-stopped
 
-  # MegaBot orchestrator
+  # ── MegaBot orchestrator ──────────────────────────────────
   megabot:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: megabot-orchestrator
     ports:
-      - "8000:8000"      # FastAPI REST API
-      - "18790:18790"    # WebSocket messaging server
-      - "5173:5173"      # Web UI (if applicable)
+      - "8000:8000"       # FastAPI REST API
+      - "18790:18790"     # WebSocket messaging server
+    networks:
+      - internal
+      - frontend
     volumes:
       - megabot_data:/app/data
-      - ./meta-config.yaml:/app/meta-config.yaml:ro
+      - ./mega-config.yaml:/app/mega-config.yaml:ro
       - megabot_media:/app/media
       - megabot_logs:/app/logs
       # Mount external repos (update paths as needed)
@@ -72,51 +132,77 @@ services:
     environment:
       # Python paths
       PYTHONPATH: /app:/app/external_repos/memU/src:/app/external_repos/openclaw
-      MEGABOT_CONFIG_PATH: /app/meta-config.yaml
-      
+      MEGABOT_CONFIG_PATH: /app/mega-config.yaml
+
       # Database
-      DATABASE_URL: postgresql://megabot:${POSTGRES_PASSWORD:-megabot_dev_password}@postgres:5432/megabot
-      
+      DATABASE_URL: postgresql://megabot:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/megabot
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
       # memU configuration
       MEMU_OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b}
       MEMU_PROACTIVE_MODE: "${MEMU_PROACTIVE_MODE:-true}"
-      
+
       # Ollama endpoint
       OLLAMA_HOST: http://ollama:11434
-      
-      # OpenClaw
-      OPENCLAW_AUTH_TOKEN: ${OPENCLAW_AUTH_TOKEN:-your_secret_token_here}
-      
-      # Security
-      MEGABOT_AUTH_TOKEN: ${MEGABOT_AUTH_TOKEN:-your_megabot_token_here}
+
+      # OpenClaw — required, no default
+      OPENCLAW_AUTH_TOKEN: ${OPENCLAW_AUTH_TOKEN:?Set OPENCLAW_AUTH_TOKEN in .env}
+
+      # Security — required, no default
+      MEGABOT_AUTH_TOKEN: ${MEGABOT_AUTH_TOKEN:?Set MEGABOT_AUTH_TOKEN in .env}
       DEFAULT_POLICY: ${DEFAULT_POLICY:-prompt}
-      
+
       # Gateway options
       ENABLE_CLOUDFLARE: "${ENABLE_CLOUDFLARE:-false}"
       ENABLE_TAILSCALE: "${ENABLE_TAILSCALE:-false}"
-      
+
       # Search
       SEARXNG_URL: http://searxng:8080
-      
+
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       ollama:
         condition: service_started
       searxng:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2G
+        reservations:
+          memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
+# ── Networks ──────────────────────────────────────────────
+networks:
+  # Internal network — services communicate here, not exposed
+  internal:
+    driver: bridge
+    internal: true
+  # Frontend network — only megabot has ports exposed to host
+  frontend:
+    driver: bridge
+
+# ── Volumes ───────────────────────────────────────────────
 volumes:
   megabot_data:
     driver: local
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
   ollama_data:
     driver: local

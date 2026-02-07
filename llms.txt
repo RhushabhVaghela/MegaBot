@@ -1,6 +1,14 @@
-# MegaBot: Unified AI Orchestrator 🤖
+# MegaBot
 
-> MegaBot is a production-ready, local-first AI assistant that unifies the world's most powerful agentic frameworks into a single, secure, and modular brain.
+> MegaBot is a production-ready, local-first AI orchestrator that unifies OpenClaw, memU, and MCP into a single secure agentic brain with multi-channel messaging (Telegram, Discord, Signal, WhatsApp, Slack, WebSocket). All data stays local. All dangerous actions require human approval.
+
+- **Author**: Rhushabh Vaghela
+- **Repository**: https://github.com/RhushabhVaghela/MegaBot
+- **License**: MIT
+- **Language**: Python 3.12+
+- **Framework**: FastAPI, AsyncIO
+- **Version**: 1.0.0
+- **Last Updated**: 2026-02-07
 
 ## Quick Start
 

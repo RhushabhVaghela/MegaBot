@@ -47,9 +47,7 @@ async def test_orchestrator_redaction(mock_orchestrator):
     mock_orchestrator.computer_driver.execute = AsyncMock(
         side_effect=[
             # 1. Analyze finds sensitive regions
-            json.dumps(
-                {"sensitive_regions": [{"x": 10, "y": 10, "width": 100, "height": 20}]}
-            ),
+            json.dumps({"sensitive_regions": [{"x": 10, "y": 10, "width": 100, "height": 20}]}),
             # 2. Blur returns "redacted_data"
             "redacted_data",
             # 3. Verify pass finds NO sensitive regions
@@ -78,13 +76,12 @@ def test_ivr_callback():
     client = TestClient(current_app)
     # Patch the global orchestrator variable in the module
     with patch("core.orchestrator.orchestrator") as mock_orc:
-        with patch("fastapi.Request.form", new_callable=AsyncMock) as mock_form:
-            mock_orc.admin_handler._process_approval = AsyncMock()
-            mock_form.return_value = {"Digits": "1"}
+        with patch("core.app._validate_twilio_signature", return_value=True):
+            with patch("fastapi.Request.form", new_callable=AsyncMock) as mock_form:
+                mock_orc.admin_handler._process_approval = AsyncMock()
+                mock_form.return_value = {"Digits": "1"}
 
-            response = client.post("/ivr?action_id=test-id")
-            assert response.status_code == 200
-            assert "Action approved" in response.text
-            mock_orc.admin_handler._process_approval.assert_called_once_with(
-                "test-id", approved=True
-            )
+                response = client.post("/ivr?action_id=test-id")
+                assert response.status_code == 200
+                assert "Action approved" in response.text
+                mock_orc.admin_handler._process_approval.assert_called_once_with("test-id", approved=True)

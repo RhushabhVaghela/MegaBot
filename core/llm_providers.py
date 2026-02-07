@@ -1,12 +1,108 @@
 import os
+import asyncio
+import random
+import logging
 import aiohttp  # type: ignore
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Set
 from core.instrumentation import track_telemetry
+
+logger = logging.getLogger(__name__)
+
+# HTTP status codes that are safe to retry
+_RETRYABLE_STATUSES: Set[int] = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0  # seconds
 
 
 class LLMProvider(ABC):
+    """Abstract base class for all LLM providers."""
+
+    def __init__(self) -> None:
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create a persistent aiohttp session (connection pooling)."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self) -> None:
+        """Close the persistent HTTP session. Call on shutdown."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+
+    async def _request_with_retry(
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        json_payload: Optional[Dict[str, Any]] = None,
+        timeout: Optional[aiohttp.ClientTimeout] = None,
+    ) -> aiohttp.ClientResponse:
+        """Execute a POST request with exponential backoff retry on transient errors.
+
+        Returns the aiohttp response object. Caller is responsible for
+        checking status and reading the body.
+        """
+        session = self._get_session()
+        last_exc: Optional[Exception] = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                resp = await session.post(
+                    url,
+                    headers=headers,
+                    json=json_payload,
+                    timeout=timeout or aiohttp.ClientTimeout(total=60),
+                )
+                # Don't retry on success or non-retryable errors
+                if resp.status not in _RETRYABLE_STATUSES or attempt == _MAX_RETRIES:
+                    return resp
+
+                # Retryable status — read body to release connection, then retry
+                await resp.read()
+                retry_after = resp.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        delay = float(retry_after)
+                    except ValueError:
+                        delay = _BASE_DELAY * (2**attempt)
+                else:
+                    delay = _BASE_DELAY * (2**attempt)
+                delay += random.uniform(0, 0.5)  # jitter
+                logger.warning(
+                    "Retryable HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
+                    resp.status,
+                    url,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                last_exc = exc
+                if attempt == _MAX_RETRIES:
+                    raise
+                delay = _BASE_DELAY * (2**attempt) + random.uniform(0, 0.5)
+                logger.warning(
+                    "Request to %s failed (attempt %d/%d): %s, retrying in %.1fs",
+                    url,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        # Should not reach here, but satisfy type checker
+        raise last_exc or RuntimeError(
+            "Retry loop exited unexpectedly"
+        )  # pragma: no cover
+
     @abstractmethod
     @track_telemetry
     async def generate(
@@ -54,6 +150,7 @@ class OpenAICompatibleProvider(LLMProvider):
     """Base class for any provider that supports the OpenAI Chat Completions API format."""
 
     def __init__(self, model: str, api_key: Optional[str], base_url: str):
+        super().__init__()
         self.model = model
         self.api_key = api_key
         self.base_url = base_url
@@ -87,20 +184,21 @@ class OpenAICompatibleProvider(LLMProvider):
             payload["tools"] = tools
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.base_url,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        message = res_data["choices"][0]["message"]
-                        if message.get("tool_calls"):
-                            return message
-                        return message["content"]
-                    return f"{self.__class__.__name__} error: {resp.status} - {await resp.text()}"
+            resp = await self._request_with_retry(
+                self.base_url,
+                headers=headers,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=60),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                message = res_data["choices"][0]["message"]
+                if message.get("tool_calls"):
+                    return message
+                return message["content"]
+            return (
+                f"{self.__class__.__name__} error: {resp.status} - {await resp.text()}"
+            )
         except Exception as e:
             return f"{self.__class__.__name__} connection failed: {e}"
 
@@ -236,6 +334,7 @@ class VLLMProvider(OpenAICompatibleProvider):
 
 class OllamaProvider(LLMProvider):
     def __init__(self, model: str = "llama3", url: Optional[str] = None):
+        super().__init__()
         self.model = model
         self.url = url or os.environ.get(
             "OLLAMA_URL", "http://localhost:11434/api/generate"
@@ -262,14 +361,15 @@ class OllamaProvider(LLMProvider):
             "stream": False,
         }
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.url, json=payload, timeout=aiohttp.ClientTimeout(total=30)
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        return res_data.get("response", "No response from LLM")
-                    return f"Ollama error: {resp.status}"
+            resp = await self._request_with_retry(
+                self.url,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                return res_data.get("response", "No response from LLM")
+            return f"Ollama error: {resp.status}"
         except Exception as e:
             return f"Ollama connection failed: {e}"
 
@@ -278,6 +378,7 @@ class AnthropicProvider(LLMProvider):
     def __init__(
         self, model: str = "claude-3-5-sonnet-20240620", api_key: Optional[str] = None
     ):
+        super().__init__()
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
 
@@ -317,26 +418,26 @@ class AnthropicProvider(LLMProvider):
             payload["tools"] = tools
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        # Handle tool use in response
-                        if res_data.get("stop_reason") == "tool_use":
-                            return res_data["content"]
-                        return res_data["content"][0]["text"]
-                    return f"Anthropic error: {resp.status}"
+            resp = await self._request_with_retry(
+                url,
+                headers=headers,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                # Handle tool use in response
+                if res_data.get("stop_reason") == "tool_use":
+                    return res_data["content"]
+                return res_data["content"][0]["text"]
+            return f"Anthropic error: {resp.status}"
         except Exception as e:
             return f"Anthropic connection failed: {e}"
 
 
 class GeminiProvider(LLMProvider):
     def __init__(self, model: str = "gemini-1.5-pro", api_key: Optional[str] = None):
+        super().__init__()
         self.model = model
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
 
@@ -351,8 +452,12 @@ class GeminiProvider(LLMProvider):
         if not self.api_key:
             return "Gemini API key missing"
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        headers = {"Content-Type": "application/json"}
+        # VULN-010 fix: send API key via header, not query string
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
 
         contents = []
         if messages:
@@ -375,25 +480,24 @@ class GeminiProvider(LLMProvider):
             payload["tools"] = [{"functionDeclarations": tools}]
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        candidates = res_data.get("candidates", [])
-                        if candidates:
-                            content = candidates[0].get("content", {})
-                            parts = content.get("parts", [])
-                            if parts:
-                                if "functionCall" in parts[0]:
-                                    return parts  # Return full parts for tool handling
-                                return parts[0].get("text", "No text in response")
-                        return "No candidates in Gemini response"
-                    return f"Gemini error: {resp.status}"
+            resp = await self._request_with_retry(
+                url,
+                headers=headers,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                candidates = res_data.get("candidates", [])
+                if candidates:
+                    content = candidates[0].get("content", {})
+                    parts = content.get("parts", [])
+                    if parts:
+                        if "functionCall" in parts[0]:
+                            return parts  # Return full parts for tool handling
+                        return parts[0].get("text", "No text in response")
+                return "No candidates in Gemini response"
+            return f"Gemini error: {resp.status}"
         except Exception as e:
             return f"Gemini connection failed: {e}"
 
@@ -451,20 +555,19 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             payload["tools"] = tools
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.base_url,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        message = res_data["choices"][0]["message"]
-                        if message.get("tool_calls"):
-                            return message
-                        return message["content"]
-                    return f"OpenRouter error: {resp.status} - {await resp.text()}"
+            resp = await self._request_with_retry(
+                self.base_url,
+                headers=headers,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=60),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                message = res_data["choices"][0]["message"]
+                if message.get("tool_calls"):
+                    return message
+                return message["content"]
+            return f"OpenRouter error: {resp.status} - {await resp.text()}"
         except Exception as e:
             return f"OpenRouter connection failed: {e}"
 
@@ -515,20 +618,19 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
             payload["tools"] = tools
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.base_url,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        message = res_data["choices"][0]["message"]
-                        if message.get("tool_calls"):
-                            return message
-                        return message["content"]
-                    return f"GitHub Copilot error: {resp.status} - {await resp.text()}"
+            resp = await self._request_with_retry(
+                self.base_url,
+                headers=headers,
+                json_payload=payload,
+                timeout=aiohttp.ClientTimeout(total=60),
+            )
+            if resp.status == 200:
+                res_data = await resp.json()
+                message = res_data["choices"][0]["message"]
+                if message.get("tool_calls"):
+                    return message
+                return message["content"]
+            return f"GitHub Copilot error: {resp.status} - {await resp.text()}"
         except Exception as e:
             return f"GitHub Copilot connection failed: {e}"
 

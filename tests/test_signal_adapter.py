@@ -45,16 +45,12 @@ class TestSignalDataClasses:
         assert a.content_type == "t"
 
     def test_signal_quote(self):
-        q = SignalQuote.from_dict(
-            {"id": 1, "author": "a", "text": "t", "attachments": [{"id": "1"}]}
-        )
+        q = SignalQuote.from_dict({"id": 1, "author": "a", "text": "t", "attachments": [{"id": "1"}]})
         assert q.id == 1
         assert len(q.attachments) == 1
 
     def test_signal_reaction(self):
-        r = SignalReaction.from_dict(
-            {"emoji": "e", "targetAuthor": "a", "targetTimestamp": 1}
-        )
+        r = SignalReaction.from_dict({"emoji": "e", "targetAuthor": "a", "targetTimestamp": 1})
         assert r.emoji == "e"
 
     def test_signal_message_full_data(self):
@@ -144,9 +140,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_initialize_socket(self, adapter):
         with (
-            patch.object(
-                adapter, "_start_daemon", new_callable=AsyncMock
-            ) as mock_daemon,
+            patch.object(adapter, "_start_daemon", new_callable=AsyncMock) as mock_daemon,
             patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc,
         ):
             # Mock successful RPC calls for load operations
@@ -170,9 +164,7 @@ class TestSignalAdapter:
     async def test_initialize_stdout(self, adapter):
         adapter.receive_mode = "stdout"
         with (
-            patch.object(
-                adapter, "_start_receive_process", new_callable=AsyncMock
-            ) as mock_recv,
+            patch.object(adapter, "_start_receive_process", new_callable=AsyncMock) as mock_recv,
             patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc,
         ):
             # Mock successful RPC calls
@@ -245,9 +237,7 @@ class TestSignalAdapter:
             "adapters.signal_adapter.SignalMessage.from_dict",
             side_effect=Exception("error"),
         ):
-            await adapter._handle_message(
-                {"dataMessage": {}}
-            )  # Should log error and not crash
+            await adapter._handle_message({"dataMessage": {}})  # Should log error and not crash
 
     @pytest.mark.asyncio
     async def test_to_platform_message(self, adapter):
@@ -290,13 +280,9 @@ class TestSignalAdapter:
         mock_writer.close = MagicMock()
         mock_writer.wait_closed = AsyncMock()
 
-        mock_reader.readline.return_value = (
-            json.dumps({"result": "ok"}).encode() + b"\n"
-        )
+        mock_reader.readline.return_value = json.dumps({"result": "ok"}).encode() + b"\n"
 
-        with patch(
-            "asyncio.open_unix_connection", return_value=(mock_reader, mock_writer)
-        ):
+        with patch("asyncio.open_unix_connection", return_value=(mock_reader, mock_writer)):
             res = await adapter._send_socket_rpc("m", {})
             assert res == "ok"
 
@@ -306,9 +292,7 @@ class TestSignalAdapter:
 
         # Empty response case
         mock_reader.readline.return_value = b""
-        with patch(
-            "asyncio.open_unix_connection", return_value=(mock_reader, mock_writer)
-        ):
+        with patch("asyncio.open_unix_connection", return_value=(mock_reader, mock_writer)):
             res = await adapter._send_socket_rpc("m", {})
             assert res is None
 
@@ -325,24 +309,18 @@ class TestSignalAdapter:
 
         adapter.process.stdout = AsyncMock()
 
-        adapter.process.stdout.readline.return_value = (
-            json.dumps({"result": "ok"}).encode() + b"\n"
-        )
+        adapter.process.stdout.readline.return_value = json.dumps({"result": "ok"}).encode() + b"\n"
 
         res = await adapter._send_stdout_rpc("m", {})
         assert res == "ok"
 
     @pytest.mark.asyncio
     async def test_send_message_full(self, adapter):
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = {"envelopeId": "e"}
 
             # With all params
-            res = await adapter.send_message(
-                "r", "m", quote_message_id="q_123", mentions=["m"], attachments=["a"]
-            )
+            res = await adapter.send_message("r", "m", quote_message_id="q_123", mentions=["m"], attachments=["a"])
             assert res == "e"
             assert mock_rpc.call_count == 1
 
@@ -356,9 +334,7 @@ class TestSignalAdapter:
 
     @pytest.mark.asyncio
     async def test_group_methods(self, adapter):
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = {"id": "gid"}
 
             # Create
@@ -367,10 +343,7 @@ class TestSignalAdapter:
 
             # Update
             mock_rpc.return_value = True
-            assert (
-                await adapter.update_group("gid", name="new", members_to_add=["m2"])
-                is True
-            )
+            assert await adapter.update_group("gid", name="new", members_to_add=["m2"]) is True
 
             # Leave
             assert await adapter.leave_group("gid") is True
@@ -388,14 +361,10 @@ class TestSignalAdapter:
 
     @pytest.mark.asyncio
     async def test_send_reaction(self, adapter):
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
-            result = await adapter.send_reaction(
-                "recipient", "👍", "author", 1234567890
-            )
+            result = await adapter.send_reaction("recipient", "👍", "author", 1234567890)
             assert result is True
             mock_rpc.assert_called_once_with(
                 "react",
@@ -409,25 +378,17 @@ class TestSignalAdapter:
 
             # Test failure
             mock_rpc.return_value = None
-            assert (
-                await adapter.send_reaction("recipient", "👍", "author", 1234567890)
-                is False
-            )
+            assert await adapter.send_reaction("recipient", "👍", "author", 1234567890) is False
 
             # Test exception
             mock_rpc.side_effect = Exception("error")
-            assert (
-                await adapter.send_reaction("recipient", "👍", "author", 1234567890)
-                is False
-            )
+            assert await adapter.send_reaction("recipient", "👍", "author", 1234567890) is False
             # Should filter out invalid IDs and send valid ones
 
     @pytest.mark.asyncio
     async def test_create_group_cache_update(self, adapter):
         """Test group creation and cache update"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = {"id": "new_group_id", "name": "Test Group"}
 
             group = await adapter.create_group("Test Group", ["+123"])
@@ -437,9 +398,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_load_groups_cache_update(self, adapter):
         """Test loading groups and cache population"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = [
                 {"id": "g1", "name": "Group 1"},
                 {"id": "g2", "name": "Group 2"},
@@ -453,9 +412,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_load_contacts_duplicate_handling(self, adapter):
         """Test loading contacts with duplicates"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = [
                 {"number": "+123"},
                 {"number": "+456"},
@@ -470,9 +427,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_block_unblock_cache_management(self, adapter):
         """Test blocking/unblocking and cache updates"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             # Test blocking
@@ -571,15 +526,11 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_receipt(self, adapter):
         """Test sending delivery/read receipts"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             # Test successful receipt
-            result = await adapter.send_receipt(
-                "+1234567890", ["signal_123", "signal_456"], "read"
-            )
+            result = await adapter.send_receipt("+1234567890", ["signal_123", "signal_456"], "read")
             assert result is True
             mock_rpc.assert_called_once_with(
                 "sendReceipt",
@@ -597,9 +548,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_add_contact_exception_handling(self, adapter):
         """Test add_contact exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.add_contact("+999", "Test Contact")
@@ -610,9 +559,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_block_contact_exception_handling(self, adapter):
         """Test block_contact exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.block_contact("+999")
@@ -623,9 +570,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_unblock_contact_exception_handling(self, adapter):
         """Test unblock_contact exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.unblock_contact("+999")
@@ -634,9 +579,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_register_exception_handling(self, adapter):
         """Test register exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.register(voice=True)
@@ -645,9 +588,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_verify_exception_handling(self, adapter):
         """Test verify exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.verify("123456")
@@ -656,14 +597,10 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_profile(self, adapter):
         """Test profile updates"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
-            result = await adapter.send_profile(
-                name="Test Bot", avatar_path="/tmp/avatar.jpg", about="Test bot"
-            )
+            result = await adapter.send_profile(name="Test Bot", avatar_path="/tmp/avatar.jpg", about="Test bot")
             assert result is True
             mock_rpc.assert_called_once_with(
                 "updateProfile",
@@ -678,16 +615,12 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_upload_attachment(self, adapter):
         """Test attachment uploads"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = "attachment_123"
 
             result = await adapter.upload_attachment("/tmp/test.jpg")
             assert result == "attachment_123"
-            mock_rpc.assert_called_once_with(
-                "uploadAttachment", {"file": "/tmp/test.jpg"}
-            )
+            mock_rpc.assert_called_once_with("uploadAttachment", {"file": "/tmp/test.jpg"})
 
     @pytest.mark.asyncio
     async def test_send_note_to_self(self, adapter):
@@ -702,16 +635,12 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_mark_read(self, adapter):
         """Test marking messages as read"""
-        with patch.object(
-            adapter, "send_receipt", new_callable=AsyncMock
-        ) as mock_receipt:
+        with patch.object(adapter, "send_receipt", new_callable=AsyncMock) as mock_receipt:
             mock_receipt.return_value = True
 
             result = await adapter.mark_read(["msg_1", "msg_2"])
             assert result is True
-            mock_receipt.assert_called_once_with(
-                recipient="+123", message_ids=["msg_1", "msg_2"], receipt_type="read"
-            )
+            mock_receipt.assert_called_once_with(recipient="+123", message_ids=["msg_1", "msg_2"], receipt_type="read")
 
     @pytest.mark.asyncio
     async def test_signal_message_types_read_delivered_session_reset(self):
@@ -756,9 +685,7 @@ class TestSignalAdapter:
         mock_process.returncode = None
         mock_process.communicate = AsyncMock(return_value=(b"", b""))
 
-        with patch(
-            "asyncio.create_subprocess_exec", return_value=mock_process
-        ) as mock_create:
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_create:
             await adapter._start_daemon()
 
             # Verify subprocess was created with correct args
@@ -784,15 +711,13 @@ class TestSignalAdapter:
         """Test _start_receive_process method"""
         mock_process = MagicMock()
         mock_process.returncode = None
-        
+
         # Mock stdout as AsyncMock and ensure readline returns empty bytes to stop the task
         mock_stdout = AsyncMock()
         mock_stdout.readline = AsyncMock(return_value=b"")  # Return empty bytes to stop reading
         mock_process.stdout = mock_stdout
-        
-        with patch(
-            "asyncio.create_subprocess_exec", return_value=mock_process
-        ) as mock_create:
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_create:
             await adapter._start_receive_process()
 
             # Verify subprocess was created with correct args
@@ -807,7 +732,7 @@ class TestSignalAdapter:
 
             # Verify reader task was created
             assert adapter.reader_task is not None
-            
+
             # Clean up the task to prevent it from running in background
             if adapter.reader_task and not adapter.reader_task.done():
                 adapter.reader_task.cancel()
@@ -825,8 +750,7 @@ class TestSignalAdapter:
 
         # First call returns data, second returns empty (EOF)
         mock_stdout.readline.side_effect = [
-            json.dumps({"envelopeId": "1", "dataMessage": {"message": "test"}}).encode()
-            + b"\n",
+            json.dumps({"envelopeId": "1", "dataMessage": {"message": "test"}}).encode() + b"\n",
             b"",
         ]
 
@@ -834,9 +758,7 @@ class TestSignalAdapter:
         adapter.process.stdout = mock_stdout
 
         # Mock _handle_message to avoid full processing
-        with patch.object(
-            adapter, "_handle_message", new_callable=AsyncMock
-        ) as mock_handle:
+        with patch.object(adapter, "_handle_message", new_callable=AsyncMock) as mock_handle:
             await adapter._read_messages()
 
             # Verify message was handled
@@ -848,9 +770,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_update_group_full_params(self, adapter):
         """Test update_group with all parameters"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             result = await adapter.update_group(
@@ -882,9 +802,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_leave_group_error_handling(self, adapter):
         """Test leave_group with error handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             result = await adapter.leave_group("test_group")
@@ -899,9 +817,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_get_group_exception_handling(self, adapter):
         """Test get_group exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.get_group("test_group")
@@ -910,9 +826,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_load_groups_and_contacts_rpc_calls(self, adapter):
         """Test _load_groups and _load_contacts RPC calls"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             # Test _load_groups
             mock_rpc.return_value = [
                 {"id": "g1", "name": "Group 1"},
@@ -932,9 +846,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_add_contact_cache_update(self, adapter):
         """Test add_contact cache update"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             result = await adapter.add_contact("+999", "New Contact")
@@ -950,9 +862,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_block_unblock_contact_cache_updates(self, adapter):
         """Test block_contact and unblock_contact cache updates"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             # Test block
@@ -968,9 +878,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_register_verify_rpc_calls(self, adapter):
         """Test register and verify RPC calls"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             # Test register with voice
@@ -986,14 +894,10 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_profile_rpc_call(self, adapter):
         """Test send_profile RPC call"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
-            result = await adapter.send_profile(
-                name="Bot Name", avatar_path="/tmp/avatar.png", about="Bot description"
-            )
+            result = await adapter.send_profile(name="Bot Name", avatar_path="/tmp/avatar.png", about="Bot description")
             assert result is True
             mock_rpc.assert_called_with(
                 "updateProfile",
@@ -1008,9 +912,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_profile_exception_handling(self, adapter):
         """Test send_profile exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.send_profile(name="Test Bot")
@@ -1019,9 +921,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_upload_attachment_exception_handling(self, adapter):
         """Test upload_attachment exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc"
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc") as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.upload_attachment("/tmp/test.jpg")
@@ -1044,9 +944,7 @@ class TestSignalAdapter:
             assert result is None  # Should return None on exception
 
         # Test general exception
-        with patch.object(
-            adapter, "_to_platform_message", side_effect=Exception("conversion error")
-        ):
+        with patch.object(adapter, "_to_platform_message", side_effect=Exception("conversion error")):
             webhook_data = {
                 "envelopeId": "webhook_456",
                 "dataMessage": {"message": "test"},
@@ -1060,9 +958,7 @@ class TestSignalAdapter:
         """Test _send_json_rpc mode selection"""
         # Test socket mode
         adapter.receive_mode = "socket"
-        with patch.object(
-            adapter, "_send_socket_rpc", new_callable=AsyncMock
-        ) as mock_socket:
+        with patch.object(adapter, "_send_socket_rpc", new_callable=AsyncMock) as mock_socket:
             mock_socket.return_value = "socket_result"
             result = await adapter._send_json_rpc("test", {})
             assert result == "socket_result"
@@ -1070,9 +966,7 @@ class TestSignalAdapter:
 
         # Test stdout mode
         adapter.receive_mode = "stdout"
-        with patch.object(
-            adapter, "_send_stdout_rpc", new_callable=AsyncMock
-        ) as mock_stdout:
+        with patch.object(adapter, "_send_stdout_rpc", new_callable=AsyncMock) as mock_stdout:
             mock_stdout.return_value = "stdout_result"
             result = await adapter._send_json_rpc("test", {})
             assert result == "stdout_result"
@@ -1095,15 +989,11 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_message_quote_parsing_errors(self, adapter):
         """Test send_message quote parsing with invalid inputs"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = {"envelopeId": "quote_test"}
 
             # Test with invalid quote ID (no underscore)
-            result = await adapter.send_message(
-                "recipient", "message", quote_message_id="invalid_quote_id"
-            )
+            result = await adapter.send_message("recipient", "message", quote_message_id="invalid_quote_id")
             assert result == "quote_test"
             # Should not have quote parameter
             call_args = mock_rpc.call_args[0]
@@ -1111,9 +1001,7 @@ class TestSignalAdapter:
             assert "quote" not in params
 
             # Test with malformed quote ID
-            result = await adapter.send_message(
-                "recipient", "message", quote_message_id="signal_abc"
-            )
+            result = await adapter.send_message("recipient", "message", quote_message_id="signal_abc")
             assert result == "quote_test"
             # Should not have quote parameter due to ValueError
             call_args = mock_rpc.call_args[0]
@@ -1123,14 +1011,10 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_reaction_full_method(self, adapter):
         """Test send_reaction full method execution"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
-            result = await adapter.send_reaction(
-                "recipient", "😊", "author", 1234567890
-            )
+            result = await adapter.send_reaction("recipient", "😊", "author", 1234567890)
             assert result is True
 
             mock_rpc.assert_called_once_with(
@@ -1146,28 +1030,22 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_send_receipt_timestamp_parsing_errors(self, adapter):
         """Test send_receipt timestamp parsing with invalid message IDs"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.return_value = True
 
             # Test with invalid message IDs (no numbers after underscore)
-            result = await adapter.send_receipt(
-                "recipient", ["invalid_msg", "another_invalid"], "read"
-            )
+            result = await adapter.send_receipt("recipient", ["invalid_msg", "another_invalid"], "read")
             assert result is True
-            
+
             # Verify timestamps list is empty due to parsing failures
             call_args = mock_rpc.call_args[0]
             params = call_args[1]
             assert params["timestamps"] == []
 
             # Test with malformed message IDs
-            result = await adapter.send_receipt(
-                "recipient", ["signal_abc", "signal_xyz"], "read"
-            )
+            result = await adapter.send_receipt("recipient", ["signal_abc", "signal_xyz"], "read")
             assert result is True
-            
+
             # Should have empty timestamps due to ValueError/IndexError
             call_args = mock_rpc.call_args[0]
             params = call_args[1]
@@ -1176,9 +1054,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_update_group_exception_handling(self, adapter):
         """Test update_group exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.update_group("test_group", name="New Name")
@@ -1187,9 +1063,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_leave_group_exception_handling(self, adapter):
         """Test leave_group exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.leave_group("test_group")
@@ -1208,9 +1082,7 @@ class TestSignalAdapter:
         adapter.register_receipt_handler(re_handler)
 
         # Test message handler exception
-        await adapter._handle_message(
-            {"envelopeId": "1", "dataMessage": {"message": "test"}}
-        )
+        await adapter._handle_message({"envelopeId": "1", "dataMessage": {"message": "test"}})
 
         # Test typing handler exception
         await adapter._handle_message({"typing": {}})
@@ -1227,9 +1099,7 @@ class TestSignalAdapter:
     async def test_initialize_load_exceptions(self, adapter):
         """Test initialize with load method exceptions"""
         with (
-            patch.object(
-                adapter, "_start_daemon", new_callable=AsyncMock
-            ) as mock_daemon,
+            patch.object(adapter, "_start_daemon", new_callable=AsyncMock) as mock_daemon,
             patch.object(
                 adapter,
                 "_load_groups",
@@ -1257,17 +1127,14 @@ class TestSignalAdapter:
         # First call returns invalid JSON, second returns valid data, third returns empty
         mock_stdout.readline.side_effect = [
             b"invalid json\n",
-            json.dumps({"envelopeId": "2", "dataMessage": {"message": "test"}}).encode()
-            + b"\n",
+            json.dumps({"envelopeId": "2", "dataMessage": {"message": "test"}}).encode() + b"\n",
             b"",
         ]
 
         adapter.process = MagicMock()
         adapter.process.stdout = mock_stdout
 
-        with patch.object(
-            adapter, "_handle_message", new_callable=AsyncMock
-        ) as mock_handle:
+        with patch.object(adapter, "_handle_message", new_callable=AsyncMock) as mock_handle:
             await adapter._read_messages()
 
             # Should have handled the valid message despite the invalid JSON
@@ -1289,6 +1156,7 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_register_error_handler_coverage(self, adapter):
         """Test register_error_handler method"""
+
         def test_handler(error):
             pass
 
@@ -1326,10 +1194,63 @@ class TestSignalAdapter:
     @pytest.mark.asyncio
     async def test_create_group_exception_handling(self, adapter):
         """Test create_group exception handling"""
-        with patch.object(
-            adapter, "_send_json_rpc", new_callable=AsyncMock
-        ) as mock_rpc:
+        with patch.object(adapter, "_send_json_rpc", new_callable=AsyncMock) as mock_rpc:
             mock_rpc.side_effect = Exception("RPC error")
 
             result = await adapter.create_group("Test Group", ["+111", "+222"])
             assert result is None
+
+
+@pytest.mark.asyncio
+async def test_signal_adapter_gaps_more():
+    adapter = SignalAdapter(phone_number="+1", socket_path="/tmp/sig")
+    adapter.process = MagicMock()
+    adapter.process.stdout.readline = AsyncMock(side_effect=asyncio.CancelledError)
+    await adapter._read_messages()
+
+    # 1. _send_socket_rpc exception (510-512)
+    adapter.receive_mode = "socket"
+    with patch("asyncio.open_unix_connection", side_effect=Exception("Socket fail")):
+        assert await adapter._send_json_rpc("method", {}) is None
+
+    # 2. send_receipt exception (654-656)
+    with patch.object(adapter, "_send_json_rpc", side_effect=Exception("Receipt fail")):
+        assert await adapter.send_receipt("recipient", ["msg_1"]) is False
+
+    # 3. create_group returns None (698)
+    with patch.object(adapter, "_send_json_rpc", AsyncMock(return_value=None)):
+        assert await adapter.create_group("name", ["+1"]) is None
+
+    # 4. get_group result check (786-789)
+    with patch.object(
+        adapter,
+        "_send_json_rpc",
+        AsyncMock(return_value={"id": "new_g1", "name": "G1", "members": []}),
+    ):
+        group = await adapter.get_group("new_g1")
+        assert group.id == "new_g1"
+
+    # 5. _load_groups exception (802-803)
+    with patch.object(adapter, "_send_json_rpc", side_effect=Exception("Load fail")):
+        await adapter._load_groups()
+
+    # 6. _load_contacts exception (813-814)
+    with patch.object(adapter, "_send_json_rpc", side_effect=Exception("Load fail")):
+        await adapter._load_contacts()
+
+    assert adapter._generate_id() is not None
+
+    from adapters.signal_adapter import main as signal_main
+
+    with (
+        patch(
+            "adapters.signal_adapter.SignalAdapter.initialize",
+            AsyncMock(return_value=True),
+        ),
+        patch("adapters.signal_adapter.SignalAdapter.send_message", AsyncMock()),
+        patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),
+    ):
+        try:
+            await signal_main()
+        except asyncio.CancelledError:
+            pass

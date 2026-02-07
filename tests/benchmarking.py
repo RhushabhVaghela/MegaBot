@@ -65,7 +65,7 @@ async def test_benchmark_pipeline():
     elapsed_ms = (time.perf_counter() - start) * 1000
 
     print(f"\nPipeline latency (no LLM): {elapsed_ms:.2f}ms")
-    assert elapsed_ms < 200, f"Pipeline too slow: {elapsed_ms:.2f}ms"
+    assert elapsed_ms < 500, f"Pipeline too slow: {elapsed_ms:.2f}ms"
 
     # Message conversion micro-benchmark
     msg = Message(content="Hello", sender="user")

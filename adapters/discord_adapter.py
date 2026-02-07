@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from unittest.mock import Mock, MagicMock
 
+from core.resource_guard import LRUCache
+
 try:
     import discord
     from discord import Embed, File
@@ -83,10 +85,7 @@ class DiscordMessage:
                 for a in message.attachments
             ],
             mentions=[str(m) for m in message.mentions],
-            reactions=[
-                {"emoji": str(r.emoji), "count": r.count, "me": r.me}
-                for r in message.reactions
-            ],
+            reactions=[{"emoji": str(r.emoji), "count": r.count, "me": r.me} for r in message.reactions],
             is_dm=False,  # For mocking purposes, assume not DM
         )
 
@@ -140,7 +139,7 @@ class DiscordAdapter(PlatformAdapter):
         self.tree = discord.app_commands.CommandTree(self.bot)
 
         self.is_initialized = False
-        self.message_cache: Dict[str, Dict[str, Any]] = {}
+        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
 
         self.message_handlers: List[Callable] = []
         self.reaction_handlers: List[Callable] = []
@@ -237,20 +236,11 @@ class DiscordAdapter(PlatformAdapter):
         msg_type = MessageType.TEXT
 
         if message.attachments:
-            if any(
-                a.content_type and a.content_type.startswith("image/")
-                for a in message.attachments
-            ):
+            if any(a.content_type and a.content_type.startswith("image/") for a in message.attachments):
                 msg_type = MessageType.IMAGE
-            elif any(
-                a.content_type and a.content_type.startswith("video/")
-                for a in message.attachments
-            ):
+            elif any(a.content_type and a.content_type.startswith("video/") for a in message.attachments):
                 msg_type = MessageType.VIDEO
-            elif any(
-                a.content_type and a.content_type.startswith("audio/")
-                for a in message.attachments
-            ):
+            elif any(a.content_type and a.content_type.startswith("audio/") for a in message.attachments):
                 msg_type = MessageType.AUDIO
             else:
                 msg_type = MessageType.DOCUMENT
@@ -284,10 +274,7 @@ class DiscordAdapter(PlatformAdapter):
                 "discord_author_id": message.author.id,
                 "discord_timestamp": message.created_at.isoformat(),
                 "discord_mentions": [str(m) for m in message.mentions],
-                "discord_reactions": [
-                    {"emoji": str(r.emoji), "count": r.count, "me": r.me}
-                    for r in message.reactions
-                ],
+                "discord_reactions": [{"emoji": str(r.emoji), "count": r.count, "me": r.me} for r in message.reactions],
                 "discord_embeds": [embed.to_dict() for embed in message.embeds],
                 "discord_attachments": [
                     {
@@ -298,8 +285,7 @@ class DiscordAdapter(PlatformAdapter):
                     }
                     for a in message.attachments
                 ],
-                "is_dm": hasattr(message.channel, "type")
-                and str(getattr(message.channel, "type", "")).lower() == "dm",
+                "is_dm": hasattr(message.channel, "type") and str(getattr(message.channel, "type", "")).lower() == "dm",
             },
         )
 
@@ -497,9 +483,7 @@ class DiscordAdapter(PlatformAdapter):
                 "position": getattr(channel, "position", None),
                 "nsfw": getattr(channel, "nsfw", False),
                 "topic": getattr(channel, "topic", None),
-                "created_at": channel.created_at.isoformat()
-                if channel.created_at
-                else None,
+                "created_at": channel.created_at.isoformat() if channel.created_at else None,
             }
 
             if hasattr(channel, "guild") and channel.guild:
@@ -688,9 +672,7 @@ class DiscordAdapter(PlatformAdapter):
         """Register an error handler"""
         self.error_handlers.append(handler)
 
-    async def send_text(
-        self, chat_id: str, text: str, reply_to: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
         """Send text message to Discord channel."""
         try:
             message = await self.send_message(chat_id, text)
@@ -724,9 +706,7 @@ class DiscordAdapter(PlatformAdapter):
         self, chat_id: str, document_path: str, caption: Optional[str] = None
     ) -> Optional[PlatformMessage]:
         """Send document to Discord channel."""
-        return await self.send_media(
-            chat_id, document_path, caption, MessageType.DOCUMENT
-        )
+        return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
         """Download media from Discord message."""
@@ -748,9 +728,7 @@ class DiscordAdapter(PlatformAdapter):
         """Add a slash command"""
         self.tree.add_command(command)
 
-    async def handle_webhook(
-        self, webhook_data: Dict[str, Any]
-    ) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Optional[PlatformMessage]:
         """
         Handle incoming webhook data (for when Discord sends webhooks).
 

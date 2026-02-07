@@ -6,7 +6,7 @@ Target: raise coverage from 19% to ~95%+.
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from features.dash_data.agent import DashDataAgent
 
@@ -204,9 +204,7 @@ class TestExecutePythonAnalysis:
     @pytest.mark.asyncio
     async def test_permission_denied(self, agent_with_orchestrator):
         """When is_authorized returns False, execution is denied."""
-        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = (
-            False
-        )
+        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = False
         agent_with_orchestrator.datasets["ds"] = [{"a": 1}]
 
         result = await agent_with_orchestrator.execute_python_analysis("ds", "pass")
@@ -216,33 +214,23 @@ class TestExecutePythonAnalysis:
     @pytest.mark.asyncio
     async def test_permission_ask_queued(self, agent_with_orchestrator):
         """When is_authorized returns 'ask', the action is queued for approval."""
-        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = (
-            "ask"
-        )
+        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = "ask"
         agent_with_orchestrator.orchestrator.approval_queue = []
         agent_with_orchestrator.datasets["ds"] = [{"a": 1}]
 
-        result = await agent_with_orchestrator.execute_python_analysis(
-            "ds", "result = 42"
-        )
+        result = await agent_with_orchestrator.execute_python_analysis("ds", "result = 42")
 
         assert "queued for approval" in result
-        assert (
-            len(agent_with_orchestrator.orchestrator.admin_handler.approval_queue) == 1
-        )
+        assert len(agent_with_orchestrator.orchestrator.admin_handler.approval_queue) == 1
 
     @pytest.mark.asyncio
     async def test_permission_none_queued(self, agent_with_orchestrator):
         """When is_authorized returns None, the action is queued for approval."""
-        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = (
-            None
-        )
+        agent_with_orchestrator.orchestrator.permissions.is_authorized.return_value = None
         agent_with_orchestrator.orchestrator.approval_queue = []
         agent_with_orchestrator.datasets["ds"] = [{"a": 1}]
 
-        result = await agent_with_orchestrator.execute_python_analysis(
-            "ds", "result = 42"
-        )
+        result = await agent_with_orchestrator.execute_python_analysis("ds", "result = 42")
 
         assert "queued for approval" in result
 
@@ -260,9 +248,7 @@ class TestExecutePythonAnalysis:
         """Code that sets 'result' returns that value."""
         agent.datasets["ds"] = [{"val": 10}, {"val": 20}]
 
-        result = await agent.execute_python_analysis(
-            "ds", "result = sum(int(r['val']) for r in data)"
-        )
+        result = await agent.execute_python_analysis("ds", "result = sum(int(r['val']) for r in data)")
 
         assert result == "30"
 
@@ -282,7 +268,126 @@ class TestExecutePythonAnalysis:
         """Code that raises an exception returns an error message."""
         agent.datasets["ds"] = [{"a": 1}]
 
-        result = await agent.execute_python_analysis("ds", "raise ValueError('boom')")
+        # Use a plain raise with a string expression (ValueError was removed
+        # from safe builtins to prevent __traceback__ frame escape attacks).
+        result = await agent.execute_python_analysis("ds", "x = 1 / 0")
 
         assert "Python execution error" in result
-        assert "boom" in result
+        assert "division by zero" in result
+
+
+# ---------------------------------------------------------------------------
+# Blocked pattern detection (from test_coverage_phase4.py)
+# ---------------------------------------------------------------------------
+
+
+class TestDashDataBlockedPatterns:
+    """Cover features/dash_data/agent.py line 230."""
+
+    @pytest.fixture
+    def agent(self):
+        llm = AsyncMock(spec=[])
+        llm.generate = AsyncMock(return_value="result")
+        a = DashDataAgent(llm=llm)
+        # Pre-load a dataset so execute_python_analysis doesn't bail early
+        a.datasets["test_ds"] = [{"x": 1}, {"x": 2}]
+        return a
+
+    @pytest.mark.asyncio
+    async def test_blocked_import_os(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "import os\nos.listdir()")
+        assert "Blocked pattern" in res
+        assert "import" in res.lower()
+
+    @pytest.mark.asyncio
+    async def test_blocked_eval(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "eval('1+1')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_exec(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "exec('x=1')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_subprocess(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "import subprocess\nsubprocess.run(['ls'])")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_open(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "f = open('/etc/passwd')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_getattr(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "getattr(data, '__class__')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_compile(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "compile('1+1', '<str>', 'eval')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_dunder_import(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "__import__('os')")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_importlib(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "import importlib")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_sys_dot(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "import sys\nsys.exit()")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_subclasses(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "''.__class__.__subclasses__()")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_globals_dunder(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "print(__globals__)")
+        assert "Blocked pattern" in res
+
+    @pytest.mark.asyncio
+    async def test_blocked_builtins_dunder(self, agent):
+        res = await agent.execute_python_analysis("test_ds", "print(__builtins__)")
+        assert "Blocked pattern" in res
+
+
+# ==============================================================
+# Round 3 — merged from test_coverage_round3.py
+# ==============================================================
+
+
+@pytest.mark.asyncio
+async def test_dash_data_stats_value_error():
+    """Lines 71-72: ValueError/TypeError in numeric conversion -> continue."""
+    agent = DashDataAgent.__new__(DashDataAgent)
+    agent.datasets = {}
+
+    agent.datasets["test"] = [
+        {"col_a": "123", "col_b": "hello"},
+        {"col_a": "456", "col_b": "world"},
+    ]
+
+    original_float = float
+
+    def patched_float(val):
+        if val in ("123", "456"):
+            raise ValueError("forced error for test")
+        return original_float(val)
+
+    with patch("builtins.float", side_effect=patched_float):
+        result = await agent.get_summary("test")
+
+    import json
+
+    parsed = json.loads(result)
+    assert parsed["name"] == "test"
+    assert parsed["total_records"] == 2

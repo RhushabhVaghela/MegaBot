@@ -1,10 +1,122 @@
+import ast
 import csv
 import json
 import logging
 from typing import Any, Dict, List, Union
 from core.llm_providers import LLMProvider
+from core.resource_guard import LRUCache
 
 logger = logging.getLogger("megabot.features.dash_data")
+
+# ---------------------------------------------------------------------------
+# AST-based sandbox validator
+# ---------------------------------------------------------------------------
+
+# Dunder attributes that enable sandbox escapes via class hierarchy traversal,
+# frame introspection, or code object manipulation.
+_BLOCKED_DUNDER_ATTRS = frozenset(
+    {
+        "__class__",
+        "__bases__",
+        "__mro__",
+        "__subclasses__",
+        "__dict__",
+        "__globals__",
+        "__code__",
+        "__builtins__",
+        "__import__",
+        "__loader__",
+        "__spec__",
+        "__init__",
+        "__new__",
+        "__del__",
+        "__getattr__",
+        "__setattr__",
+        "__delattr__",
+        "__traceback__",
+        "__cause__",
+        "__context__",
+        "__reduce__",
+        "__reduce_ex__",
+    }
+)
+
+# Function names that must never be called, even if somehow available.
+_BLOCKED_CALL_NAMES = frozenset(
+    {
+        "eval",
+        "exec",
+        "compile",
+        "open",
+        "getattr",
+        "setattr",
+        "delattr",
+        "__import__",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "breakpoint",
+        "input",
+        "memoryview",
+        "classmethod",
+        "staticmethod",
+        "property",
+        "super",
+        "type",
+    }
+)
+
+
+def _validate_ast(tree: ast.AST) -> str | None:
+    """Walk the AST and return an error message if unsafe nodes are found.
+
+    Returns ``None`` if the code is safe, otherwise a human-readable
+    error string describing the violation.
+    """
+    for node in ast.walk(tree):
+        # Block all import statements (import x, from x import y)
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = ", ".join(alias.name for alias in getattr(node, "names", []))
+            module = getattr(node, "module", None)
+            target = module or names
+            return f"Blocked pattern 'import' detected in code. Cannot import '{target}'."
+
+        # Block attribute access to dangerous dunder names
+        if isinstance(node, ast.Attribute):
+            if node.attr in _BLOCKED_DUNDER_ATTRS:
+                return f"Blocked pattern '{node.attr}' detected in code."
+            # Also block any attribute starting+ending with __ not in our
+            # known-safe set (belt-and-suspenders).
+            if node.attr.startswith("__") and node.attr.endswith("__"):
+                return f"Blocked pattern '{node.attr}' detected in code."
+
+        # Block calls to dangerous function names
+        if isinstance(node, ast.Call):
+            func = node.func
+            # Direct call: eval(...), exec(...), open(...), getattr(...)
+            if isinstance(func, ast.Name) and func.id in _BLOCKED_CALL_NAMES:
+                return f"Blocked pattern '{func.id}(' detected in code."
+            # Method call on module-like names: os.system(...), sys.exit(...)
+            if isinstance(func, ast.Attribute):
+                if isinstance(func.value, ast.Name):
+                    prefix = func.value.id
+                    if prefix in ("os", "sys", "subprocess", "importlib", "shutil"):
+                        return f"Blocked pattern '{prefix}.' detected in code."
+
+        # Block Name nodes referencing dunder globals
+        if isinstance(node, ast.Name):
+            if node.id in (
+                "__import__",
+                "__builtins__",
+                "__globals__",
+                "__code__",
+                "__loader__",
+                "__spec__",
+            ):
+                return f"Blocked pattern '{node.id}' detected in code."
+
+    return None
 
 
 class DashDataAgent:
@@ -16,7 +128,7 @@ class DashDataAgent:
     def __init__(self, llm: LLMProvider, orchestrator: Any = None):
         self.llm = llm
         self.orchestrator = orchestrator
-        self.datasets: Dict[str, Union[List[Dict[str, Any]], Dict[str, Any]]] = {}
+        self.datasets: LRUCache[str, Union[List[Dict[str, Any]], Dict[str, Any]]] = LRUCache(maxsize=64)
 
     async def load_data(self, name: str, file_path: str) -> str:
         """Load a dataset into memory from a local file."""
@@ -31,9 +143,7 @@ class DashDataAgent:
             else:
                 return f"Error: Unsupported file format for '{file_path}'. Use CSV or JSON."
 
-            count = (
-                len(self.datasets[name]) if isinstance(self.datasets[name], list) else 1
-            )
+            count = len(self.datasets[name]) if isinstance(self.datasets[name], list) else 1
             return f"Successfully loaded dataset '{name}' with {count} records."
         except Exception as e:
             logger.error(f"Failed to load dataset '{name}': {e}")
@@ -58,8 +168,7 @@ class DashDataAgent:
                 values = [
                     float(row[col])
                     for row in data
-                    if row.get(col) is not None
-                    and str(row[col]).replace(".", "", 1).isdigit()
+                    if row.get(col) is not None and str(row[col]).replace(".", "", 1).isdigit()
                 ]
                 if values:
                     stats[col] = {
@@ -127,9 +236,7 @@ class DashDataAgent:
                 import uuid
 
                 action_id = str(uuid.uuid4())
-                description = (
-                    f"Data Analysis (Python): Execute code on dataset '{name}'"
-                )
+                description = f"Data Analysis (Python): Execute code on dataset '{name}'"
 
                 # Check if we can queue it
                 if hasattr(self.orchestrator, "approval_queue"):
@@ -159,8 +266,22 @@ class DashDataAgent:
 
         data = self.datasets[name]
 
-        # --- Sandboxed execution ---
-        # Restrict builtins to a safe subset; block import, eval, exec, compile, open.
+        # --- Sandboxed execution with AST validation ---
+        # Step 1: Parse the code into an AST and validate it structurally.
+        # This replaces the old string-pattern blocklist which was bypassable
+        # via whitespace, string concatenation, and other trivial tricks.
+        try:
+            tree = ast.parse(python_code, mode="exec")
+        except SyntaxError as e:
+            return f"Python execution error: {e}"
+
+        validation_error = _validate_ast(tree)
+        if validation_error:
+            return f"Security Error: {validation_error}"
+
+        # Step 2: Restrict builtins to a safe subset.
+        # NOTE: 'type' is excluded (enables class hierarchy traversal).
+        # NOTE: Exception classes are excluded (enable __traceback__ frame escape).
         _SAFE_BUILTINS = {
             "abs": abs,
             "all": all,
@@ -187,52 +308,16 @@ class DashDataAgent:
             "str": str,
             "sum": sum,
             "tuple": tuple,
-            "type": type,
             "zip": zip,
             "True": True,
             "False": False,
             "None": None,
-            # Common exceptions needed for data analysis code
-            "Exception": Exception,
-            "ValueError": ValueError,
-            "TypeError": TypeError,
-            "KeyError": KeyError,
-            "IndexError": IndexError,
-            "RuntimeError": RuntimeError,
-            "ArithmeticError": ArithmeticError,
-            "ZeroDivisionError": ZeroDivisionError,
-            "StopIteration": StopIteration,
-            "AttributeError": AttributeError,
         }
         sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
         local_vars = {"data": data, "result": None}
 
-        # Block obvious escape attempts in source
-        _BLOCKED_PATTERNS = [
-            "__import__",
-            "importlib",
-            "subprocess",
-            "os.",
-            "sys.",
-            "open(",
-            "eval(",
-            "exec(",
-            "compile(",
-            "getattr(",
-            "__subclasses__",
-            "__globals__",
-            "__code__",
-            "__builtins__",
-        ]
-        code_lower = python_code.lower()
-        for pattern in _BLOCKED_PATTERNS:
-            if pattern.lower() in code_lower:
-                return f"Security Error: Blocked pattern '{pattern}' detected in code."
-
         try:
             exec(python_code, sandbox_globals, local_vars)  # noqa: S102
-            return str(
-                local_vars.get("result", "Code executed but no 'result' variable set.")
-            )
+            return str(local_vars.get("result", "Code executed but no 'result' variable set."))
         except Exception as e:
             return f"Python execution error: {e}"

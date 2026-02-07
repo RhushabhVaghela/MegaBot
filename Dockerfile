@@ -1,41 +1,80 @@
-FROM python:3.12-slim
+# ============================================================
+# Stage 1: Builder — install build tools and compile deps
+# ============================================================
+FROM python:3.12-slim AS builder
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gcc \
     pkg-config \
     libssl-dev \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ============================================================
+# Stage 2: Runtime — slim image, no build tools, non-root user
+# ============================================================
+FROM python:3.12-slim AS runtime
+
+LABEL maintainer="MegaBot Team" \
+      description="MegaBot AI orchestrator" \
+      version="1.0.0"
+
+# Runtime-only system deps (no compilers)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     ca-certificates \
     libgl1-mesa-glx \
     libglib2.0-0 \
     scrot \
     python3-tk \
-    python3-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+    tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove
+
+# Create non-root user
+RUN groupadd --gid 1000 megabot \
+    && useradd --uid 1000 --gid megabot --shell /bin/bash --create-home megabot
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Create required directories owned by megabot
+RUN mkdir -p /app/backups /app/media /app/data /app/logs \
+    && chown -R megabot:megabot /app
 
-# Create directories
-RUN mkdir -p /app/backups /app/media /app/data
+# Copy application source (respect .dockerignore)
+COPY --chown=megabot:megabot . .
 
-# Copy application source
-COPY . .
+# Ensure entrypoint is executable
+RUN chmod +x /app/entrypoint.sh 2>/dev/null || true
 
 # Environment configuration
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
-ENV MEGABOT_MEDIA_PATH=/app/media
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MEGABOT_MEDIA_PATH=/app/media
+
+# Switch to non-root user
+USER megabot
 
 # Expose ports
-EXPOSE 8000
-EXPOSE 18790
+EXPOSE 8000 18790
 
-# Default command
-CMD ["python3", "core/orchestrator.py"]
+# Health check — hits the deep health endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -sf http://localhost:8000/health || exit 1
+
+# Use tini as PID 1 for proper signal handling
+ENTRYPOINT ["tini", "--"]
+
+# Default command — runs through entrypoint.sh for startup checks
+# (DATABASE_URL validation, MEGABOT_AUTH_TOKEN check, memU installation)
+CMD ["/app/entrypoint.sh"]

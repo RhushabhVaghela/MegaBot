@@ -3,9 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
-megabot.db
 
 # Node
 node_modules/
@@ -13,27 +14,33 @@ dist/
 coverage/
 .vite/
 
-# Config & Secret
+# Config & Secrets
 .env
-meta-config.yaml  # Legacy name — users should use mega-config.yaml
-mega-config.yaml  # Users should copy from mega-config.yaml.template
-api-credentials.py # Central API manager
+.env.local
+meta-config.yaml
+mega-config.yaml
+api-credentials.py
+api-credentials.py.template
 credentials/
 data/push_tokens.json
-megabot_memory.db
+
+# Database & Index
 *.db
 .megabot_index.json
 
 # Virtual environments
 venv/
-.env.local
 
 # Session files
 session-*.md
 
-# Security reports (contain exploitation details)
+# Security & Audit reports (contain exploitation details)
 PENTEST_REPORT.md
+PENTEST_PHASE9_REPORT.md
 SECURITY_AUDIT_REPORT.md
+PERFORMANCE_AUDIT_REPORT.md
+megabot-phase9-roadmap.md
+megabot-production-readiness.md
 
 # Ephemeral build/coverage reports
 coverage_report.txt
@@ -41,6 +48,11 @@ coverage_results.txt
 final_coverage.txt
 final_results.txt
 verification_coverage.txt
+
+# Runtime data
+backups/
+media/
+projects/
 
 # OS
 .DS_Store

@@ -11,17 +11,23 @@ class MockWebSocket {
   onmessage: ((ev: MockMessageEvent) => void) | null = null;
   onopen: (() => void) | null = null;
   onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
   readyState: number = 1;
   static instances: MockWebSocket[] = [];
+  static OPEN = 1;
+  static CLOSED = 3;
 
   constructor(url: string) {
     this.url = url;
     MockWebSocket.instances.push(this);
-    setTimeout(() => this.onopen?.(), 0);
+    // Simulate async connection
+    setTimeout(() => {
+      this.readyState = 1;
+      this.onopen?.();
+    }, 0);
   }
 
   send(data: string) {
-    console.log('MockWS Send:', data);
     const msg = JSON.parse(data);
     if (msg.type === 'set_mode') {
       setTimeout(() => {
@@ -31,9 +37,16 @@ class MockWebSocket {
   }
 
   close() {
+    this.readyState = 3;
     this.onclose?.();
   }
 }
+
+// Expose static constants to match native WebSocket
+Object.defineProperty(MockWebSocket, 'CONNECTING', { value: 0 });
+Object.defineProperty(MockWebSocket, 'OPEN', { value: 1, writable: true });
+Object.defineProperty(MockWebSocket, 'CLOSING', { value: 2 });
+Object.defineProperty(MockWebSocket, 'CLOSED', { value: 3, writable: true });
 
 vi.stubGlobal('WebSocket', MockWebSocket);
 

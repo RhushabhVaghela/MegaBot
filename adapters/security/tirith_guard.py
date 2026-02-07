@@ -5,7 +5,8 @@ import unicodedata
 class TirithGuard:
     """
     Terminal Guard inspired by the Tirith project.
-    Protects against ANSI escape injection and homoglyph attacks in terminal output.
+    Protects against ANSI escape injection, homoglyph attacks, and shell
+    metacharacter injection in terminal output and commands.
     """
 
     # Bi-directional control characters used in RLO/homograph attacks.
@@ -19,6 +20,15 @@ class TirithGuard:
             "\u200f",  # RLM
             "\u200e",  # LRM
         )
+    )
+
+    # Shell metacharacters that enable command injection when passed to a
+    # shell interpreter.  Used by ``validate_command_input`` (VULN-014 fix).
+    _SHELL_METACHARS = re.compile(r"[;|&`$(){}<>\\\n\r]")
+
+    # Common shell injection payloads (case-insensitive)
+    _SHELL_INJECTION_PATTERNS = re.compile(
+        r"(?i)(?:\$\(|`|&&|\|\||>>|<<|/etc/passwd|/etc/shadow|/dev/tcp)",
     )
 
     def __init__(self):
@@ -82,6 +92,25 @@ class TirithGuard:
             return False
 
         return True
+
+    def validate_command_input(self, text: str) -> bool:
+        """Validate that *text* is safe to use as a command argument.
+
+        Returns ``False`` if the string contains shell metacharacters or
+        common injection payloads (VULN-014 fix).
+        """
+        if not text:
+            return True
+
+        # Reject shell metacharacters
+        if self._SHELL_METACHARS.search(text):
+            return False
+
+        # Reject known injection payloads
+        if self._SHELL_INJECTION_PATTERNS.search(text):
+            return False
+
+        return self.validate(text)
 
     def wrap_output(self, output: str) -> str:
         """

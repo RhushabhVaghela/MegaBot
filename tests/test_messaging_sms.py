@@ -77,15 +77,14 @@ async def test_sms_send_text_success(sms_adapter):
 
 @pytest.mark.asyncio
 async def test_sms_send_text_no_client():
-    """Test sending SMS without initialized client"""
+    """Test sending SMS without initialized client returns None"""
     server = MagicMock()
     adapter = SMSAdapter("sms", server, {})
 
     result = await adapter.send_text("+1987654321", "Test message")
 
-    assert result is not None
-    assert result.platform == "sms"
-    assert result.content == "Test message"
+    # Without client/from_number, send_text should return None
+    assert result is None
 
 
 @pytest.mark.asyncio

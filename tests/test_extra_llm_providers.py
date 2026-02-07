@@ -25,11 +25,9 @@ class TestExtraLLMProviders:
             return_value={"choices": [{"message": {"content": "LM Studio Response"}}]}
         )
 
-        mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_cm.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession.post", return_value=mock_cm):
+        with patch(
+            "aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp
+        ):
             result = await provider.generate("hello")
             assert result == "LM Studio Response"
             assert provider.base_url == "http://local-lm:1234/v1"
@@ -46,11 +44,9 @@ class TestExtraLLMProviders:
             return_value={"choices": [{"message": {"content": "llama.cpp Response"}}]}
         )
 
-        mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_cm.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession.post", return_value=mock_cm):
+        with patch(
+            "aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp
+        ):
             result = await provider.generate("hello")
             assert result == "llama.cpp Response"
 
@@ -68,11 +64,9 @@ class TestExtraLLMProviders:
             return_value={"choices": [{"message": {"content": "vLLM Response"}}]}
         )
 
-        mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_cm.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession.post", return_value=mock_cm):
+        with patch(
+            "aiohttp.ClientSession.post", new_callable=AsyncMock, return_value=mock_resp
+        ):
             result = await provider.generate("hello")
             assert result == "vLLM Response"
             assert provider.api_key == "vllm-token"

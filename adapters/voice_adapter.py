@@ -129,13 +129,9 @@ class VoiceAdapter(VoiceInterface):
                 print("[Voice] Cannot make call: Twilio client not initialized.")
                 return "error_no_client"
 
-            call = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.client.calls.create(**kwargs)
-            )
+            call = await asyncio.to_thread(lambda: self.client.calls.create(**kwargs))
 
-            print(
-                f"[Voice] Call initiated to {recipient_phone}: {call.sid} (IVR={ivr})"
-            )
+            print(f"[Voice] Call initiated to {recipient_phone}: {call.sid} (IVR={ivr})")
             return call.sid
 
         except Exception as e:
@@ -156,8 +152,7 @@ class VoiceAdapter(VoiceInterface):
             NotImplementedError: STT integration not yet implemented
         """
         raise NotImplementedError(
-            "transcribe_audio requires a speech-to-text integration "
-            "(e.g. OpenAI Whisper, Twilio Transcription)."
+            "transcribe_audio requires a speech-to-text integration (e.g. OpenAI Whisper, Twilio Transcription)."
         )
 
     async def speak(self, text: str) -> bytes:
@@ -173,10 +168,7 @@ class VoiceAdapter(VoiceInterface):
         Raises:
             NotImplementedError: TTS integration not yet implemented
         """
-        raise NotImplementedError(
-            "speak requires a text-to-speech integration "
-            "(e.g. OpenAI TTS, Google Cloud TTS)."
-        )
+        raise NotImplementedError("speak requires a text-to-speech integration (e.g. OpenAI TTS, Google Cloud TTS).")
 
     async def get_call_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent call logs from Twilio.
@@ -190,9 +182,7 @@ class VoiceAdapter(VoiceInterface):
         Raises:
             NotImplementedError: Twilio call log retrieval not yet implemented
         """
-        raise NotImplementedError(
-            "get_call_logs requires Twilio API integration for call history retrieval."
-        )
+        raise NotImplementedError("get_call_logs requires Twilio API integration for call history retrieval.")
 
     async def shutdown(self):
         """Clean up resources"""

@@ -2,6 +2,7 @@
 Tests for Push Notification Adapter
 """
 
+import asyncio
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch, mock_open
 from datetime import datetime, timedelta
@@ -31,14 +32,10 @@ mock_batch_response = MockBatchResponse()
 mock_topic_response = MockTopicResponse()
 
 # Mock functions
-firebase_messaging_mock.send_each_for_multicast_sync = MagicMock(
-    return_value=mock_batch_response
-)
+firebase_messaging_mock.send_each_for_multicast_sync = MagicMock(return_value=mock_batch_response)
 firebase_messaging_mock.send = MagicMock(return_value="mock_message_id")
 firebase_messaging_mock.subscribe_to_topic = MagicMock(return_value=mock_topic_response)
-firebase_messaging_mock.unsubscribe_from_topic = MagicMock(
-    return_value=mock_topic_response
-)
+firebase_messaging_mock.unsubscribe_from_topic = MagicMock(return_value=mock_topic_response)
 firebase_admin_mock.initialize_app = MagicMock(return_value=MagicMock())
 
 mock_firebase_class = MagicMock()
@@ -59,9 +56,7 @@ firebase_messaging_mock.WebpushConfig = mock_firebase_class
 def reset_firebase_mocks():
     """Reset Firebase mocks before each test to ensure clean state"""
     firebase_messaging_mock.send_each_for_multicast_sync.reset_mock()
-    firebase_messaging_mock.send_each_for_multicast_sync.return_value = (
-        mock_batch_response
-    )
+    firebase_messaging_mock.send_each_for_multicast_sync.return_value = mock_batch_response
     firebase_messaging_mock.send.reset_mock()
     firebase_messaging_mock.send.return_value = "mock_message_id"
     firebase_messaging_mock.subscribe_to_topic.reset_mock()
@@ -207,9 +202,7 @@ class TestPushNotificationAdapter:
             assert adapter._is_initialized is True
 
             # Test exception in initialize
-            with patch.object(
-                adapter, "_initialize_fcm", side_effect=Exception("FCM error")
-            ):
+            with patch.object(adapter, "_initialize_fcm", side_effect=Exception("FCM error")):
                 assert await adapter.initialize() is False
 
     @pytest.mark.asyncio
@@ -273,9 +266,7 @@ class TestPushNotificationAdapter:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.send_each_for_multicast_sync"
-        ) as m:
+        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = mock_batch_response
             await adapter.send_broadcast(notif, topic="news")
             await adapter.send_broadcast(notif, condition="'A' in topics", dry_run=True)
@@ -287,9 +278,7 @@ class TestPushNotificationAdapter:
             await adapter.send_to_topic("news", notif, dry_run=True)
             assert m.call_count == 1  # dry_run doesn't call messaging.send
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.unsubscribe_from_topic"
-        ) as m:
+        with patch("adapters.push_notification_adapter.messaging.unsubscribe_from_topic") as m:
             m.side_effect = Exception("unsubscribe error")
             result = await adapter.unsubscribe_from_topic(["t1"], "news")
             assert result is False
@@ -337,9 +326,7 @@ class TestPushNotificationAdapter:
 
             # Test unregistered error
             m.side_effect = Exception("UNREGISTERED token")
-            with patch.object(
-                adapter, "unregister_token", new_callable=AsyncMock
-            ) as mu:
+            with patch.object(adapter, "unregister_token", new_callable=AsyncMock) as mu:
                 res = await adapter._send_fcm("t", notif)
                 assert res.success is False
                 mu.assert_called_once()
@@ -367,9 +354,7 @@ class TestPushNotificationAdapter:
         # Register a token first
         await adapter.register_token("test_token", Platform.ANDROID, "user123")
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.send_each_for_multicast_sync"
-        ) as m:
+        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = MagicMock(success_count=1, failure_count=0)
             res = await adapter.send_broadcast(notif)
             assert res.success is True
@@ -427,9 +412,7 @@ class TestPushNotificationAdapterBranches:
         """Test loading tokens with invalid JSON"""
         with patch("builtins.open", mock_open(read_data="invalid json")):
             with patch("os.path.exists", return_value=True):
-                with patch(
-                    "json.load", side_effect=json.JSONDecodeError("Invalid", "", 0)
-                ):
+                with patch("json.load", side_effect=json.JSONDecodeError("Invalid", "", 0)):
                     adapter._load_tokens()
                     # Should handle error gracefully
                     assert len(adapter.device_tokens) == 0
@@ -587,9 +570,7 @@ class TestPushNotificationAdapterBranches:
         """Test shutdown with Firebase app deletion errors"""
         adapter._firebase_app = MagicMock()
 
-        with patch(
-            "firebase_admin.delete_app", side_effect=ValueError("App not found")
-        ):
+        with patch("firebase_admin.delete_app", side_effect=ValueError("App not found")):
             adapter.shutdown()  # Should handle error gracefully
             assert adapter._firebase_app is None
             assert adapter._is_initialized is False
@@ -613,9 +594,7 @@ class TestPushNotificationAdapterBranches:
         """Test send_to_token with internal exceptions"""
         notif = create_notification("T", "B")
 
-        with patch.object(
-            adapter, "_send_fcm", side_effect=Exception("Internal error")
-        ):
+        with patch.object(adapter, "_send_fcm", side_effect=Exception("Internal error")):
             res = await adapter.send_to_token("t", notif)
             assert res.success is False
             assert "Internal error" in res.error
@@ -624,13 +603,9 @@ class TestPushNotificationAdapterBranches:
     async def test_send_to_user_exception_handling(self, adapter):
         """Test send_to_user with internal exceptions"""
         notif = create_notification("T", "B")
-        adapter.device_tokens = {
-            "t1": DeviceToken("t1", Platform.ANDROID, user_id="u1")
-        }
+        adapter.device_tokens = {"t1": DeviceToken("t1", Platform.ANDROID, user_id="u1")}
 
-        with patch.object(
-            adapter, "send_to_token", side_effect=Exception("Send failed")
-        ):
+        with patch.object(adapter, "send_to_token", side_effect=Exception("Send failed")):
             res = await adapter.send_to_user("u1", notif)
             assert res.success is False
             assert "Send failed" in res.error
@@ -747,9 +722,7 @@ class TestPushNotificationAdapterBranches:
         # Register a token first
         await adapter.register_token("test_token", Platform.ANDROID, "user123")
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.send_each_for_multicast_sync"
-        ) as m:
+        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = MagicMock(success_count=1, failure_count=0)
             res = await adapter.send_broadcast(notif)
             assert res.success is True
@@ -803,18 +776,10 @@ class TestPushNotificationAdapterBranches:
         """Test active tokens retrieval with filters"""
         now = datetime.now()
         adapter.device_tokens = {
-            "t1": DeviceToken(
-                "t1", Platform.ANDROID, user_id="u1", is_active=True, last_active=now
-            ),
-            "t2": DeviceToken(
-                "t2", Platform.IOS, user_id="u1", is_active=True, last_active=now
-            ),
-            "t3": DeviceToken(
-                "t3", Platform.ANDROID, user_id="u2", is_active=True, last_active=now
-            ),
-            "t4": DeviceToken(
-                "t4", Platform.ANDROID, user_id="u1", is_active=False, last_active=now
-            ),
+            "t1": DeviceToken("t1", Platform.ANDROID, user_id="u1", is_active=True, last_active=now),
+            "t2": DeviceToken("t2", Platform.IOS, user_id="u1", is_active=True, last_active=now),
+            "t3": DeviceToken("t3", Platform.ANDROID, user_id="u2", is_active=True, last_active=now),
+            "t4": DeviceToken("t4", Platform.ANDROID, user_id="u1", is_active=False, last_active=now),
         }
 
         # Filter by user
@@ -827,9 +792,7 @@ class TestPushNotificationAdapterBranches:
         assert tokens[0].token == "t2"
 
         # Filter by both
-        tokens = await adapter.get_active_tokens(
-            user_id="u1", platform=Platform.ANDROID
-        )
+        tokens = await adapter.get_active_tokens(user_id="u1", platform=Platform.ANDROID)
         assert len(tokens) == 1
         assert tokens[0].token == "t1"
 
@@ -837,13 +800,9 @@ class TestPushNotificationAdapterBranches:
     async def test_cleanup_inactive_tokens_error_handling(self, adapter):
         """Test inactive token cleanup with errors"""
         old_date = datetime.now() - timedelta(days=40)
-        adapter.device_tokens = {
-            "t1": DeviceToken("t1", Platform.ANDROID, "u1", last_active=old_date)
-        }
+        adapter.device_tokens = {"t1": DeviceToken("t1", Platform.ANDROID, "u1", last_active=old_date)}
 
-        with patch.object(
-            adapter, "unregister_token", side_effect=Exception("cleanup error")
-        ):
+        with patch.object(adapter, "unregister_token", side_effect=Exception("cleanup error")):
             removed = await adapter.cleanup_inactive_tokens(max_inactive_days=30)
             assert removed == 0  # Should handle error gracefully
 
@@ -872,12 +831,8 @@ class TestPushNotificationAdapterBranches:
         """Test the main function example"""
         # Mock the entire main function execution
         with (
-            patch(
-                "adapters.push_notification_adapter.PushNotificationAdapter"
-            ) as mock_adapter_class,
-            patch(
-                "adapters.push_notification_adapter.create_notification"
-            ) as mock_create,
+            patch("adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class,
+            patch("adapters.push_notification_adapter.create_notification") as mock_create,
             patch("builtins.print") as mock_print,
         ):
             mock_adapter = AsyncMock()
@@ -909,9 +864,7 @@ class TestPushNotificationAdapterBranches:
         mock_response.exception = None
         mock_response.message_id = "msg123"
         # Make canonical_address_count raise an exception
-        mock_response.canonical_address_count = MagicMock(
-            side_effect=Exception("getattr error")
-        )
+        mock_response.canonical_address_count = MagicMock(side_effect=Exception("getattr error"))
 
         result = NotificationResult.from_firebase(mock_response)
         assert result.success is True
@@ -924,22 +877,16 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_credential_path = "/valid/path.json"
         adapter.fcm_project_id = "test-project"
 
-        with patch(
-            "adapters.push_notification_adapter.os.path.exists", return_value=True
-        ):
+        with patch("adapters.push_notification_adapter.os.path.exists", return_value=True):
             with patch(
                 "adapters.push_notification_adapter.credentials.Certificate",
                 side_effect=Exception("Credential error"),
             ):
-                with patch(
-                    "adapters.push_notification_adapter.firebase_admin.initialize_app"
-                ) as mock_init:
+                with patch("adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init:
                     with patch("builtins.print") as mock_print:
                         adapter._initialize_fcm()
                         # Should try to initialize app with None credentials
-                        mock_init.assert_called_once_with(
-                            None, {"projectId": "test-project"}
-                        )
+                        mock_init.assert_called_once_with(None, {"projectId": "test-project"})
 
     @pytest.mark.asyncio
     async def test_initialize_fcm_app_initialization_exception(self, adapter):
@@ -947,9 +894,7 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_credential_path = "/valid/path.json"
         adapter.fcm_project_id = "test-project"
 
-        with patch(
-            "adapters.push_notification_adapter.os.path.exists", return_value=True
-        ):
+        with patch("adapters.push_notification_adapter.os.path.exists", return_value=True):
             with patch(
                 "adapters.push_notification_adapter.credentials.Certificate",
                 return_value=MagicMock(),
@@ -960,9 +905,7 @@ class TestPushNotificationAdapterBranches:
                 ):
                     with patch("builtins.print") as mock_print:
                         adapter._initialize_fcm()
-                        mock_print.assert_called_with(
-                            "[Push] FCM initialization warning: App init error"
-                        )
+                        mock_print.assert_called_with("[Push] FCM initialization warning: App init error")
 
     def test_create_default_channels(self, adapter):
         """Test _create_default_channels creates expected channels"""
@@ -980,23 +923,15 @@ class TestPushNotificationAdapterBranches:
     @pytest.mark.asyncio
     async def test_register_token_general_exception_handling(self, adapter):
         """Test register_token with general exception"""
-        with patch.object(
-            adapter, "_save_tokens", side_effect=Exception("Save failed")
-        ):
-            result = await adapter.register_token(
-                "test_token", Platform.ANDROID, "user123"
-            )
+        with patch.object(adapter, "_save_tokens", side_effect=Exception("Save failed")):
+            result = await adapter.register_token("test_token", Platform.ANDROID, "user123")
             assert result is False
 
     @pytest.mark.asyncio
     async def test_unregister_token_general_exception_handling(self, adapter):
         """Test unregister_token with general exception"""
-        adapter.device_tokens = {
-            "test_token": DeviceToken("test_token", Platform.ANDROID, "user123")
-        }
-        with patch.object(
-            adapter, "_save_tokens", side_effect=Exception("Save failed")
-        ):
+        adapter.device_tokens = {"test_token": DeviceToken("test_token", Platform.ANDROID, "user123")}
+        with patch.object(adapter, "_save_tokens", side_effect=Exception("Save failed")):
             result = await adapter.unregister_token("test_token")
             assert result is False
 
@@ -1022,9 +957,7 @@ class TestPushNotificationAdapterBranches:
                 res = await adapter._send_webpush("t", notif)
                 assert res.success is False
                 assert "WebPush failed" in res.error
-                mock_print.assert_called_with(
-                    "[Push] WebPush send failed: WebPush failed"
-                )
+                mock_print.assert_called_with("[Push] WebPush send failed: WebPush failed")
 
     @pytest.mark.asyncio
     async def test_unsubscribe_from_topic_partial_success(self, adapter):
@@ -1034,9 +967,7 @@ class TestPushNotificationAdapterBranches:
         mock_response.success_count = 1
         firebase_messaging_mock.unsubscribe_from_topic.return_value = mock_response
 
-        result = await adapter.unsubscribe_from_topic(
-            ["token1", "token2"], "test_topic"
-        )
+        result = await adapter.unsubscribe_from_topic(["token1", "token2"], "test_topic")
         assert result is False  # success_count != len(tokens)
 
     @pytest.mark.asyncio
@@ -1065,9 +996,7 @@ class TestPushNotificationAdapterBranches:
             with patch("builtins.print") as mock_print:
                 result = await adapter.delete_notification_channel("test")
                 assert result is False
-                mock_print.assert_called_with(
-                    "[Push] Channel deletion failed: Deletion error"
-                )
+                mock_print.assert_called_with("[Push] Channel deletion failed: Deletion error")
         finally:
             # Restore original dict
             adapter.notification_channels = original_dict
@@ -1077,9 +1006,7 @@ class TestPushNotificationAdapterBranches:
         """Test subscribe_to_topic with successful subscription"""
         adapter._firebase_app = MagicMock()
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.subscribe_to_topic"
-        ) as mock_subscribe:
+        with patch("adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
             mock_subscribe.return_value = mock_topic_response
             result = await adapter.subscribe_to_topic(["t1"], "news")
             assert result is True  # success_count (1) == len(tokens) (1)
@@ -1090,16 +1017,12 @@ class TestPushNotificationAdapterBranches:
         """Test subscribe_to_topic with partial success"""
         adapter._firebase_app = MagicMock()
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.subscribe_to_topic"
-        ) as mock_subscribe:
+        with patch("adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
             mock_response = MagicMock()
             mock_response.success_count = 1
             mock_subscribe.return_value = mock_response
 
-            result = await adapter.subscribe_to_topic(
-                ["token1", "token2"], "test_topic"
-            )
+            result = await adapter.subscribe_to_topic(["token1", "token2"], "test_topic")
             assert result is False  # success_count != len(tokens)
             mock_subscribe.assert_called_once_with(["token1", "token2"], "test_topic")
 
@@ -1117,9 +1040,7 @@ class TestPushNotificationAdapterBranches:
             with patch("builtins.print") as mock_print:
                 result = await adapter.create_notification_channel(channel)
                 assert result is False
-                mock_print.assert_called_with(
-                    "[Push] Channel creation failed: Creation error"
-                )
+                mock_print.assert_called_with("[Push] Channel creation failed: Creation error")
         finally:
             # Restore original dict
             adapter.notification_channels = original_dict
@@ -1152,9 +1073,7 @@ class TestPushNotificationAdapterBranches:
         assert callable(main)
 
         # Mock the adapter initialization to avoid actual Firebase/APNS setup
-        with patch(
-            "adapters.push_notification_adapter.PushNotificationAdapter"
-        ) as mock_adapter_class:
+        with patch("adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class:
             mock_adapter = MagicMock()
             mock_adapter.initialize.return_value = True
             mock_adapter_class.return_value = mock_adapter
@@ -1224,14 +1143,31 @@ class TestPushNotificationAdapterBranches:
     async def test_cleanup_inactive_tokens_success(self, adapter):
         """Test cleanup_inactive_tokens success path (lines 1146-1148)"""
         old_date = datetime.now() - timedelta(days=40)
-        adapter.device_tokens = {
-            "t1": DeviceToken("t1", Platform.ANDROID, "u1", last_active=old_date)
-        }
+        adapter.device_tokens = {"t1": DeviceToken("t1", Platform.ANDROID, "u1", last_active=old_date)}
 
-        with patch.object(
-            adapter, "unregister_token", new_callable=AsyncMock
-        ) as mock_unreg:
+        with patch.object(adapter, "unregister_token", new_callable=AsyncMock) as mock_unreg:
             mock_unreg.return_value = True
             removed = await adapter.cleanup_inactive_tokens(max_inactive_days=30)
             assert removed == 1
             mock_unreg.assert_called_once_with("t1")
+
+
+@pytest.mark.asyncio
+async def test_push_notification_adapter_main():
+    from adapters.push_notification_adapter import main
+
+    with (
+        patch(
+            "adapters.push_notification_adapter.PushNotificationAdapter.initialize",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "adapters.push_notification_adapter.PushNotificationAdapter.shutdown",
+            AsyncMock(),
+        ),
+        patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),
+    ):
+        try:
+            await main()
+        except asyncio.CancelledError:
+            pass

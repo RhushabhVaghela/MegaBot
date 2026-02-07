@@ -1,22 +1,84 @@
 [project]
 name = "megabot"
-version = "0.1.0"
-description = "Unified AI assistant orchestrator"
+version = "1.0.0"
+description = "Production-ready, local-first AI orchestrator unifying OpenClaw, memU, and MCP into a single secure agentic brain with multi-channel messaging"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "pyyaml",
-    "pydantic",
-    "websockets",
-    "sqlalchemy",
-    "psycopg2-binary",
-    "pgvector",
+license = {text = "MIT"}
+authors = [
+    {name = "Rhushabh Vaghela"},
+]
+keywords = [
+    "ai-orchestrator",
+    "ai-agent",
+    "llm",
+    "chatbot",
+    "mcp",
+    "local-first",
+    "agentic-ai",
+    "multi-channel-messaging",
+    "telegram-bot",
+    "discord-bot",
     "fastapi",
-    "uvicorn"
+    "ollama",
+    "rag",
+    "memory-system",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Framework :: FastAPI",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyyaml>=6.0.3",
+    "pydantic>=2.12.5",
+    "websockets>=16.0",
+    "sqlalchemy>=2.0.46",
+    "psycopg2-binary>=2.9.11",
+    "pgvector>=0.4.2",
+    "fastapi>=0.128.0",
+    "uvicorn>=0.40.0",
+    "cryptography>=46.0.4",
+    "aiofiles>=25.1.0",
+    "aiohttp>=3.13.3",
+    "firebase-admin>=7.1.0",
+    "pyjwt>=2.11.0",
+    "httpx>=0.28.1",
+    "pyautogui>=0.9.54",
+    "pillow>=12.1.0",
+    "python-xlib>=0.15",
+    "twilio>=9.10.1",
+    "python-multipart>=0.0.22",
+    "slack-sdk>=3.39.0",
+    "discord.py>=2.6.4",
 ]
 
+[project.urls]
+Homepage = "https://github.com/RhushabhVaghela/MegaBot"
+Repository = "https://github.com/RhushabhVaghela/MegaBot"
+Documentation = "https://github.com/RhushabhVaghela/MegaBot/tree/main/docs"
+Issues = "https://github.com/RhushabhVaghela/MegaBot/issues"
+Changelog = "https://github.com/RhushabhVaghela/MegaBot/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
-packages = ["core", "adapters", "modules"]
+packages = ["core", "adapters", "modules", "features"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
 
 [tool.ruff.lint]
 # F = Pyflakes (unused imports, vars, etc), E741 = ambiguous variable names
@@ -29,9 +91,23 @@ select = ["F", "E741"]
 "tests/**" = ["F841"]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py", "benchmark*.py", "benchmarks.py"]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore:websockets.legacy is deprecated:DeprecationWarning",
     "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
 ]
+addopts = "-v --strict-markers"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.bandit]
+# Skip test files and known false-positive rules
+exclude_dirs = ["tests", ".venv", "external"]
+skips = ["B101"]  # B101 = assert statements (fine outside production code)

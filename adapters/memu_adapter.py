@@ -2,6 +2,7 @@ import sys
 import os
 from typing import Any
 from core.interfaces import MemoryInterface
+from core.resource_guard import LRUCache
 
 
 class MemUAdapter(MemoryInterface):
@@ -32,23 +33,19 @@ class MemUAdapter(MemoryInterface):
                         self.memu_path = path  # pragma: no cover
                         service_class = MemoryService
                         found_path = True  # pragma: no cover
-                        print(
-                            f"Successfully loaded memU from {path}"
-                        )  # pragma: no cover
+                        print(f"Successfully loaded memU from {path}")  # pragma: no cover
                         break  # pragma: no cover
                     except ImportError:
                         sys.path.pop(0)
                         continue
 
         if not found_path:
-            print(
-                f"WARNING: memU not found at {memu_path}. Using functional fallback mock."
-            )
+            print(f"WARNING: memU not found at {memu_path}. Using functional fallback mock.")
 
             # Fallback Mock Class with basic functional storage
             class MockMemoryService:
                 def __init__(self, **kwargs):
-                    self.storage = {}
+                    self.storage: LRUCache[str, Any] = LRUCache(maxsize=2048)
 
                 async def memorize(self, **kwargs):
                     content = kwargs.get("content")
@@ -185,9 +182,7 @@ class MemUAdapter(MemoryInterface):
     async def search(self, query: str) -> list[Any]:
         """Search for memories matching the query."""
         try:
-            results = await self.service.retrieve(
-                query=query, method="semantic", limit=10
-            )
+            results = await self.service.retrieve(query=query, method="semantic", limit=10)
             if isinstance(results, dict):
                 return results.get("items", [])
         except Exception as e:

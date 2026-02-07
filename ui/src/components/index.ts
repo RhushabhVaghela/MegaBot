@@ -1,0 +1,12 @@
+// Barrel export for all components
+export { ApprovalPanel } from './ApprovalPanel.tsx';
+export { ChatInput } from './ChatInput.tsx';
+export { ChatPanel } from './ChatPanel.tsx';
+export { ConnectionStatus } from './ConnectionStatus.tsx';
+export { ErrorBoundary } from './ErrorBoundary.tsx';
+export { MemoryPanel } from './MemoryPanel.tsx';
+export { MessageBubble } from './MessageBubble.tsx';
+export { MessageList } from './MessageList.tsx';
+export { ModeSelector } from './ModeSelector.tsx';
+export { Sidebar } from './Sidebar.tsx';
+export { TerminalPanel } from './TerminalPanel.tsx';

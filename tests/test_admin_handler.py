@@ -1,3 +1,4 @@
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from core.admin_handler import AdminHandler
@@ -97,12 +98,8 @@ async def test_handle_command_empty(admin_handler):
 async def test_handle_approve_with_id(admin_handler):
     """Test _handle_approve with specific action ID."""
     admin_handler.approval_queue = [{"id": "test_action", "description": "Test action"}]
-    with patch.object(
-        admin_handler, "_process_approval", new_callable=AsyncMock
-    ) as mock_process:
-        result = await admin_handler.handle_command(
-            "!approve test_action", "admin_user", "chat123", "platform"
-        )
+    with patch.object(admin_handler, "_process_approval", new_callable=AsyncMock) as mock_process:
+        result = await admin_handler.handle_command("!approve test_action", "admin_user", "chat123", "platform")
         assert result is True
         mock_process.assert_called_once_with("test_action", approved=True)
 
@@ -111,12 +108,8 @@ async def test_handle_approve_with_id(admin_handler):
 async def test_handle_approve_last_in_queue(admin_handler):
     """Test _handle_approve with last action in queue."""
     admin_handler.approval_queue = [{"id": "test_action", "description": "Test action"}]
-    with patch.object(
-        admin_handler, "_process_approval", new_callable=AsyncMock
-    ) as mock_process:
-        result = await admin_handler._handle_approve(
-            ["!approve"], "admin", "chat123", "platform"
-        )
+    with patch.object(admin_handler, "_process_approval", new_callable=AsyncMock) as mock_process:
+        result = await admin_handler._handle_approve(["!approve"], "admin", "chat123", "platform")
         assert result is True
         mock_process.assert_called_once_with("test_action", approved=True)
 
@@ -124,9 +117,7 @@ async def test_handle_approve_last_in_queue(admin_handler):
 @pytest.mark.asyncio
 async def test_handle_approve_empty_queue(admin_handler):
     """Test _handle_approve with empty queue."""
-    result = await admin_handler._handle_approve(
-        ["!approve"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_approve(["!approve"], "admin", "chat123", "platform")
     assert result is False
 
 
@@ -134,12 +125,8 @@ async def test_handle_approve_empty_queue(admin_handler):
 async def test_handle_reject_with_id(admin_handler):
     """Test _handle_reject with specific action ID."""
     admin_handler.approval_queue = [{"id": "test_action", "description": "Test action"}]
-    with patch.object(
-        admin_handler, "_process_approval", new_callable=AsyncMock
-    ) as mock_process:
-        result = await admin_handler._handle_reject(
-            ["!reject", "test_action"], "admin", "chat123", "platform"
-        )
+    with patch.object(admin_handler, "_process_approval", new_callable=AsyncMock) as mock_process:
+        result = await admin_handler._handle_reject(["!reject", "test_action"], "admin", "chat123", "platform")
         assert result is True
         mock_process.assert_called_once_with("test_action", approved=False)
 
@@ -148,12 +135,8 @@ async def test_handle_reject_with_id(admin_handler):
 async def test_handle_reject_last_in_queue(admin_handler):
     """Test _handle_reject with last action in queue."""
     admin_handler.approval_queue = [{"id": "test_action", "description": "Test action"}]
-    with patch.object(
-        admin_handler, "_process_approval", new_callable=AsyncMock
-    ) as mock_process:
-        result = await admin_handler._handle_reject(
-            ["!no"], "admin", "chat123", "platform"
-        )
+    with patch.object(admin_handler, "_process_approval", new_callable=AsyncMock) as mock_process:
+        result = await admin_handler._handle_reject(["!no"], "admin", "chat123", "platform")
         assert result is True
         mock_process.assert_called_once_with("test_action", approved=False)
 
@@ -161,18 +144,14 @@ async def test_handle_reject_last_in_queue(admin_handler):
 @pytest.mark.asyncio
 async def test_handle_reject_empty_queue(admin_handler):
     """Test _handle_reject with empty queue."""
-    result = await admin_handler._handle_reject(
-        ["!reject"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_reject(["!reject"], "admin", "chat123", "platform")
     assert result is False
 
 
 @pytest.mark.asyncio
 async def test_handle_allow_new_pattern(admin_handler, mock_orchestrator):
     """Test _handle_allow with new pattern."""
-    result = await admin_handler._handle_allow(
-        ["!allow", "test pattern"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_allow(["!allow", "test pattern"], "admin", "chat123", "platform")
     assert result is True
     assert "test pattern" in mock_orchestrator.config.policies["allow"]
     mock_orchestrator.config.save.assert_called_once()
@@ -182,9 +161,7 @@ async def test_handle_allow_new_pattern(admin_handler, mock_orchestrator):
 async def test_handle_allow_duplicate_pattern(admin_handler, mock_orchestrator):
     """Test _handle_allow with duplicate pattern."""
     mock_orchestrator.config.policies["allow"] = ["test pattern"]
-    result = await admin_handler._handle_allow(
-        ["!allow", "test pattern"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_allow(["!allow", "test pattern"], "admin", "chat123", "platform")
     assert result is False
     mock_orchestrator.config.save.assert_not_called()
 
@@ -192,18 +169,14 @@ async def test_handle_allow_duplicate_pattern(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_allow_no_pattern(admin_handler):
     """Test _handle_allow without pattern."""
-    result = await admin_handler._handle_allow(
-        ["!allow"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_allow(["!allow"], "admin", "chat123", "platform")
     assert result is False
 
 
 @pytest.mark.asyncio
 async def test_handle_deny_new_pattern(admin_handler, mock_orchestrator):
     """Test _handle_deny with new pattern."""
-    result = await admin_handler._handle_deny(
-        ["!deny", "bad pattern"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_deny(["!deny", "bad pattern"], "admin", "chat123", "platform")
     assert result is True
     assert "bad pattern" in mock_orchestrator.config.policies["deny"]
     mock_orchestrator.config.save.assert_called_once()
@@ -213,9 +186,7 @@ async def test_handle_deny_new_pattern(admin_handler, mock_orchestrator):
 async def test_handle_deny_duplicate_pattern(admin_handler, mock_orchestrator):
     """Test _handle_deny with duplicate pattern."""
     mock_orchestrator.config.policies["deny"] = ["bad pattern"]
-    result = await admin_handler._handle_deny(
-        ["!deny", "bad pattern"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_deny(["!deny", "bad pattern"], "admin", "chat123", "platform")
     assert result is False
     mock_orchestrator.config.save.assert_not_called()
 
@@ -230,9 +201,7 @@ async def test_handle_deny_no_pattern(admin_handler):
 @pytest.mark.asyncio
 async def test_handle_policies(admin_handler, mock_orchestrator):
     """Test _handle_policies displays policies."""
-    result = await admin_handler._handle_policies(
-        ["!policies"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_policies(["!policies"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.send_platform_message.assert_called_once()
     call_args = mock_orchestrator.send_platform_message.call_args[0][0]
@@ -244,9 +213,7 @@ async def test_handle_policies(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_mode_with_mode(admin_handler, mock_orchestrator):
     """Test _handle_mode with mode parameter."""
-    result = await admin_handler._handle_mode(
-        ["!mode", "build"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_mode(["!mode", "build"], "admin", "chat123", "platform")
     assert result is True
     assert mock_orchestrator.mode == "build"
     mock_orchestrator.loki.activate.assert_not_called()
@@ -255,9 +222,7 @@ async def test_handle_mode_with_mode(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_mode_loki_mode(admin_handler, mock_orchestrator):
     """Test _handle_mode with loki mode triggers activation."""
-    result = await admin_handler._handle_mode(
-        ["!mode", "loki"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_mode(["!mode", "loki"], "admin", "chat123", "platform")
     assert result is True
     assert mock_orchestrator.mode == "loki"
     mock_orchestrator.loki.activate.assert_called_once_with("Auto-trigger from chat")
@@ -273,13 +238,9 @@ async def test_handle_mode_no_mode(admin_handler):
 @pytest.mark.asyncio
 async def test_handle_history_clean_with_chat(admin_handler, mock_orchestrator):
     """Test _handle_history_clean with specific chat ID."""
-    result = await admin_handler._handle_history_clean(
-        ["!history_clean", "chat456"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_history_clean(["!history_clean", "chat456"], "admin", "chat123", "platform")
     assert result is True
-    mock_orchestrator.memory.chat_forget.assert_called_once_with(
-        "chat456", max_history=0
-    )
+    mock_orchestrator.memory.chat_forget.assert_called_once_with("chat456", max_history=0)
     mock_orchestrator.send_platform_message.assert_called_once()
     call_args = mock_orchestrator.send_platform_message.call_args[0][0]
     assert "History cleaned for chat: chat456" in call_args.content
@@ -288,25 +249,17 @@ async def test_handle_history_clean_with_chat(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_history_clean_current_chat(admin_handler, mock_orchestrator):
     """Test _handle_history_clean with current chat."""
-    result = await admin_handler._handle_history_clean(
-        ["!history_clean"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_history_clean(["!history_clean"], "admin", "chat123", "platform")
     assert result is True
-    mock_orchestrator.memory.chat_forget.assert_called_once_with(
-        "chat123", max_history=0
-    )
+    mock_orchestrator.memory.chat_forget.assert_called_once_with("chat123", max_history=0)
 
 
 @pytest.mark.asyncio
 async def test_handle_link_with_name(admin_handler, mock_orchestrator):
     """Test _handle_link with identity name."""
-    result = await admin_handler._handle_link(
-        ["!link", "testuser"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_link(["!link", "testuser"], "admin", "chat123", "platform")
     assert result is True
-    mock_orchestrator.memory.link_identity.assert_called_once_with(
-        "testuser", "platform", "admin"
-    )
+    mock_orchestrator.memory.link_identity.assert_called_once_with("testuser", "platform", "admin")
     mock_orchestrator.send_platform_message.assert_called_once()
     call_args = mock_orchestrator.send_platform_message.call_args[0][0]
     assert "Identity Linked:" in call_args.content
@@ -323,9 +276,7 @@ async def test_handle_link_no_name(admin_handler):
 @pytest.mark.asyncio
 async def test_handle_whoami(admin_handler, mock_orchestrator):
     """Test _handle_whoami shows identity info."""
-    result = await admin_handler._handle_whoami(
-        ["!whoami"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_whoami(["!whoami"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.memory.get_unified_id.assert_called_once_with("platform", "admin")
     mock_orchestrator.send_platform_message.assert_called_once()
@@ -337,9 +288,7 @@ async def test_handle_whoami(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_backup(admin_handler, mock_orchestrator):
     """Test _handle_backup triggers backup."""
-    result = await admin_handler._handle_backup(
-        ["!backup"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_backup(["!backup"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.memory.backup_database.assert_called_once()
     mock_orchestrator.send_platform_message.assert_called_once()
@@ -351,9 +300,7 @@ async def test_handle_backup(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_briefing_success(admin_handler, mock_orchestrator):
     """Test _handle_briefing with valid config."""
-    result = await admin_handler._handle_briefing(
-        ["!briefing"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_briefing(["!briefing"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.send_platform_message.assert_called()
 
@@ -362,9 +309,7 @@ async def test_handle_briefing_success(admin_handler, mock_orchestrator):
 async def test_handle_briefing_no_phone(admin_handler, mock_orchestrator):
     """Test _handle_briefing without admin phone."""
     mock_orchestrator.config.system.admin_phone = None
-    result = await admin_handler._handle_briefing(
-        ["!briefing"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_briefing(["!briefing"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.send_platform_message.assert_called_once()
     call_args = mock_orchestrator.send_platform_message.call_args[0][0]
@@ -375,9 +320,7 @@ async def test_handle_briefing_no_phone(admin_handler, mock_orchestrator):
 async def test_handle_briefing_no_voice_adapter(admin_handler, mock_orchestrator):
     """Test _handle_briefing without voice adapter."""
     mock_orchestrator.adapters["messaging"].voice_adapter = None
-    result = await admin_handler._handle_briefing(
-        ["!briefing"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_briefing(["!briefing"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.send_platform_message.assert_called_once()
     call_args = mock_orchestrator.send_platform_message.call_args[0][0]
@@ -387,9 +330,7 @@ async def test_handle_briefing_no_voice_adapter(admin_handler, mock_orchestrator
 @pytest.mark.asyncio
 async def test_handle_rag_rebuild(admin_handler, mock_orchestrator):
     """Test _handle_rag_rebuild rebuilds index."""
-    result = await admin_handler._handle_rag_rebuild(
-        ["!rag_rebuild"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_rag_rebuild(["!rag_rebuild"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.rag.build_index.assert_called_once_with(force_rebuild=True)
     mock_orchestrator.send_platform_message.assert_called_once()
@@ -400,9 +341,7 @@ async def test_handle_rag_rebuild(admin_handler, mock_orchestrator):
 @pytest.mark.asyncio
 async def test_handle_health(admin_handler, mock_orchestrator):
     """Test _handle_health shows system health."""
-    result = await admin_handler._handle_health(
-        ["!health"], "admin", "chat123", "platform"
-    )
+    result = await admin_handler._handle_health(["!health"], "admin", "chat123", "platform")
     assert result is True
     mock_orchestrator.health_monitor.get_system_health.assert_called_once()
     mock_orchestrator.send_platform_message.assert_called_once()
@@ -416,14 +355,10 @@ async def test_handle_health(admin_handler, mock_orchestrator):
 async def test_process_approval_approved(admin_handler):
     """Test _process_approval with approved action."""
     admin_handler.approval_queue = [{"id": "test_action", "description": "Test action"}]
-    with patch.object(
-        admin_handler, "_execute_approved_action", new_callable=AsyncMock
-    ) as mock_execute:
+    with patch.object(admin_handler, "_execute_approved_action", new_callable=AsyncMock) as mock_execute:
         await admin_handler._process_approval("test_action", approved=True)
         assert len(admin_handler.approval_queue) == 0
-        mock_execute.assert_called_once_with(
-            {"id": "test_action", "description": "Test action"}
-        )
+        mock_execute.assert_called_once_with({"id": "test_action", "description": "Test action"})
 
 
 @pytest.mark.asyncio
@@ -464,9 +399,7 @@ async def test_trigger_voice_briefing_no_history(admin_handler, mock_orchestrato
     """Test _trigger_voice_briefing with no chat history."""
     mock_orchestrator.memory.chat_read.return_value = []
     await admin_handler._trigger_voice_briefing("+1234567890", "chat123", "platform")
-    mock_orchestrator.adapters[
-        "messaging"
-    ].voice_adapter.make_call.assert_called_once_with(
+    mock_orchestrator.adapters["messaging"].voice_adapter.make_call.assert_called_once_with(
         "+1234567890", "This is Mega Bot. No recent activity to report."
     )
 
@@ -498,9 +431,7 @@ async def test_handle_policies_missing_dict(admin_handler, mock_orchestrator):
 async def test_handle_history_clean_no_chat(admin_handler):
     """Test _handle_history_clean with no chat id (line 170)"""
     # parts has only one element, and chat_id is None
-    result = await admin_handler._handle_history_clean(
-        ["!history_clean"], "a", None, "p"
-    )
+    result = await admin_handler._handle_history_clean(["!history_clean"], "a", None, "p")
     assert result is False
 
 
@@ -573,9 +504,7 @@ async def test_execute_approved_action_mcp_tool(admin_handler, mock_orchestrator
     mock_orchestrator.adapters["mcp"].call_tool.return_value = "mcp result"
     result = await admin_handler._execute_approved_action(action)
     assert result == "mcp result"
-    mock_orchestrator.adapters["mcp"].call_tool.assert_called_once_with(
-        "s1", "t1", {"p": "v"}
-    )
+    mock_orchestrator.adapters["mcp"].call_tool.assert_called_once_with("s1", "t1", {"p": "v"})
 
 
 @pytest.mark.asyncio
@@ -608,9 +537,7 @@ async def test_execute_approved_action_file_ops(admin_handler, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_execute_approved_action_generic_openclaw(
-    admin_handler, mock_orchestrator
-):
+async def test_execute_approved_action_generic_openclaw(admin_handler, mock_orchestrator):
     """Test _execute_approved_action with generic action routed to OpenClaw (lines 377-383)"""
     action = {
         "type": "generic",
@@ -623,15 +550,218 @@ async def test_execute_approved_action_generic_openclaw(
 
     result = await admin_handler._execute_approved_action(action)
     assert result == "openclaw result"
-    mock_orchestrator.adapters["openclaw"].execute_tool.assert_called_once_with(
-        "custom.method", {"x": 1}
-    )
+    mock_orchestrator.adapters["openclaw"].execute_tool.assert_called_once_with("custom.method", {"x": 1})
 
 
 @pytest.mark.asyncio
-async def test_execute_approved_action_unknown_type(admin_handler, capsys):
+async def test_execute_approved_action_unknown_type(admin_handler, caplog):
     """Test _execute_approved_action with unknown type (line 385)"""
+    import logging
+
     action = {"type": "wizard_magic"}
-    await admin_handler._execute_approved_action(action)
-    captured = capsys.readouterr()
-    assert "Unknown action type: wizard_magic" in captured.out
+    with caplog.at_level(logging.WARNING):
+        await admin_handler._execute_approved_action(action)
+    assert "Unknown action type: wizard_magic" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Tests migrated from test_admin_handler_round2.py
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_system_command_empty_command(admin_handler):
+    """Line 351: empty command string returns 'No command provided'."""
+    action = {
+        "type": "system_command",
+        "payload": {"params": {"command": ""}},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert result == "No command provided"
+
+
+@pytest.mark.asyncio
+async def test_system_command_no_params_key(admin_handler):
+    """Line 351: no 'command' key at all -> empty string -> 'No command provided'."""
+    action = {
+        "type": "system_command",
+        "payload": {"params": {}},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert result == "No command provided"
+
+
+@pytest.mark.asyncio
+async def test_system_command_shlex_value_error(admin_handler):
+    """Lines 356-357: shlex.split raises ValueError for unterminated quote."""
+    action = {
+        "type": "system_command",
+        "payload": {"params": {"command": "echo 'unterminated"}},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "Invalid command syntax" in result
+
+
+@pytest.mark.asyncio
+async def test_system_command_shlex_empty_result(admin_handler):
+    """Line 360: shlex.split returns empty list -> 'No command provided'."""
+    with patch("core.admin_handler.shlex.split", return_value=[]):
+        action = {
+            "type": "system_command",
+            "payload": {"params": {"command": "something"}},
+        }
+        result = await admin_handler._execute_approved_action(action)
+        assert result == "No command provided"
+
+
+@pytest.mark.asyncio
+async def test_system_command_blocked_executable(admin_handler):
+    """Lines 365-367: executable not in ALLOWED_COMMANDS -> blocked."""
+    action = {
+        "type": "system_command",
+        "payload": {"params": {"command": "rm -rf /"}},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "not in the allowed list" in result
+    assert "rm" in result
+
+
+@pytest.mark.asyncio
+async def test_system_command_blocked_custom_path(admin_handler):
+    """Lines 365-367: command with path prefix still checked by basename."""
+    action = {
+        "type": "system_command",
+        "payload": {"params": {"command": "/usr/bin/curl https://evil.com"}},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "not in the allowed list" in result
+    assert "curl" in result
+
+
+@pytest.mark.asyncio
+async def test_file_operation_empty_path(admin_handler):
+    """Line 412: empty path -> 'No file path provided'."""
+    action = {
+        "type": "file_operation",
+        "payload": {"operation": "read", "path": ""},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "No file path provided" in result
+
+
+@pytest.mark.asyncio
+async def test_file_operation_no_path_key(admin_handler):
+    """Line 412: no 'path' key -> defaults to '' -> 'No file path provided'."""
+    action = {
+        "type": "file_operation",
+        "payload": {"operation": "read"},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "No file path provided" in result
+
+
+@pytest.mark.asyncio
+async def test_file_operation_path_traversal_blocked(admin_handler):
+    """Lines 417-419: path resolves outside PROJECT_ROOT -> blocked."""
+    action = {
+        "type": "file_operation",
+        "payload": {"operation": "read", "path": "/etc/passwd"},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "Path traversal blocked" in result
+
+
+@pytest.mark.asyncio
+async def test_file_operation_path_traversal_dotdot(admin_handler):
+    """Lines 417-419: path with ../../ resolves outside root."""
+    action = {
+        "type": "file_operation",
+        "payload": {
+            "operation": "read",
+            "path": "../../../../etc/shadow",
+        },
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "Path traversal blocked" in result
+
+
+@pytest.mark.asyncio
+async def test_file_operation_unknown_operation(admin_handler):
+    """Line 429: unknown operation type -> error."""
+    project_root = str(AdminHandler.PROJECT_ROOT)
+    safe_path = os.path.join(project_root, "some_file.txt")
+    action = {
+        "type": "file_operation",
+        "payload": {"operation": "delete", "path": safe_path},
+    }
+    result = await admin_handler._execute_approved_action(action)
+    assert "Unknown file operation" in result
+    assert "delete" in result
+
+
+# =====================================================================
+# FROM test_coverage_completion_final.py
+# =====================================================================
+
+
+class TestAdminHandlerCoverage:
+    """Target missing lines in core/admin_handler.py"""
+
+    @pytest.mark.asyncio
+    async def test_execute_approved_action_mcp(self, orchestrator):
+        handler = AdminHandler(orchestrator)
+        orchestrator.adapters = {"mcp": AsyncMock()}
+        orchestrator.adapters["mcp"].call_tool.return_value = "Success"
+
+        action = {
+            "type": "mcp_tool",
+            "payload": {"server": "s1", "tool": "t1", "params": {}},
+        }
+        result = await handler._execute_approved_action(action)
+        assert result == "Success"
+
+    @pytest.mark.asyncio
+    async def test_execute_approved_action_file(self, orchestrator, tmp_path):
+        handler = AdminHandler(orchestrator)
+        test_file = tmp_path / "test.txt"
+
+        # Patch PROJECT_ROOT so tmp_path is considered within the allowed tree
+        with patch.object(AdminHandler, "PROJECT_ROOT", tmp_path):
+            # Write
+            action_write = {
+                "type": "file_operation",
+                "payload": {
+                    "operation": "write",
+                    "path": str(test_file),
+                    "content": "hello",
+                },
+            }
+            await handler._execute_approved_action(action_write)
+            assert test_file.read_text() == "hello"
+
+            # Read
+            action_read = {
+                "type": "file_operation",
+                "payload": {"operation": "read", "path": str(test_file)},
+            }
+            res = await handler._execute_approved_action(action_read)
+            assert res == "hello"
+
+    @pytest.mark.asyncio
+    async def test_execute_approved_action_openclaw(self, orchestrator):
+        handler = AdminHandler(orchestrator)
+        orchestrator.adapters = {"openclaw": AsyncMock()}
+        orchestrator.adapters["openclaw"].execute_tool.return_value = "Done"
+
+        action = {"type": "generic", "payload": {"method": "m1", "params": {}}}
+        result = await handler._execute_approved_action(action)
+        assert result == "Done"
+
+    @pytest.mark.asyncio
+    async def test_execute_approved_action_error(self, orchestrator):
+        handler = AdminHandler(orchestrator)
+        # Force exception
+        action = {"type": "mcp_tool", "payload": None}
+        result = await handler._execute_approved_action(action)
+        assert result is not None
+        assert "execution failed" in str(result)

@@ -121,9 +121,7 @@ class TestComputerDriver:
         with patch.object(driver, "blur_regions") as mock_blur:
             mock_blur.return_value = "blurred_data"
 
-            result = await driver.execute(
-                "blur_regions", text="image_data", regions=regions
-            )
+            result = await driver.execute("blur_regions", text="image_data", regions=regions)
             mock_blur.assert_called_once_with("image_data", regions)
             assert result == "blurred_data"
 
@@ -233,3 +231,35 @@ class TestComputerDriver:
             img = pg.screenshot()
             assert isinstance(img, Image.Image)
             assert img.size == (1024, 768)
+
+
+@pytest.mark.asyncio
+async def test_drivers_mopup():
+    from core.drivers import ComputerDriver
+    from PIL import Image
+    import base64
+    import io
+
+    driver = ComputerDriver()
+
+    # Test blur_regions
+    img = Image.new("RGB", (100, 100), (255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    img_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    regions = [{"x": 10, "y": 10, "width": 20, "height": 20}]
+    res = driver.blur_regions(img_b64, regions)
+    assert len(res) > 0
+
+    # Test execute mouse_move
+    res = await driver.execute("mouse_move", coordinate=[100, 100])
+    assert "Moved mouse" in res
+
+    # Test execute type
+    res = await driver.execute("type", text="hello")
+    assert "Typed: hello" in res
+
+    # Test execute key
+    res = await driver.execute("key", text="enter")
+    assert "Pressed key: enter" in res

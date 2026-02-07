@@ -26,6 +26,8 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from firebase_admin import App as firebase_app
 
+from core.resource_guard import LRUCache
+
 
 class Platform(Enum):
     """Device platforms"""
@@ -154,11 +156,7 @@ class ApnsConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {
-            "aps": {
-                "content-available" if self.content_available else "alert": 1
-                if self.content_available
-                else {}
-            }
+            "aps": {"content-available" if self.content_available else "alert": 1 if self.content_available else {}}
         }
 
         if self.badge is not None:
@@ -229,12 +227,8 @@ class DeviceToken:
             platform=Platform(data.get("platform", "android")),
             user_id=data.get("user_id"),
             app_id=data.get("app_id"),
-            created_at=datetime.fromisoformat(
-                data.get("created_at", datetime.now().isoformat())
-            ),
-            last_active=datetime.fromisoformat(
-                data.get("last_active", datetime.now().isoformat())
-            ),
+            created_at=datetime.fromisoformat(data.get("created_at", datetime.now().isoformat())),
+            last_active=datetime.fromisoformat(data.get("last_active", datetime.now().isoformat())),
             is_active=data.get("is_active", True),
         )
 
@@ -365,7 +359,7 @@ class PushNotificationAdapter:
         self._firebase_app: Optional[firebase_app] = None
         self._is_initialized = False
 
-        self.device_tokens: Dict[str, DeviceToken] = {}
+        self.device_tokens: LRUCache[str, DeviceToken] = LRUCache(maxsize=4096)
         self.notification_channels: Dict[str, NotificationChannel] = {}
 
         self.message_handlers: List[Callable] = []
@@ -414,9 +408,7 @@ class PushNotificationAdapter:
                 cred = None
 
             try:
-                self._firebase_app = firebase_admin.initialize_app(
-                    cred, {"projectId": self.fcm_project_id}
-                )
+                self._firebase_app = firebase_admin.initialize_app(cred, {"projectId": self.fcm_project_id})
                 print(f"[Push] FCM initialized with project: {self.fcm_project_id}")
             except Exception as e:
                 print(f"[Push] FCM initialization warning: {e}")
@@ -501,9 +493,7 @@ class PushNotificationAdapter:
             True if registration successful
         """
         try:
-            device_token = DeviceToken(
-                token=token, platform=platform, user_id=user_id, app_id=app_id
-            )
+            device_token = DeviceToken(token=token, platform=platform, user_id=user_id, app_id=app_id)
 
             self.device_tokens[token] = device_token
             self._save_tokens()
@@ -597,9 +587,7 @@ class PushNotificationAdapter:
                     dry_run=dry_run,
                 )
             else:
-                return NotificationResult(
-                    success=False, error=f"Unknown platform: {platform}"
-                )
+                return NotificationResult(success=False, error=f"Unknown platform: {platform}")
 
         except Exception as e:
             print(f"[Push] Send to token failed: {e}")
@@ -630,18 +618,14 @@ class PushNotificationAdapter:
         """
         try:
             user_tokens = [
-                token
-                for token in self.device_tokens.values()
-                if token.user_id == user_id and token.is_active
+                token for token in self.device_tokens.values() if token.user_id == user_id and token.is_active
             ]
 
             if platform:
                 user_tokens = [t for t in user_tokens if t.platform == platform]
 
             if not user_tokens:
-                return NotificationResult(
-                    success=False, error=f"No active tokens found for user: {user_id}"
-                )
+                return NotificationResult(success=False, error=f"No active tokens found for user: {user_id}")
 
             results = []
             for token in user_tokens:
@@ -659,9 +643,7 @@ class PushNotificationAdapter:
             success_count = sum(1 for r in results if r.success)
             return NotificationResult(
                 success=success_count > 0,
-                error=None
-                if success_count == len(results)
-                else f"{success_count}/{len(results)} sent",
+                error=None if success_count == len(results) else f"{success_count}/{len(results)} sent",
             )
 
         except Exception as e:
@@ -702,9 +684,7 @@ class PushNotificationAdapter:
                         image=notification.image_url,
                     ),
                     topic=topic,
-                    android=messaging.AndroidConfig(
-                        priority=self._to_fcm_priority(notification.priority)
-                    ),
+                    android=messaging.AndroidConfig(priority=self._to_fcm_priority(notification.priority)),
                 )
             elif condition:
                 msg = messaging.Message(
@@ -714,21 +694,13 @@ class PushNotificationAdapter:
                         image=notification.image_url,
                     ),
                     condition=condition,
-                    android=messaging.AndroidConfig(
-                        priority=self._to_fcm_priority(notification.priority)
-                    ),
+                    android=messaging.AndroidConfig(priority=self._to_fcm_priority(notification.priority)),
                 )
             else:
                 # Send to all registered tokens
-                active_tokens = [
-                    token.token
-                    for token in self.device_tokens.values()
-                    if token.is_active
-                ]
+                active_tokens = [token.token for token in self.device_tokens.values() if token.is_active]
                 if not active_tokens:
-                    return NotificationResult(
-                        success=False, error="No active tokens registered"
-                    )
+                    return NotificationResult(success=False, error="No active tokens registered")
 
                 msg = messaging.MulticastMessage(
                     notification=messaging.Notification(
@@ -740,8 +712,7 @@ class PushNotificationAdapter:
                     android=messaging.AndroidConfig(
                         priority=self._to_fcm_priority(notification.priority),
                         notification=messaging.AndroidNotification(
-                            channel_id=notification.channel_id
-                            or self.default_channel_id,
+                            channel_id=notification.channel_id or self.default_channel_id,
                             click_action=notification.click_action,
                             color=notification.color,
                             tag=notification.tag,
@@ -890,9 +861,7 @@ class PushNotificationAdapter:
             }
 
             async with httpx.AsyncClient() as client:
-                response = await client.delete(
-                    url.format(bundle_id=bundle_id), headers=headers
-                )
+                response = await client.delete(url.format(bundle_id=bundle_id), headers=headers)
 
             return NotificationResult(success=response.status_code == 204)
 
@@ -962,9 +931,7 @@ class PushNotificationAdapter:
         try:
             bundle_id = config.bundle_id if config else self.apns_bundle_id
             if not bundle_id:
-                return NotificationResult(
-                    success=False, error="APNS bundle ID not configured"
-                )
+                return NotificationResult(success=False, error="APNS bundle ID not configured")
 
             apns_config = messaging.APNSConfig(
                 payload=messaging.APNSPayload(
@@ -978,17 +945,13 @@ class PushNotificationAdapter:
                         badge=notification.badge,
                         category=notification.tag,
                         thread_id=notification.click_action,
-                        content_available=notification.data.get(
-                            "content_available", False
-                        ),
+                        content_available=notification.data.get("content_available", False),
                         mutable_content=notification.data.get("mutable_content", False),
                     )
                 )
             )
 
-            msg = messaging.Message(
-                token=token, apns=apns_config, data=notification.data
-            )
+            msg = messaging.Message(token=token, apns=apns_config, data=notification.data)
 
             if dry_run:
                 return NotificationResult(success=True)
@@ -1186,9 +1149,7 @@ def create_notification(
     Returns:
         PushNotification instance
     """
-    return PushNotification(
-        title=title, body=body, notification_type=notification_type, **kwargs
-    )
+    return PushNotification(title=title, body=body, notification_type=notification_type, **kwargs)
 
 
 async def main():
@@ -1205,9 +1166,7 @@ async def main():
     if await adapter.initialize():
         print("Push adapter ready!")
 
-        await adapter.register_token(
-            token="fcm_token_here", platform=Platform.ANDROID, user_id="user123"
-        )
+        await adapter.register_token(token="fcm_token_here", platform=Platform.ANDROID, user_id="user123")
 
         notification = create_notification(
             title="Hello!",
@@ -1215,9 +1174,7 @@ async def main():
             notification_type=NotificationType.MESSAGE,
         )
 
-        result = await adapter.send_to_token(
-            token="fcm_token_here", notification=notification
-        )
+        result = await adapter.send_to_token(token="fcm_token_here", notification=notification)
 
         print(f"Send result: {result.success}")
 

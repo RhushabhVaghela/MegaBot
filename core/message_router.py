@@ -3,6 +3,7 @@ import json
 from typing import Any, Optional
 
 from core.interfaces import Message
+from core.task_utils import safe_create_task
 
 
 class MessageRouter:
@@ -139,7 +140,7 @@ class MessageRouter:
                     orchestrator.admin_handler.approval_queue.append(action)
 
                     # Start Escalation Timer for Voice Call
-                    asyncio.create_task(orchestrator._start_approval_escalation(action))
+                    safe_create_task(orchestrator._start_approval_escalation(action))
 
                     # Notify admins
                     admin_resp = Message(
@@ -147,7 +148,7 @@ class MessageRouter:
                         sender="Security",
                     )
                     # Use a background task to avoid recursion depth if send_platform_message is called in a loop
-                    asyncio.create_task(
+                    safe_create_task(
                         orchestrator.message_router.send_platform_message(
                             admin_resp, platform=platform
                         )

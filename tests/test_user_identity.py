@@ -37,7 +37,9 @@ async def test_init(identity_manager, temp_db):
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
         indexes = [row[0] for row in cursor.fetchall()]
         assert "idx_internal_id" in indexes
-        assert "idx_platform" in indexes
+        # idx_platform was removed — platform is the leading column of the
+        # composite PRIMARY KEY (platform, platform_id), which already
+        # serves as an index for platform-only lookups.
 
 
 @pytest.mark.asyncio
@@ -171,12 +173,8 @@ async def test_multiple_platforms_same_internal_id(identity_manager):
     await identity_manager.link_identity(internal_id, "slack", "slack_123")
 
     # Verify all return the same unified ID
-    assert (
-        await identity_manager.get_unified_id("discord", "discord_123") == internal_id
-    )
-    assert (
-        await identity_manager.get_unified_id("telegram", "telegram_123") == internal_id
-    )
+    assert await identity_manager.get_unified_id("discord", "discord_123") == internal_id
+    assert await identity_manager.get_unified_id("telegram", "telegram_123") == internal_id
     assert await identity_manager.get_unified_id("slack", "slack_123") == internal_id
 
     # Verify platform IDs are returned correctly
@@ -206,9 +204,7 @@ async def test_link_identity_error_handling(identity_manager):
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
         mock_connect.side_effect = Exception("DB Error")
 
-        result = await identity_manager.link_identity(
-            "internal_123", "discord", "user_456"
-        )
+        result = await identity_manager.link_identity("internal_123", "discord", "user_456")
         assert result is False
 
 

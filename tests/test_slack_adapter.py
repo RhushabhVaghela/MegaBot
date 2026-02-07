@@ -2,6 +2,7 @@
 Tests for SlackAdapter
 """
 
+import asyncio
 import pytest
 import builtins
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
@@ -99,9 +100,7 @@ class TestSlackAdapter:
         assert result.chat_id == "C1234567890"
         assert result.sender_name == "MegaBot"
 
-        mock_client.chat_postMessage.assert_called_once_with(
-            {"channel": "C1234567890", "text": "Hello World"}
-        )
+        mock_client.chat_postMessage.assert_called_once_with({"channel": "C1234567890", "text": "Hello World"})
 
     @pytest.mark.asyncio
     async def test_send_text_with_thread(self, slack_adapter, mock_client):
@@ -111,9 +110,7 @@ class TestSlackAdapter:
             "ts": "1234567890.123456",
         }
 
-        result = await slack_adapter.send_text(
-            "C1234567890", "Reply", reply_to="9876543210.987654"
-        )
+        result = await slack_adapter.send_text("C1234567890", "Reply", reply_to="9876543210.987654")
 
         assert result is not None
         assert result.reply_to == "9876543210.987654"
@@ -153,9 +150,7 @@ class TestSlackAdapter:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
 
-            result = await slack_adapter.send_media(
-                "C1234567890", "/path/to/image.jpg", "Test image"
-            )
+            result = await slack_adapter.send_media("C1234567890", "/path/to/image.jpg", "Test image")
 
             assert result is not None
             assert isinstance(result, PlatformMessage)
@@ -169,14 +164,10 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_send_document(self, slack_adapter):
         """Test sending document"""
-        with patch.object(
-            slack_adapter, "send_media", new_callable=AsyncMock
-        ) as mock_send_media:
+        with patch.object(slack_adapter, "send_media", new_callable=AsyncMock) as mock_send_media:
             mock_send_media.return_value = MagicMock()
 
-            result = await slack_adapter.send_document(
-                "C1234567890", "/path/to/document.pdf", "Test doc"
-            )
+            result = await slack_adapter.send_document("C1234567890", "/path/to/document.pdf", "Test doc")
 
             mock_send_media.assert_called_once_with(
                 "C1234567890", "/path/to/document.pdf", "Test doc", MessageType.DOCUMENT
@@ -201,9 +192,7 @@ class TestSlackAdapter:
         """Test adding reaction successfully"""
         mock_client.reactions_add.return_value = {"ok": True}
 
-        result = await slack_adapter.add_reaction(
-            "C1234567890", "1234567890.123456", "thumbsup"
-        )
+        result = await slack_adapter.add_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
         assert result is True
         mock_client.reactions_add.assert_called_once_with(
@@ -219,9 +208,7 @@ class TestSlackAdapter:
         """Test adding reaction failure"""
         mock_client.reactions_add.return_value = {"ok": False}
 
-        result = await slack_adapter.add_reaction(
-            "C1234567890", "1234567890.123456", "thumbsup"
-        )
+        result = await slack_adapter.add_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
         assert result is False
 
@@ -230,9 +217,7 @@ class TestSlackAdapter:
         """Test removing reaction successfully"""
         mock_client.reactions_remove.return_value = {"ok": True}
 
-        result = await slack_adapter.remove_reaction(
-            "C1234567890", "1234567890.123456", "thumbsup"
-        )
+        result = await slack_adapter.remove_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
         assert result is True
         mock_client.reactions_remove.assert_called_once_with(
@@ -251,9 +236,7 @@ class TestSlackAdapter:
         result = await slack_adapter.delete_message("C1234567890", "1234567890.123456")
 
         assert result is True
-        mock_client.chat_delete.assert_called_once_with(
-            {"channel": "C1234567890", "ts": "1234567890.123456"}
-        )
+        mock_client.chat_delete.assert_called_once_with({"channel": "C1234567890", "ts": "1234567890.123456"})
 
     @pytest.mark.asyncio
     async def test_get_channel_info_success(self, slack_adapter, mock_client):
@@ -488,18 +471,14 @@ class TestSlackAdapter:
         """Test socket mode initialization"""
         slack_adapter.app_token = "xapp-test-token"
 
-        with patch(
-            "adapters.slack_adapter.SocketModeClient"
-        ) as mock_socket_mode_client:
+        with patch("adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
             mock_socket_client_instance = MagicMock()
             mock_socket_mode_client.return_value = mock_socket_client_instance
             mock_socket_client_instance.client.connect = MagicMock()
 
             await slack_adapter._init_socket_mode()
 
-            mock_socket_mode_client.assert_called_once_with(
-                app_token="xapp-test-token", web_client=mock_client
-            )
+            mock_socket_mode_client.assert_called_once_with(app_token="xapp-test-token", web_client=mock_client)
             mock_socket_client_instance.client.connect.assert_called_once()
 
     @pytest.mark.asyncio
@@ -514,36 +493,24 @@ class TestSlackAdapter:
         }
 
         with patch.object(slack_adapter, "_handle_event") as mock_handle_event:
-            with patch(
-                "adapters.slack_adapter.SocketModeResponse"
-            ) as mock_response_class:
-                with patch.object(
-                    slack_adapter, "socket_client", create=True
-                ) as mock_socket_client:
+            with patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class:
+                with patch.object(slack_adapter, "socket_client", create=True) as mock_socket_client:
                     mock_response = MagicMock()
                     mock_response_class.return_value = mock_response
                     mock_socket_client.client.send_socket_mode_response = MagicMock()
 
                     await slack_adapter._handle_socket_request(mock_req)
 
-                    mock_handle_event.assert_called_once_with(
-                        {"type": "message", "text": "test"}
-                    )
-                    mock_response_class.assert_called_once_with(
-                        envelope_id="test_envelope_id"
-                    )
-                    mock_socket_client.client.send_socket_mode_response.assert_called_once_with(
-                        mock_response
-                    )
+                    mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
+                    mock_response_class.assert_called_once_with(envelope_id="test_envelope_id")
+                    mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
 
     @pytest.mark.asyncio
     async def test_handle_event_message(self, slack_adapter):
         """Test handling message events"""
         event = {"type": "message", "user": "U123", "text": "test"}
 
-        with patch.object(
-            slack_adapter, "_handle_message_event"
-        ) as mock_handle_message:
+        with patch.object(slack_adapter, "_handle_message_event") as mock_handle_message:
             await slack_adapter._handle_event(event)
             mock_handle_message.assert_called_once_with(event)
 
@@ -552,9 +519,7 @@ class TestSlackAdapter:
         """Test handling reaction add events"""
         event = {"type": "reaction_added", "user": "U123"}
 
-        with patch.object(
-            slack_adapter, "_handle_reaction_event"
-        ) as mock_handle_reaction:
+        with patch.object(slack_adapter, "_handle_reaction_event") as mock_handle_reaction:
             await slack_adapter._handle_event(event)
             mock_handle_reaction.assert_called_once_with(event, "add")
 
@@ -563,9 +528,7 @@ class TestSlackAdapter:
         """Test handling reaction remove events"""
         event = {"type": "reaction_removed", "user": "U123"}
 
-        with patch.object(
-            slack_adapter, "_handle_reaction_event"
-        ) as mock_handle_reaction:
+        with patch.object(slack_adapter, "_handle_reaction_event") as mock_handle_reaction:
             await slack_adapter._handle_event(event)
             mock_handle_reaction.assert_called_once_with(event, "remove")
 
@@ -688,9 +651,7 @@ class TestSlackAdapter:
         """Test exception handling in add_reaction"""
         mock_client.reactions_add.side_effect = Exception("API Error")
 
-        result = await slack_adapter.add_reaction(
-            "C1234567890", "1234567890.123456", "thumbsup"
-        )
+        result = await slack_adapter.add_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
         assert result is False
 
@@ -699,9 +660,7 @@ class TestSlackAdapter:
         """Test exception handling in remove_reaction"""
         mock_client.reactions_remove.side_effect = Exception("API Error")
 
-        result = await slack_adapter.remove_reaction(
-            "C1234567890", "1234567890.123456", "thumbsup"
-        )
+        result = await slack_adapter.remove_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
         assert result is False
 
@@ -715,9 +674,7 @@ class TestSlackAdapter:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_get_channel_info_exception_handling(
-        self, slack_adapter, mock_client
-    ):
+    async def test_get_channel_info_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in get_channel_info"""
         mock_client.conversations_info.side_effect = Exception("API Error")
 
@@ -778,29 +735,19 @@ class TestSlackAdapter:
             "event": {"type": "message", "text": "test"},
         }
 
-        with patch.object(
-            slack_adapter, "_handle_event", new_callable=AsyncMock
-        ) as mock_handle_event:
-            with patch(
-                "adapters.slack_adapter.SocketModeResponse"
-            ) as mock_response_class:
+        with patch.object(slack_adapter, "_handle_event", new_callable=AsyncMock) as mock_handle_event:
+            with patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class:
                 mock_response = MagicMock()
                 mock_response_class.return_value = mock_response
                 await slack_adapter._handle_socket_request(mock_req)
 
-                mock_handle_event.assert_called_once_with(
-                    {"type": "message", "text": "test"}
-                )
-                mock_socket_client.client.send_socket_mode_response.assert_called_once_with(
-                    mock_response
-                )
+                mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
+                mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
 
     @pytest.mark.asyncio
     async def test_handle_event_custom_handler_exception(self, slack_adapter):
         """Test _handle_event with custom handler exception"""
-        slack_adapter.event_handlers["custom_event"] = MagicMock(
-            side_effect=Exception("handler error")
-        )
+        slack_adapter.event_handlers["custom_event"] = MagicMock(side_effect=Exception("handler error"))
 
         await slack_adapter._handle_event({"type": "custom_event"})
 
@@ -813,9 +760,7 @@ class TestSlackAdapter:
 
         # Test skip bot user
         event = {"user": "U123", "text": "bot message"}
-        with patch.object(
-            slack_adapter, "_to_platform_message", new_callable=AsyncMock
-        ) as mock_to_msg:
+        with patch.object(slack_adapter, "_to_platform_message", new_callable=AsyncMock) as mock_to_msg:
             await slack_adapter._handle_message_event(event)
             mock_to_msg.assert_not_called()
 
@@ -827,14 +772,10 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_handle_message_event_handler_exception(self, slack_adapter):
         """Test _handle_message_event with handler exception"""
-        slack_adapter.message_handlers = [
-            MagicMock(side_effect=Exception("handler error"))
-        ]
+        slack_adapter.message_handlers = [MagicMock(side_effect=Exception("handler error"))]
 
         event = {"user": "U456", "text": "test message"}
-        with patch.object(
-            slack_adapter, "_to_platform_message", new_callable=AsyncMock
-        ) as mock_to_msg:
+        with patch.object(slack_adapter, "_to_platform_message", new_callable=AsyncMock) as mock_to_msg:
             mock_to_msg.return_value = MagicMock()
             await slack_adapter._handle_message_event(event)
 
@@ -843,9 +784,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_handle_reaction_event_handler_exception(self, slack_adapter):
         """Test _handle_reaction_event with handler exception"""
-        slack_adapter.reaction_handlers = [
-            MagicMock(side_effect=Exception("handler error"))
-        ]
+        slack_adapter.reaction_handlers = [MagicMock(side_effect=Exception("handler error"))]
 
         event = {"type": "reaction_added", "reaction": "thumbsup"}
         await slack_adapter._handle_reaction_event(event, "add")
@@ -888,9 +827,7 @@ class TestSlackAdapter:
         """Test that _init_socket_mode executes the decorator and function"""
         slack_adapter.app_token = "xapp-test-token"
 
-        with patch(
-            "adapters.slack_adapter.SocketModeClient"
-        ) as mock_socket_mode_client:
+        with patch("adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
             mock_socket_client_instance = MagicMock()
             mock_socket_mode_client.return_value = mock_socket_client_instance
             mock_socket_client_instance.client.connect = MagicMock()
@@ -911,9 +848,7 @@ class TestSlackAdapter:
             # Now call the decorated function
             assert captured_listener is not None
             mock_req = MagicMock()
-            with patch.object(
-                slack_adapter, "_handle_socket_request", new_callable=AsyncMock
-            ) as mock_handle:
+            with patch.object(slack_adapter, "_handle_socket_request", new_callable=AsyncMock) as mock_handle:
                 await captured_listener(mock_socket_client_instance, mock_req)
                 mock_handle.assert_called_once_with(mock_req)
 
@@ -924,9 +859,7 @@ class TestSlackAdapter:
         original_print = builtins.print
 
         def failing_print(*args, **kwargs):
-            if len(args) > 0 and str(args[0]).startswith(
-                "[Slack] Download media not implemented"
-            ):
+            if len(args) > 0 and str(args[0]).startswith("[Slack] Download media not implemented"):
                 raise Exception("Simulated print error")
             return original_print(*args, **kwargs)
 
@@ -950,3 +883,41 @@ class TestSlackAdapter:
 
             socket_client = adapters.slack_adapter.SocketModeClient(app_token="test")
             assert socket_client is not None
+
+
+@pytest.mark.asyncio
+async def test_slack_adapter_final():
+    server = MagicMock()
+    from adapters.slack_adapter import SlackAdapter
+
+    adapter = SlackAdapter("slack", server, bot_token="token", app_token="xapp-123")
+    assert adapter._generate_id() is not None
+
+    # Trigger line 162
+    mock_socket_client = MagicMock()
+    with (
+        patch("adapters.slack_adapter.SocketModeClient", return_value=mock_socket_client),
+        patch("adapters.slack_adapter.WebClient"),
+        patch("asyncio.get_event_loop") as mock_loop,
+    ):
+        # Capture the listener function
+        listener_fn = None
+
+        def save_listener(fn):
+            nonlocal listener_fn
+            listener_fn = fn
+            return fn
+
+        mock_socket_client.socket_mode_request_listener = save_listener
+
+        # Mock connection logic to avoid actual network calls
+        mock_loop.return_value.run_in_executor.return_value = asyncio.Future()
+        mock_loop.return_value.run_in_executor.return_value.set_result({"ok": True, "user_id": "U123"})
+
+        await adapter.initialize()
+
+        if listener_fn:
+            mock_req = MagicMock()
+            # Must be awaited since process_socket_mode_request is async
+            await listener_fn(mock_socket_client, mock_req)
+    await adapter.shutdown()

@@ -10,6 +10,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 
+from core.resource_guard import LRUCache
+
 try:
     import slack_sdk
     from slack_sdk import WebClient
@@ -112,7 +114,7 @@ class SlackAdapter(PlatformAdapter):
 
         self.bot_user_id: Optional[str] = None
         self.is_initialized = False
-        self.message_cache: Dict[str, Dict[str, Any]] = {}
+        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
 
         self.message_handlers: List[Callable] = []
         self.reaction_handlers: List[Callable] = []
@@ -135,9 +137,7 @@ class SlackAdapter(PlatformAdapter):
         """
         try:
             # Test the connection and get bot info
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.auth_test
-            )
+            response = await asyncio.to_thread(self.client.auth_test)
 
             if response.get("ok"):
                 self.bot_user_id = response.get("user_id")
@@ -168,14 +168,10 @@ class SlackAdapter(PlatformAdapter):
         )
 
         @self.socket_client.socket_mode_request_listener
-        async def process_socket_mode_request(
-            client: SocketModeClient, req: SocketModeRequest
-        ):
+        async def process_socket_mode_request(client: SocketModeClient, req: SocketModeRequest):
             await self._handle_socket_request(req)
 
-        await asyncio.get_event_loop().run_in_executor(
-            None, self.socket_client.client.connect
-        )
+        await asyncio.to_thread(self.socket_client.client.connect)
         print("[Slack] Socket Mode initialized")
 
     async def _handle_socket_request(self, req: SocketModeRequest) -> None:
@@ -190,9 +186,7 @@ class SlackAdapter(PlatformAdapter):
 
             # Acknowledge the request
             response = SocketModeResponse(envelope_id=envelope_id)
-            await asyncio.get_event_loop().run_in_executor(
-                None, self.socket_client.client.send_socket_mode_response, response
-            )
+            await asyncio.to_thread(self.socket_client.client.send_socket_mode_response, response)
 
     async def _handle_event(self, event: Dict[str, Any]) -> None:
         """Handle Slack events"""
@@ -286,18 +280,14 @@ class SlackAdapter(PlatformAdapter):
     async def _get_username(self, user_id: str) -> str:
         """Get username from user ID"""
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.users_info, {"user": user_id}
-            )
+            response = await asyncio.to_thread(self.client.users_info, {"user": user_id})
             if response.get("ok"):
                 return response["user"]["name"]
         except Exception:
             pass
         return f"slack_user_{user_id}"
 
-    async def send_text(
-        self, chat_id: str, text: str, reply_to: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
         """Send text message to Slack channel."""
         try:
             kwargs = {
@@ -308,9 +298,7 @@ class SlackAdapter(PlatformAdapter):
             if reply_to:
                 kwargs["thread_ts"] = reply_to
 
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.chat_postMessage, kwargs
-            )
+            response = await asyncio.to_thread(self.client.chat_postMessage, kwargs)
 
             if response.get("ok"):
                 ts = response.get("ts")
@@ -345,8 +333,7 @@ class SlackAdapter(PlatformAdapter):
         try:
             # Upload file first
             with open(media_path, "rb") as f:
-                upload_response = await asyncio.get_event_loop().run_in_executor(
-                    None,
+                upload_response = await asyncio.to_thread(
                     self.client.files_upload_v2,
                     {
                         "file": f,
@@ -358,12 +345,7 @@ class SlackAdapter(PlatformAdapter):
 
             if upload_response.get("ok"):
                 file_info = upload_response.get("file", {})
-                ts = (
-                    file_info.get("shares", {})
-                    .get("public", {})
-                    .get(chat_id, [{}])[0]
-                    .get("ts")
-                )
+                ts = file_info.get("shares", {}).get("public", {}).get(chat_id, [{}])[0].get("ts")
 
                 return PlatformMessage(
                     id=f"slack_{ts or uuid.uuid4().hex[:16]}",
@@ -387,9 +369,7 @@ class SlackAdapter(PlatformAdapter):
         self, chat_id: str, document_path: str, caption: Optional[str] = None
     ) -> Optional[PlatformMessage]:
         """Send document to Slack channel."""
-        return await self.send_media(
-            chat_id, document_path, caption, MessageType.DOCUMENT
-        )
+        return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
         """Download media from Slack message."""
@@ -419,8 +399,7 @@ class SlackAdapter(PlatformAdapter):
             True on success
         """
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
+            response = await asyncio.to_thread(
                 self.client.reactions_add,
                 {"channel": channel_id, "timestamp": message_ts, "name": emoji},
             )
@@ -430,9 +409,7 @@ class SlackAdapter(PlatformAdapter):
             print(f"[Slack] Add reaction error: {e}")
             return False
 
-    async def remove_reaction(
-        self, channel_id: str, message_ts: str, emoji: str
-    ) -> bool:
+    async def remove_reaction(self, channel_id: str, message_ts: str, emoji: str) -> bool:
         """
         Remove a reaction from a message.
 
@@ -445,8 +422,7 @@ class SlackAdapter(PlatformAdapter):
             True on success
         """
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
+            response = await asyncio.to_thread(
                 self.client.reactions_remove,
                 {"channel": channel_id, "timestamp": message_ts, "name": emoji},
             )
@@ -468,8 +444,7 @@ class SlackAdapter(PlatformAdapter):
             True on success
         """
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
+            response = await asyncio.to_thread(
                 self.client.chat_delete,
                 {"channel": channel_id, "ts": message_ts},
             )
@@ -482,9 +457,7 @@ class SlackAdapter(PlatformAdapter):
     async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
         """Get information about a channel"""
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.conversations_info, {"channel": channel_id}
-            )
+            response = await asyncio.to_thread(self.client.conversations_info, {"channel": channel_id})
 
             if response.get("ok"):
                 channel = response.get("channel", {})
@@ -495,9 +468,7 @@ class SlackAdapter(PlatformAdapter):
                     "member_count": channel.get("num_members"),
                     "topic": channel.get("topic", {}).get("value"),
                     "purpose": channel.get("purpose", {}).get("value"),
-                    "created": datetime.fromtimestamp(
-                        channel.get("created", 0)
-                    ).isoformat(),
+                    "created": datetime.fromtimestamp(channel.get("created", 0)).isoformat(),
                 }
 
             return None
@@ -509,9 +480,7 @@ class SlackAdapter(PlatformAdapter):
     async def get_user_info(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get information about a user"""
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.users_info, {"user": user_id}
-            )
+            response = await asyncio.to_thread(self.client.users_info, {"user": user_id})
 
             if response.get("ok"):
                 user = response.get("user", {})
@@ -549,9 +518,7 @@ class SlackAdapter(PlatformAdapter):
     async def shutdown(self) -> None:
         """Clean up resources"""
         if self.socket_client:
-            await asyncio.get_event_loop().run_in_executor(
-                None, self.socket_client.client.disconnect
-            )
+            await asyncio.to_thread(self.socket_client.client.disconnect)
         self.is_initialized = False
         print("[Slack] Adapter shutdown complete")
 

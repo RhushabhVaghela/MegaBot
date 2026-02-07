@@ -1,34 +1,66 @@
+import logging
 import os
+import re
 import yaml
-import importlib.util
-from pydantic import BaseModel, Field  # type: ignore
+from pydantic import BaseModel, ConfigDict, Field  # type: ignore
 from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------------
+# Secure credential loader — replaces importlib.exec_module (VULN-004 fix)
+# --------------------------------------------------------------------------
+
+# Only lines matching KEY = "value" or KEY = 'value' are accepted.
+_CRED_LINE_RE = re.compile(
+    r"^([A-Z][A-Z0-9_]*)\s*=\s*(?:"
+    r'"([^"]*)"'  # double-quoted value
+    r"|'([^']*)'"  # single-quoted value
+    r"|\[([^\]]*)\]"  # list value  e.g. ["a", "b"]
+    r")\s*$"
+)
+
+_LIST_ITEM_RE = re.compile(r"""["']([^"']*)["']""")
 
 
 def load_api_credentials():
-    """Load credentials from api-credentials.py if it exists and inject into environment"""
+    """Load credentials from api-credentials.py using safe line-by-line parsing.
+
+    Only simple ``KEY = "value"`` assignments are accepted.  Arbitrary
+    Python is **not** executed — this eliminates the importlib RCE vector
+    (VULN-004).
+    """
     cred_path = os.path.join(os.getcwd(), "api-credentials.py")
-    if os.path.exists(cred_path):
-        try:
-            spec = importlib.util.spec_from_file_location("api_credentials", cred_path)
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # Inject all uppercase variables into os.environ
-                for key, value in module.__dict__.items():
-                    if key.isupper() and not key.startswith("_"):
-                        # If it's a list (like AUTHORIZED_ADMINS), convert to comma-separated string
-                        if isinstance(value, list):
-                            os.environ[key] = ",".join(map(str, value))
-                        else:
-                            os.environ[key] = str(value)
-                print(f"✅ Loaded API credentials from {cred_path}")
-        except Exception as e:
-            print(f"⚠️ Error loading {cred_path}: {e}")
+    if not os.path.exists(cred_path):
+        return
+    try:
+        with open(cred_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                m = _CRED_LINE_RE.match(line)
+                if not m:
+                    continue  # skip lines we cannot safely parse
+                key = m.group(1)
+                if m.group(2) is not None:
+                    os.environ[key] = m.group(2)
+                elif m.group(3) is not None:
+                    os.environ[key] = m.group(3)
+                elif m.group(4) is not None:
+                    # list value → comma-separated string
+                    items = _LIST_ITEM_RE.findall(m.group(4))
+                    os.environ[key] = ",".join(items)
+        logger.info("Loaded API credentials from %s", cred_path)
+    except Exception as e:
+        logger.error("Error loading %s: %s", cred_path, e, exc_info=True)
 
 
 class LLMConfig(BaseModel):
     """Configuration for LLM providers"""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
@@ -53,6 +85,8 @@ class LLMConfig(BaseModel):
 class SecurityConfig(BaseModel):
     """Security-related configuration"""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     megabot_backup_key: Optional[str] = Field(default=None, alias="MEGABOT_BACKUP_KEY")
     megabot_encryption_salt: str = Field(default="", alias="MEGABOT_ENCRYPTION_SALT")
     megabot_media_path: str = Field(default="./media", alias="MEGABOT_MEDIA_PATH")
@@ -75,9 +109,7 @@ class SecurityConfig(BaseModel):
                 "Generate a secure salt with: openssl rand -base64 16"
             )
         if len(self.megabot_encryption_salt) < 16:
-            raise ValueError(
-                "MEGABOT_ENCRYPTION_SALT must be at least 16 characters long for security"
-            )
+            raise ValueError("MEGABOT_ENCRYPTION_SALT must be at least 16 characters long for security")
 
 
 class AdapterConfig(BaseModel):
@@ -96,6 +128,8 @@ class SystemConfig(BaseModel):
     name: str = "MegaBot"
     local_only: bool = True
     bind_address: str = "127.0.0.1"
+    messaging_host: str = "127.0.0.1"
+    messaging_port: int = 18790
     telemetry: bool = False
     default_mode: str = "plan"
     admin_phone: Optional[str] = None
@@ -122,9 +156,7 @@ class Config(BaseModel):
         if "openai" in self.adapters:
             required_env_vars["OPENAI_API_KEY"] = "Required for OpenAI LLM provider"
         if "anthropic" in self.adapters:
-            required_env_vars["ANTHROPIC_API_KEY"] = (
-                "Required for Anthropic LLM provider"
-            )
+            required_env_vars["ANTHROPIC_API_KEY"] = "Required for Anthropic LLM provider"
 
         missing = []
         for var, description in required_env_vars.items():
@@ -141,8 +173,9 @@ class Config(BaseModel):
 
         if missing:
             error_msg = "\n".join(missing)
-            print(
-                f"❌ Configuration Error: Missing required environment variables:\n{error_msg}"
+            logger.error(
+                "Configuration error: missing required environment variables:\n%s",
+                error_msg,
             )
             # In production we might raise SystemExit, but for now we warn
             return False
@@ -160,7 +193,7 @@ def load_config(path: str = "mega-config.yaml") -> Config:
 
     # Check if config file exists, create default if not
     if not os.path.exists(path):
-        print(f"⚠️  Config file {path} not found, creating default configuration...")
+        logger.warning("Config file %s not found, creating default configuration", path)
         default_config = Config(
             system=SystemConfig(),
             adapters={},

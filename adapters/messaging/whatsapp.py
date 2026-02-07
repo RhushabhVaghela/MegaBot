@@ -3,6 +3,8 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from .server import PlatformAdapter, PlatformMessage, MessageType
 
+from core.resource_guard import LRUCache
+
 
 class WhatsAppAdapter(PlatformAdapter):
     """
@@ -10,21 +12,17 @@ class WhatsAppAdapter(PlatformAdapter):
     Falls back to WhatsApp Business API if OpenClaw is not available.
     """
 
-    def __init__(
-        self, platform_name: str, server: Any, config: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, platform_name: str, server: Any, config: Optional[Dict[str, Any]] = None):
         super().__init__(platform_name, server)
         self.config = config or {}
         self.phone_number_id = self.config.get("phone_number_id", "")
         self.access_token = self.config.get("access_token", "")
-        self.push_notifications_enabled = self.config.get("push_notifications", {}).get(
-            "enabled", True
-        )
+        self.push_notifications_enabled = self.config.get("push_notifications", {}).get("enabled", True)
         self.session = None
-        self.message_cache = {}
-        self.group_chats = {}
+        self.message_cache: LRUCache[str, Any] = LRUCache(maxsize=1024)
+        self.group_chats: LRUCache[str, Any] = LRUCache(maxsize=256)
         self.notification_callbacks = []
-        self._pending_notifications = {}
+        self._pending_notifications: LRUCache[str, Any] = LRUCache(maxsize=256)
         self.is_initialized = False
         self.retry_attempts = 3
         self._openclaw = None
@@ -64,9 +62,7 @@ class WhatsAppAdapter(PlatformAdapter):
             port = openclaw_config.get("port", 8080)
             auth_token = openclaw_config.get("auth_token") or self.access_token
 
-            self._openclaw = OpenClawAdapter(
-                host=host, port=port, auth_token=auth_token
-            )
+            self._openclaw = OpenClawAdapter(host=host, port=port, auth_token=auth_token)
             await self._openclaw.connect()
             self._use_openclaw = True
             print("[WhatsApp] Connected to OpenClaw for WhatsApp Web")
@@ -81,16 +77,12 @@ class WhatsAppAdapter(PlatformAdapter):
         try:
             import aiohttp
 
-            self.session = aiohttp.ClientSession(
-                headers={"Authorization": f"Bearer {self.access_token}"}
-            )
+            self.session = aiohttp.ClientSession(headers={"Authorization": f"Bearer {self.access_token}"})
             if not self.phone_number_id:
                 print("[WhatsApp] Warning: No phone_number_id configured")
                 return False
 
-            async with self.session.get(
-                f"https://graph.facebook.com/v17.0/{self.phone_number_id}"
-            ) as resp:
+            async with self.session.get(f"https://graph.facebook.com/v17.0/{self.phone_number_id}") as resp:
                 if resp.status == 200:
                     self.is_initialized = True
                     print("[WhatsApp] Connected via Business API")
@@ -174,9 +166,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
             # Try OpenClaw first for local file handling
             if self._use_openclaw and self._openclaw:
-                result = await self._send_media_via_openclaw(
-                    chat_id, media_path, caption, media_type
-                )
+                result = await self._send_media_via_openclaw(chat_id, media_path, caption, media_type)
                 if result:
                     return result
 
@@ -218,9 +208,7 @@ class WhatsAppAdapter(PlatformAdapter):
     async def send_document(
         self, chat_id: str, document_path: str, caption: Optional[str] = None
     ) -> Optional[PlatformMessage]:  # pragma: no cover
-        return await self.send_media(
-            chat_id, document_path, caption, MessageType.DOCUMENT
-        )
+        return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def send_location(
         self, chat_id: str, latitude: float, longitude: float, **kwargs
@@ -382,9 +370,7 @@ class WhatsAppAdapter(PlatformAdapter):
             # Create a formatted message with notification styling
             content = f"*{title}*\n\n{body}"
             if buttons:
-                button_text = "\n".join(
-                    [f"• {btn.get('title', '')}" for btn in buttons]
-                )
+                button_text = "\n".join([f"• {btn.get('title', '')}" for btn in buttons])
                 content += f"\n\n{button_text}"
 
             # Try to send via OpenClaw first
@@ -525,12 +511,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 "cancelled": "❌",
             }.get(order_status.lower(), "📋")
 
-            items_text = "\n".join(
-                [
-                    f"• {item.get('name', '')} x{item.get('quantity', 1)}"
-                    for item in items
-                ]
-            )
+            items_text = "\n".join([f"• {item.get('name', '')} x{item.get('quantity', 1)}" for item in items])
             content = (
                 f"{status_emoji} *Order Update*\n\n"
                 f"Order #{order_id}\n"
@@ -593,11 +574,7 @@ class WhatsAppAdapter(PlatformAdapter):
     ) -> Optional[PlatformMessage]:  # pragma: no cover
         """Send appointment reminder."""
         try:
-            content = (
-                f"📅 *Appointment Reminder*\n\n"
-                f"Service: {service_name}\n"
-                f"Date/Time: {datetime_str}"
-            )
+            content = f"📅 *Appointment Reminder*\n\nService: {service_name}\nDate/Time: {datetime_str}"
             if provider_name:
                 content += f"\nProvider: {provider_name}"
             if location:
@@ -616,9 +593,7 @@ class WhatsAppAdapter(PlatformAdapter):
             print(f"[WhatsApp] send_appointment_reminder error: {e}")
             return None
 
-    async def create_group(
-        self, group_name: str, participants: List[str]
-    ) -> Optional[str]:
+    async def create_group(self, group_name: str, participants: List[str]) -> Optional[str]:
         """Create a WhatsApp group. Note: Requires WhatsApp Business API with appropriate permissions."""
         try:
             if self._use_openclaw and self._openclaw:
@@ -652,9 +627,7 @@ class WhatsAppAdapter(PlatformAdapter):
         """Get message delivery status."""
         try:
             if self.is_initialized and self.session:
-                async with self.session.get(
-                    f"https://graph.facebook.com/v17.0/{msg_id}"
-                ) as resp:
+                async with self.session.get(f"https://graph.facebook.com/v17.0/{msg_id}") as resp:
                     if resp.status == 200:
                         return await resp.json()
             return {"status": "sent"}
@@ -709,9 +682,7 @@ class WhatsAppAdapter(PlatformAdapter):
             elif msg_type == "audio":
                 content = "[Audio]"
             elif msg_type == "document":
-                content = (
-                    f"[Document: {msg_data.get('document', {}).get('filename', '')}]"
-                )
+                content = f"[Document: {msg_data.get('document', {}).get('filename', '')}]"
             elif msg_type == "location":
                 loc = msg_data.get("location", {})
                 content = f"[Location: {loc.get('latitude')}, {loc.get('longitude')}]"
@@ -744,9 +715,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 ) as resp:
                     if resp.status == 200:
                         return await resp.json()
-                    if (
-                        resp.status == 429 or resp.status >= 500
-                    ):  # Rate limited or Server Error
+                    if resp.status == 429 or resp.status >= 500:  # Rate limited or Server Error
                         wait_time = 0.01 * (2**attempt)
                         await asyncio.sleep(wait_time)
                         continue
@@ -755,9 +724,7 @@ class WhatsAppAdapter(PlatformAdapter):
                     return None
             except Exception as e:
                 if attempt == self.retry_attempts - 1:
-                    print(
-                        f"[WhatsApp] Send failed after {self.retry_attempts} attempts: {e}"
-                    )
+                    print(f"[WhatsApp] Send failed after {self.retry_attempts} attempts: {e}")
                     return None
                 await asyncio.sleep(0.01 * (2**attempt))
         return None
@@ -776,9 +743,7 @@ class WhatsAppAdapter(PlatformAdapter):
             )
 
             if result and not result.get("error"):
-                msg_id = result.get("result", {}).get(
-                    "message_id", f"oc_{uuid.uuid4().hex}"
-                )
+                msg_id = result.get("result", {}).get("message_id", f"oc_{uuid.uuid4().hex}")
                 return PlatformMessage(
                     id=msg_id,
                     platform="whatsapp",
@@ -816,9 +781,7 @@ class WhatsAppAdapter(PlatformAdapter):
             )
 
             if result and not result.get("error"):
-                msg_id = result.get("result", {}).get(
-                    "message_id", f"oc_{uuid.uuid4().hex}"
-                )
+                msg_id = result.get("result", {}).get("message_id", f"oc_{uuid.uuid4().hex}")
                 return PlatformMessage(
                     id=msg_id,
                     platform="whatsapp",
@@ -834,9 +797,7 @@ class WhatsAppAdapter(PlatformAdapter):
             print(f"[WhatsApp] OpenClaw media send error: {e}")
             return None
 
-    async def _upload_media(
-        self, file_path: str, media_type: MessageType
-    ) -> Optional[str]:
+    async def _upload_media(self, file_path: str, media_type: MessageType) -> Optional[str]:
         """Upload media to WhatsApp servers."""
         if not self.session:
             return None
@@ -874,9 +835,7 @@ class WhatsAppAdapter(PlatformAdapter):
                     return result.get("id")
                 else:
                     error_text = await resp.text()
-                    print(
-                        f"[WhatsApp] Media upload failed: {resp.status} - {error_text}"
-                    )
+                    print(f"[WhatsApp] Media upload failed: {resp.status} - {error_text}")
                     return None
         except Exception as e:
             print(f"[WhatsApp] Media upload error: {e}")
@@ -898,9 +857,7 @@ class WhatsAppAdapter(PlatformAdapter):
     def _normalize_phone(self, phone: str) -> str:
         """Normalize phone number format."""
         # Remove spaces, dashes, and parentheses
-        normalized = (
-            phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-        )
+        normalized = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
         # Ensure it starts with +
         if not normalized.startswith("+"):
             normalized = "+" + normalized

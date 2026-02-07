@@ -37,8 +37,7 @@ async def test_init(chat_manager, temp_db):
         # Check indexes
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
         indexes = [row[0] for row in cursor.fetchall()]
-        assert "idx_chat_id" in indexes
-        assert "idx_chat_timestamp" in indexes
+        assert "idx_chat_id_timestamp" in indexes
         assert "idx_chat_platform" in indexes
 
 
@@ -161,12 +160,8 @@ async def test_forget_keeps_forever_messages(chat_manager):
         await chat_manager.write("forever_chat", "discord", "user", f"Regular {i}")
 
     # Write 2 messages with keep_forever
-    await chat_manager.write(
-        "forever_chat", "discord", "user", "Forever 1", {"keep_forever": True}
-    )
-    await chat_manager.write(
-        "forever_chat", "discord", "user", "Forever 2", {"keep_forever": True}
-    )
+    await chat_manager.write("forever_chat", "discord", "user", "Forever 1", {"keep_forever": True})
+    await chat_manager.write("forever_chat", "discord", "user", "Forever 2", {"keep_forever": True})
 
     # Force cleanup with small max_history (should keep 3 total: 1 regular + 2 forever)
     result = await chat_manager.forget("forever_chat", max_history=1)
@@ -185,9 +180,7 @@ async def test_get_all_chat_ids(chat_manager):
     """Test getting all unique chat IDs."""
     await chat_manager.write("chat1", "discord", "user", "Message")
     await chat_manager.write("chat2", "telegram", "user", "Message")
-    await chat_manager.write(
-        "chat1", "discord", "assistant", "Response"
-    )  # Same chat_id
+    await chat_manager.write("chat1", "discord", "assistant", "Response")  # Same chat_id
     await chat_manager.write("chat3", "slack", "user", "Message")
 
     chat_ids = await chat_manager.get_all_chat_ids()
@@ -245,9 +238,7 @@ async def test_multiple_platforms(chat_manager):
     import sqlite3
 
     with sqlite3.connect(chat_manager.db_path) as conn:
-        cursor = conn.execute(
-            "SELECT platform FROM chat_history WHERE chat_id = 'multi_platform'"
-        )
+        cursor = conn.execute("SELECT platform FROM chat_history WHERE chat_id = 'multi_platform'")
         platforms = [row[0] for row in cursor.fetchall()]
         assert "discord" in platforms
         assert "telegram" in platforms
@@ -312,5 +303,42 @@ async def test_get_chat_stats_error_handling(chat_manager):
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
         mock_connect.side_effect = Exception("DB Error")
         stats = await chat_manager.get_chat_stats("chat123")
+        assert "error" in stats
+        assert "DB Error" in stats["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_aggregate_stats(chat_manager):
+    """Test aggregate stats across all chats."""
+    await chat_manager.write("agg_chat1", "discord", "user", "Message 1")
+    await chat_manager.write("agg_chat1", "discord", "assistant", "Reply 1")
+    await chat_manager.write("agg_chat2", "telegram", "user", "Message 2")
+
+    stats = await chat_manager.get_aggregate_stats()
+    assert stats["total_messages"] == 3
+    assert stats["unique_chats"] == 2
+    assert stats["by_platform"]["discord"] == 2
+    assert stats["by_platform"]["telegram"] == 1
+    assert "recent_messages_7d" in stats
+
+
+@pytest.mark.asyncio
+async def test_get_aggregate_stats_empty(chat_manager):
+    """Test aggregate stats when database is empty."""
+    stats = await chat_manager.get_aggregate_stats()
+    assert stats["total_messages"] == 0
+    assert stats["unique_chats"] == 0
+    assert stats["by_platform"] == {}
+    assert stats["recent_messages_7d"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_aggregate_stats_error_handling(chat_manager):
+    """Test error handling in get_aggregate_stats."""
+    import unittest.mock
+
+    with unittest.mock.patch("sqlite3.connect") as mock_connect:
+        mock_connect.side_effect = Exception("DB Error")
+        stats = await chat_manager.get_aggregate_stats()
         assert "error" in stats
         assert "DB Error" in stats["error"]

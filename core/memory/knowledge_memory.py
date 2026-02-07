@@ -42,9 +42,7 @@ class KnowledgeMemoryManager:
     def _init_tables(self):
         """Initialize knowledge memory tables."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "PRAGMA journal_mode=WAL"
-            )  # Enable WAL mode for better concurrency
+            conn.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS memories (
                     key TEXT PRIMARY KEY,
@@ -56,29 +54,33 @@ class KnowledgeMemoryManager:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_type ON memories(type)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_key ON memories(key)")
+            # idx_key is intentionally omitted — 'key' is the PRIMARY KEY, which
+            # already has an implicit unique B-tree index in SQLite.
             conn.execute("CREATE INDEX IF NOT EXISTS idx_tags ON memories(tags)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_updated_at ON memories(updated_at)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_updated_at ON memories(updated_at)")
 
     def _get_connection(self):
         """Get thread-local database connection."""
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.execute("PRAGMA journal_mode=WAL")  # Ensure WAL mode
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s on lock
         return self._local.conn
 
-    async def write(
-        self, key: str, type: str, content: str, tags: Optional[List[str]] = None
-    ) -> str:
+    def close(self):
+        """Close the thread-local database connection if it exists."""
+        if hasattr(self._local, "conn"):
+            try:
+                self._local.conn.close()
+            except Exception:
+                pass
+
+    async def write(self, key: str, type: str, content: str, tags: Optional[List[str]] = None) -> str:
         """Record new knowledge or decisions."""
         tags_json = json.dumps(tags or [])
         try:
             loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                self._executor, self._sync_write, key, type, content, tags_json
-            )
+            result = await loop.run_in_executor(self._executor, self._sync_write, key, type, content, tags_json)
             return result
         except Exception as e:
             logger.error(f"Error writing memory: {e}")
@@ -133,9 +135,7 @@ class KnowledgeMemoryManager:
         """Search for memories by query, type, or tags with advanced filtering."""
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_search, query, type, tags, limit, order_by
-            )
+            return await loop.run_in_executor(self._executor, self._sync_search, query, type, tags, limit, order_by)
         except Exception as e:
             logger.error(f"Error searching memories: {e}")
             return []
@@ -150,7 +150,7 @@ class KnowledgeMemoryManager:
     ) -> List[Dict[str, Any]]:
         """Synchronous search operation."""
         sql = "SELECT * FROM memories WHERE 1=1"
-        params = []
+        params: list = []
 
         if query:
             sql += " AND (content LIKE ? OR key LIKE ?)"
@@ -159,6 +159,15 @@ class KnowledgeMemoryManager:
         if type:
             sql += " AND type = ?"
             params.append(type)
+
+        # Push tag filtering into SQL using JSON string matching.
+        # Tags are stored as JSON arrays like '["foo", "bar"]', so
+        # matching LIKE '%"tagname"%' is reliable and avoids fetching
+        # all rows into Python for post-hoc filtering.
+        if tags:
+            for tag in tags:
+                sql += " AND tags LIKE ?"
+                params.append(f'%"{tag}"%')
 
         # Validate order_by against whitelist to prevent SQL injection
         if order_by not in _ALLOWED_ORDER_BY:
@@ -174,16 +183,12 @@ class KnowledgeMemoryManager:
         conn = self._get_connection()
         cursor = conn.execute(sql, params)
         for row in cursor.fetchall():
-            row_tags = json.loads(row[3])
-            # Filter by tags if provided
-            if tags and not all(tag in row_tags for tag in tags):
-                continue
             results.append(
                 {
                     "key": row[0],
                     "type": row[1],
                     "content": row[2],
-                    "tags": row_tags,
+                    "tags": json.loads(row[3]),
                     "created_at": row[4],
                     "updated_at": row[5],
                 }
@@ -211,9 +216,7 @@ class KnowledgeMemoryManager:
         tags_json = json.dumps(tags)
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_update_tags, key, tags_json
-            )
+            return await loop.run_in_executor(self._executor, self._sync_update_tags, key, tags_json)
         except Exception as e:
             logger.error(f"Error updating tags for memory '{key}': {e}")
             return False
@@ -241,9 +244,7 @@ class KnowledgeMemoryManager:
         """Synchronous get stats operation."""
         conn = self._get_connection()
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        types = conn.execute(
-            "SELECT type, COUNT(*) FROM memories GROUP BY type"
-        ).fetchall()
+        types = conn.execute("SELECT type, COUNT(*) FROM memories GROUP BY type").fetchall()
         recent = conn.execute(
             "SELECT COUNT(*) FROM memories WHERE updated_at >= datetime('now', '-7 days')"
         ).fetchone()[0]
@@ -257,9 +258,7 @@ class KnowledgeMemoryManager:
         """Remove memories older than specified days (except critical ones)."""
         try:
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, self._sync_cleanup_old_memories, days_old
-            )
+            return await loop.run_in_executor(self._executor, self._sync_cleanup_old_memories, days_old)
         except Exception as e:
             logger.error(f"Error cleaning up old memories: {e}")
             return 0

@@ -37,7 +37,7 @@ async def test_init(knowledge_manager, temp_db):
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
         indexes = [row[0] for row in cursor.fetchall()]
         assert "idx_type" in indexes
-        assert "idx_key" in indexes
+        # idx_key is intentionally omitted — 'key' is the PRIMARY KEY
         assert "idx_tags" in indexes
         assert "idx_updated_at" in indexes
 
@@ -65,9 +65,7 @@ async def test_write_success(knowledge_manager):
 @pytest.mark.asyncio
 async def test_write_without_tags(knowledge_manager):
     """Test writing memory without tags."""
-    result = await knowledge_manager.write(
-        key="no_tags_key", type="fact", content="Memory without tags"
-    )
+    result = await knowledge_manager.write(key="no_tags_key", type="fact", content="Memory without tags")
     assert "written successfully" in result
 
     memory = await knowledge_manager.read("no_tags_key")
@@ -81,9 +79,7 @@ async def test_write_update_existing(knowledge_manager):
     await knowledge_manager.write("update_key", "initial", "initial content", ["old"])
 
     # Update it
-    result = await knowledge_manager.write(
-        "update_key", "updated", "updated content", ["new"]
-    )
+    result = await knowledge_manager.write("update_key", "updated", "updated content", ["new"])
     assert "written successfully" in result
 
     memory = await knowledge_manager.read("update_key")
@@ -186,9 +182,7 @@ async def test_search_with_limit(knowledge_manager):
 @pytest.mark.asyncio
 async def test_search_combined_filters(knowledge_manager):
     """Test search with multiple filters."""
-    await knowledge_manager.write(
-        "mem1", "decision", "important decision about apples", ["important"]
-    )
+    await knowledge_manager.write("mem1", "decision", "important decision about apples", ["important"])
     await knowledge_manager.write("mem2", "fact", "red apple facts", ["fruit"])
     await knowledge_manager.write("mem3", "decision", "car decision", ["vehicle"])
 
@@ -277,16 +271,12 @@ async def test_cleanup_old_memories(knowledge_manager):
     # Add a memory and manually set its updated_at to old date
     await knowledge_manager.write("old_memory", "fact", "old content", [])
     await knowledge_manager.write("new_memory", "decision", "new content", [])
-    await knowledge_manager.write(
-        "lesson_memory", "learned_lesson", "lesson content", []
-    )
+    await knowledge_manager.write("lesson_memory", "learned_lesson", "lesson content", [])
 
     # Manually update the old memory's timestamp
     old_date = (datetime.now() - timedelta(days=400)).strftime("%Y-%m-%d %H:%M:%S")
     with sqlite3.connect(knowledge_manager.db_path) as conn:
-        conn.execute(
-            "UPDATE memories SET updated_at = ? WHERE key = ?", (old_date, "old_memory")
-        )
+        conn.execute("UPDATE memories SET updated_at = ? WHERE key = ?", (old_date, "old_memory"))
 
     # Cleanup memories older than 365 days (but not learned lessons)
     removed = await knowledge_manager.cleanup_old_memories(days_old=365)
@@ -346,3 +336,17 @@ async def test_error_handlings_full(knowledge_manager):
 
         # cleanup_old_memories error (239-241)
         assert await knowledge_manager.cleanup_old_memories() == 0
+
+
+# ==============================================================
+# Round 3 — merged from test_coverage_round3.py
+# ==============================================================
+
+
+@pytest.mark.asyncio
+async def test_knowledge_memory_invalid_order_by():
+    """Line 165: invalid order_by falls back to 'updated_at DESC'."""
+    mgr = KnowledgeMemoryManager(db_path=":memory:")
+
+    results = await mgr.search(query="test", order_by="1; DROP TABLE memories;--")
+    assert isinstance(results, list)

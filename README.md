@@ -1,11 +1,16 @@
 # MegaBot: The Ultimate Unified AI Orchestrator 🤖🚀
 
 [![CI](https://github.com/RhushabhVaghela/MegaBot/actions/workflows/ci.yml/badge.svg)](https://github.com/RhushabhVaghela/MegaBot/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/RhushabhVaghela/MegaBot)
+[![Tests](https://img.shields.io/badge/tests-1373_passing-brightgreen)](https://github.com/RhushabhVaghela/MegaBot/actions)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/RhushabhVaghela/MegaBot)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](https://github.com/RhushabhVaghela/MegaBot)
+[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)](https://modelcontextprotocol.io/)
 
-MegaBot is a production-ready, local-first AI assistant that unifies the world's most powerful agentic frameworks into a single, secure, and modular brain. By combining the execution power of **OpenClaw**, the proactive memory of **memU**, the tool-standardization of **MCP**, and the terminal-centric philosophy of **OpenCode**, MegaBot delivers a future-proof agentic experience.
+**MegaBot** is a production-ready, local-first AI orchestrator that unifies agentic frameworks — [OpenClaw](https://github.com/RhushabhVaghela/MegaBot), [memU](https://github.com/RhushabhVaghela/MegaBot), and [MCP](https://modelcontextprotocol.io/) — into a single, secure, modular brain. Control it from Telegram, Discord, Signal, WhatsApp, Slack, or any WebSocket client. All data stays on your machine. All dangerous actions require your approval.
+
+> **Why MegaBot?** Existing AI agents are either cloud-locked, single-platform, or have no security model. MegaBot is the self-hosted, multi-channel alternative with human-in-the-loop safety built in.
 
 ---
 
@@ -299,4 +304,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-*Maintained by Rhushabh Vaghela. Built for the era of private, agentic intelligence.*
+<p align="center">
+  <strong>Maintained by <a href="https://github.com/RhushabhVaghela">Rhushabh Vaghela</a></strong><br>
+  Built for the era of private, agentic intelligence.<br><br>
+  <a href="https://github.com/RhushabhVaghela/MegaBot/stargazers">⭐ Star this repo</a> if you find it useful!
+</p>

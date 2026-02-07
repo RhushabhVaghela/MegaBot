@@ -10,6 +10,7 @@ Features:
 - Mentions
 - Delivery receipts
 - Webhook support for incoming messages
+- Retry with exponential backoff on RPC calls
 
 Note: Requires signal-cli to be installed and running in JSON-RPC mode:
     signal-cli daemon --socket /tmp/signal.socket --dbus=system
@@ -17,6 +18,7 @@ Note: Requires signal-cli to be installed and running in JSON-RPC mode:
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -25,6 +27,14 @@ from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 
 from adapters.messaging import PlatformMessage, MessageType
+
+from core.resource_guard import LRUCache
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds, doubles each retry
 
 
 class SignalMessageType(Enum):
@@ -100,9 +110,7 @@ class SignalQuote:
             id=data.get("id", 0),
             author=data.get("author", ""),
             text=data.get("text"),
-            attachments=[
-                SignalAttachment.from_dict(a) for a in data.get("attachments", [])
-            ],
+            attachments=[SignalAttachment.from_dict(a) for a in data.get("attachments", [])],
         )
 
 
@@ -158,24 +166,17 @@ class SignalMessage:
             source=data.get("source", ""),
             timestamp=data.get("timestamp", 0),
             message_type=msg_type,
-            content=data.get("dataMessage", {}).get("message")
-            if "dataMessage" in data
-            else data.get("message"),
+            content=data.get("dataMessage", {}).get("message") if "dataMessage" in data else data.get("message"),
             attachments=[
                 SignalAttachment.from_dict(a)
-                for a in data.get("dataMessage", {}).get(
-                    "attachments", data.get("attachments", [])
-                )
+                for a in data.get("dataMessage", {}).get("attachments", data.get("attachments", []))
             ],
             group_info=data.get("dataMessage", {}).get("groupInfo"),
             quote=SignalQuote.from_dict(data.get("dataMessage", {}).get("quote", {})),
-            reaction=SignalReaction.from_dict(
-                data.get("dataMessage", {}).get("reaction", {})
-            )
+            reaction=SignalReaction.from_dict(data.get("dataMessage", {}).get("reaction", {}))
             if "reaction" in data.get("dataMessage", {})
             else None,
-            is_receipt=msg_type
-            in [SignalMessageType.READ, SignalMessageType.DELIVERED],
+            is_receipt=msg_type in [SignalMessageType.READ, SignalMessageType.DELIVERED],
             is_unidentified=data.get("isUnidentified", False),
         )
 
@@ -260,8 +261,8 @@ class SignalAdapter:
         self.blocked_numbers: List[str] = []
         self.groups: Dict[str, SignalGroup] = {}
 
-        self.message_cache: Dict[str, Dict[str, Any]] = {}
-        self.pending_messages: Dict[str, Dict[str, Any]] = {}
+        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
+        self.pending_messages: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=256)
 
         self.message_handlers: List[Callable] = []
         self.reaction_handlers: List[Callable] = []
@@ -282,7 +283,7 @@ class SignalAdapter:
                 await self._start_receive_process()
 
             self.is_initialized = True
-            print(f"[Signal] Adapter initialized for {self.phone_number}")
+            logger.info("[Signal] Adapter initialized for %s", self.phone_number)
 
             # These might fail if no daemon/process is actually running
             try:
@@ -294,7 +295,7 @@ class SignalAdapter:
             return True
 
         except Exception as e:
-            print(f"[Signal] Initialization failed: {e}")
+            logger.error("[Signal] Initialization failed: %s", e)
             return False
 
     async def shutdown(self) -> None:
@@ -316,7 +317,7 @@ class SignalAdapter:
             self.reader_task = None
 
         self.is_initialized = False
-        print("[Signal] Adapter shutdown complete")
+        logger.info("[Signal] Adapter shutdown complete")
 
     async def _start_daemon(self) -> None:
         """Start signal-cli daemon in JSON-RPC mode"""
@@ -398,7 +399,7 @@ class SignalAdapter:
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception as e:
-                        print(f"[Signal] Message handler error: {e}")
+                        logger.error("[Signal] Message handler error: %s", e)
 
             elif "typing" in data:
                 for handler in self.reaction_handlers:
@@ -407,7 +408,7 @@ class SignalAdapter:
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception as e:
-                        print(f"[Signal] Typing handler error: {e}")
+                        logger.error("[Signal] Typing handler error: %s", e)
 
             elif data.get("type") in ["read", "delivered"]:
                 for handler in self.receipt_handlers:
@@ -416,10 +417,10 @@ class SignalAdapter:
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception as e:
-                        print(f"[Signal] Receipt handler error: {e}")
+                        logger.error("[Signal] Receipt handler error: %s", e)
 
         except Exception as e:
-            print(f"[Signal] Message handling error: {e}")
+            logger.error("[Signal] Message handling error: %s", e)
 
     async def _to_platform_message(self, message: SignalMessage) -> PlatformMessage:
         """Convert Signal message to PlatformMessage"""
@@ -427,20 +428,11 @@ class SignalAdapter:
         content = message.content or ""
 
         if message.attachments:
-            if any(
-                a.content_type and a.content_type.startswith("image/")
-                for a in message.attachments
-            ):
+            if any(a.content_type and a.content_type.startswith("image/") for a in message.attachments):
                 msg_type = MessageType.IMAGE
-            elif any(
-                a.content_type and a.content_type.startswith("video/")
-                for a in message.attachments
-            ):
+            elif any(a.content_type and a.content_type.startswith("video/") for a in message.attachments):
                 msg_type = MessageType.VIDEO
-            elif any(
-                a.content_type and a.content_type.startswith("audio/")
-                for a in message.attachments
-            ):
+            elif any(a.content_type and a.content_type.startswith("audio/") for a in message.attachments):
                 msg_type = MessageType.AUDIO
             else:
                 msg_type = MessageType.DOCUMENT
@@ -463,9 +455,7 @@ class SignalAdapter:
                 "signal_message_id": message.id,
                 "signal_timestamp": message.timestamp,
                 "signal_source": message.source,
-                "signal_group_id": message.group_info.get("id")
-                if message.group_info
-                else None,
+                "signal_group_id": message.group_info.get("id") if message.group_info else None,
                 "attachments": [a.__dict__ for a in message.attachments],
                 "is_unidentified": message.is_unidentified,
             },
@@ -479,64 +469,188 @@ class SignalAdapter:
             return await self._send_stdout_rpc(method, params)
 
     async def _send_socket_rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        """Send JSON-RPC request via socket"""
-        try:
-            reader, writer = await asyncio.open_unix_connection(self.socket_path)
+        """Send JSON-RPC request via socket with retry and exponential backoff."""
+        last_error: Optional[Exception] = None
 
-            request = (
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": str(uuid.uuid4()),
-                        "method": method,
-                        "params": params,
-                    }
+        for attempt in range(MAX_RETRIES):
+            writer = None
+            try:
+                reader, writer = await asyncio.open_unix_connection(self.socket_path)
+
+                request_id = str(uuid.uuid4())
+                request = (
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "method": method,
+                            "params": params,
+                        }
+                    )
+                    + "\n"
                 )
-                + "\n"
-            )
 
-            writer.write(request.encode())
-            await writer.drain()
+                writer.write(request.encode())
+                await writer.drain()
 
-            line = await reader.readline()
-            writer.close()
-            await writer.wait_closed()
+                line = await asyncio.wait_for(reader.readline(), timeout=30.0)
+                writer.close()
+                await writer.wait_closed()
+                writer = None
 
-            if line:
-                result = json.loads(line.decode())
-                return result.get("result")
-            return None
-
-        except Exception as e:
-            print(f"[Signal] RPC error: {e}")
-            return None
-
-    async def _send_stdout_rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        """Send JSON-RPC request via stdin/stdout"""
-        request = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": str(uuid.uuid4()),
-                    "method": method,
-                    "params": params,
-                }
-            )
-            + "\n"
-        )
-
-        if self.process and self.process.stdin:
-            self.process.stdin.write(request.encode())
-            await self.process.stdin.drain()
-
-            await asyncio.sleep(0.5)
-
-            if self.process.stdout:
-                line = await self.process.stdout.readline()
                 if line:
                     result = json.loads(line.decode())
+                    if "error" in result:
+                        error_msg = result["error"].get("message", "Unknown RPC error")
+                        logger.warning(
+                            "[Signal] RPC error response for %s: %s (attempt %d/%d)",
+                            method,
+                            error_msg,
+                            attempt + 1,
+                            MAX_RETRIES,
+                        )
+                        last_error = Exception(error_msg)
+                        # Don't retry on semantic errors (method not found, invalid params)
+                        error_code = result["error"].get("code", 0)
+                        if error_code in (-32601, -32602):
+                            return None
+                        # Retry on other errors
+                        if attempt < MAX_RETRIES - 1:
+                            delay = RETRY_BASE_DELAY * (2**attempt)
+                            await asyncio.sleep(delay)
+                            continue
+                        return None
                     return result.get("result")
+                return None
 
+            except asyncio.TimeoutError:
+                last_error = asyncio.TimeoutError(f"Socket RPC timeout for {method}")
+                logger.warning(
+                    "[Signal] Socket RPC timeout for %s (attempt %d/%d)",
+                    method,
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+            except ConnectionRefusedError as e:
+                last_error = e
+                logger.warning(
+                    "[Signal] Socket connection refused for %s (attempt %d/%d)",
+                    method,
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "[Signal] Socket RPC error for %s: %s (attempt %d/%d)",
+                    method,
+                    e,
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+            finally:
+                if writer is not None:
+                    try:
+                        writer.close()
+                        await writer.wait_closed()
+                    except Exception:
+                        pass
+
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                logger.info("[Signal] Retrying %s in %.1fs...", method, delay)
+                await asyncio.sleep(delay)
+
+        logger.error(
+            "[Signal] Socket RPC failed for %s after %d attempts: %s",
+            method,
+            MAX_RETRIES,
+            last_error,
+        )
+        return None
+
+    async def _send_stdout_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+        """Send JSON-RPC request via stdin/stdout with retry and exponential backoff."""
+        last_error: Optional[Exception] = None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                request_id = str(uuid.uuid4())
+                request = (
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "method": method,
+                            "params": params,
+                        }
+                    )
+                    + "\n"
+                )
+
+                if not self.process or not self.process.stdin:
+                    logger.error("[Signal] No process available for stdout RPC")
+                    return None
+
+                self.process.stdin.write(request.encode())
+                await self.process.stdin.drain()
+
+                if self.process.stdout:
+                    # Use a timeout instead of a fragile fixed sleep
+                    line = await asyncio.wait_for(self.process.stdout.readline(), timeout=10.0)
+                    if line:
+                        result = json.loads(line.decode())
+                        if "error" in result:
+                            error_msg = result["error"].get("message", "Unknown RPC error")
+                            logger.warning(
+                                "[Signal] Stdout RPC error for %s: %s (attempt %d/%d)",
+                                method,
+                                error_msg,
+                                attempt + 1,
+                                MAX_RETRIES,
+                            )
+                            last_error = Exception(error_msg)
+                            error_code = result["error"].get("code", 0)
+                            if error_code in (-32601, -32602):
+                                return None
+                            if attempt < MAX_RETRIES - 1:
+                                delay = RETRY_BASE_DELAY * (2**attempt)
+                                await asyncio.sleep(delay)
+                                continue
+                            return None
+                        return result.get("result")
+
+                return None
+
+            except asyncio.TimeoutError:
+                last_error = asyncio.TimeoutError(f"Stdout RPC timeout for {method}")
+                logger.warning(
+                    "[Signal] Stdout RPC timeout for %s (attempt %d/%d)",
+                    method,
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "[Signal] Stdout RPC error for %s: %s (attempt %d/%d)",
+                    method,
+                    e,
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                logger.info("[Signal] Retrying %s in %.1fs...", method, delay)
+                await asyncio.sleep(delay)
+
+        logger.error(
+            "[Signal] Stdout RPC failed for %s after %d attempts: %s",
+            method,
+            MAX_RETRIES,
+            last_error,
+        )
         return None
 
     async def send_message(
@@ -587,12 +701,10 @@ class SignalAdapter:
             return None
 
         except Exception as e:
-            print(f"[Signal] Send message error: {e}")
+            logger.error("[Signal] Send message error: %s", e)
             return None
 
-    async def send_reaction(
-        self, recipient: str, emoji: str, target_author: str, target_timestamp: int
-    ) -> bool:
+    async def send_reaction(self, recipient: str, emoji: str, target_author: str, target_timestamp: int) -> bool:
         """
         Send a reaction to a message.
 
@@ -617,12 +729,10 @@ class SignalAdapter:
             return bool(result)
 
         except Exception as e:
-            print(f"[Signal] Send reaction error: {e}")
+            logger.error("[Signal] Send reaction error: %s", e)
             return False
 
-    async def send_receipt(
-        self, recipient: str, message_ids: List[str], receipt_type: str = "read"
-    ) -> bool:
+    async def send_receipt(self, recipient: str, message_ids: List[str], receipt_type: str = "read") -> bool:
         """
         Send a delivery or read receipt.
 
@@ -652,7 +762,7 @@ class SignalAdapter:
             return bool(result)
 
         except Exception as e:
-            print(f"[Signal] Send receipt error: {e}")
+            logger.error("[Signal] Send receipt error: %s", e)
             return False
 
     async def create_group(
@@ -698,7 +808,7 @@ class SignalAdapter:
             return None
 
         except Exception as e:
-            print(f"[Signal] Create group error: {e}")
+            logger.error("[Signal] Create group error: %s", e)
             return None
 
     async def update_group(
@@ -750,7 +860,7 @@ class SignalAdapter:
             return bool(result)
 
         except Exception as e:
-            print(f"[Signal] Update group error: {e}")
+            logger.error("[Signal] Update group error: %s", e)
             return False
 
     async def leave_group(self, group_id: str) -> bool:
@@ -768,7 +878,7 @@ class SignalAdapter:
             result = await self._send_json_rpc("leaveGroup", params)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Leave group error: {e}")
+            logger.error("[Signal] Leave group error: %s", e)
             return False
 
     async def get_groups(self) -> List[SignalGroup]:
@@ -788,7 +898,7 @@ class SignalAdapter:
                 self.groups[group.id] = group
                 return group
         except Exception as e:
-            print(f"[Signal] Get group error: {e}")
+            logger.error("[Signal] Get group error: %s", e)
         return None
 
     async def _load_groups(self) -> None:
@@ -800,18 +910,16 @@ class SignalAdapter:
                     group = SignalGroup.from_dict(group_data)
                     self.groups[group.id] = group
         except Exception as e:
-            print(f"[Signal] Load groups error: {e}")
+            logger.error("[Signal] Load groups error: %s", e)
 
     async def _load_contacts(self) -> None:
         """Load contacts from signal-cli"""
         try:
             result = await self._send_json_rpc("listContacts", {})
             if result:
-                self.registered_numbers = [
-                    c.get("number") for c in result if c.get("number")
-                ]
+                self.registered_numbers = [c.get("number") for c in result if c.get("number")]
         except Exception as e:
-            print(f"[Signal] Load contacts error: {e}")
+            logger.error("[Signal] Load contacts error: %s", e)
 
     async def add_contact(self, number: str, name: Optional[str] = None) -> bool:
         """
@@ -833,7 +941,7 @@ class SignalAdapter:
                 self.registered_numbers.append(number)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Add contact error: {e}")
+            logger.error("[Signal] Add contact error: %s", e)
             return False
 
     async def block_contact(self, number: str) -> bool:
@@ -854,7 +962,7 @@ class SignalAdapter:
                     self.blocked_numbers.append(number)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Block contact error: {e}")
+            logger.error("[Signal] Block contact error: %s", e)
             return False
 
     async def unblock_contact(self, number: str) -> bool:
@@ -874,7 +982,7 @@ class SignalAdapter:
                 self.blocked_numbers.remove(number)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Unblock contact error: {e}")
+            logger.error("[Signal] Unblock contact error: %s", e)
             return False
 
     async def register(self, voice: bool = False) -> bool:
@@ -894,7 +1002,7 @@ class SignalAdapter:
             result = await self._send_json_rpc("register", params)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Register error: {e}")
+            logger.error("[Signal] Register error: %s", e)
             return False
 
     async def verify(self, code: str) -> bool:
@@ -912,7 +1020,7 @@ class SignalAdapter:
             result = await self._send_json_rpc("verify", params)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Verify error: {e}")
+            logger.error("[Signal] Verify error: %s", e)
             return False
 
     async def send_profile(
@@ -945,7 +1053,7 @@ class SignalAdapter:
             result = await self._send_json_rpc("updateProfile", params)
             return bool(result)
         except Exception as e:
-            print(f"[Signal] Update profile error: {e}")
+            logger.error("[Signal] Update profile error: %s", e)
             return False
 
     async def upload_attachment(self, file_path: str) -> Optional[str]:
@@ -963,7 +1071,7 @@ class SignalAdapter:
             result = await self._send_json_rpc("uploadAttachment", params)
             return result
         except Exception as e:
-            print(f"[Signal] Upload attachment error: {e}")
+            logger.error("[Signal] Upload attachment error: %s", e)
             return None
 
     async def send_note_to_self(self, message: str) -> Optional[str]:
@@ -988,9 +1096,7 @@ class SignalAdapter:
         Returns:
             True on success
         """
-        return await self.send_receipt(
-            recipient=self.phone_number, message_ids=message_ids, receipt_type="read"
-        )
+        return await self.send_receipt(recipient=self.phone_number, message_ids=message_ids, receipt_type="read")
 
     def register_message_handler(self, handler: Callable) -> None:
         """Register a message handler"""
@@ -1008,9 +1114,7 @@ class SignalAdapter:
         """Register an error handler"""
         self.error_handlers.append(handler)
 
-    async def handle_webhook(
-        self, webhook_data: Dict[str, Any]
-    ) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Optional[PlatformMessage]:
         """
         Handle incoming webhook from signal-cli-http-gateway.
 
@@ -1031,7 +1135,7 @@ class SignalAdapter:
             return None
 
         except Exception as e:
-            print(f"[Signal] Webhook error: {e}")
+            logger.error("[Signal] Webhook error: %s", e)
             return None
 
     def _generate_id(self) -> str:
@@ -1041,18 +1145,14 @@ class SignalAdapter:
 
 async def main():
     """Example usage of Signal adapter"""
-    adapter = SignalAdapter(
-        phone_number="+1234567890", socket_path="/tmp/signal.socket"
-    )
+    adapter = SignalAdapter(phone_number="+1234567890", socket_path="/tmp/signal.socket")
 
     if await adapter.initialize():
         print(f"Signal adapter ready for {adapter.phone_number}")
 
         adapter.register_message_handler(lambda msg: print(f"Received: {msg.content}"))
 
-        await adapter.send_message(
-            recipient="+0987654321", message="Hello from MegaBot Signal Adapter!"
-        )
+        await adapter.send_message(recipient="+0987654321", message="Hello from MegaBot Signal Adapter!")
 
 
 if __name__ == "__main__":  # pragma: no cover

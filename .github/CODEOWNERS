@@ -1,0 +1,20 @@
+# MegaBot Code Owners
+# These owners will be automatically requested for review on PRs.
+
+# Global owner
+* @RhushabhVaghela
+
+# Core engine
+/core/ @RhushabhVaghela
+/adapters/ @RhushabhVaghela
+
+# Security-critical paths (require explicit review)
+/core/permissions.py @RhushabhVaghela
+/core/secrets.py @RhushabhVaghela
+/adapters/security/ @RhushabhVaghela
+
+# Frontend
+/ui/ @RhushabhVaghela
+
+# CI/CD
+/.github/ @RhushabhVaghela

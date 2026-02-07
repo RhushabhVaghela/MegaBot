@@ -45,13 +45,13 @@ class TestLokiMode:
     @pytest.mark.asyncio
     async def test_relay_status_with_active_chat(self, loki_mode):
         """Test _relay_status with active chat"""
-        with patch("asyncio.create_task") as mock_task:
+        with patch("core.loki.safe_create_task") as mock_task:
             await loki_mode._relay_status("test message")
             mock_task.assert_called_once()
             # Verify the task creation - the coroutine should call send_platform_message
             call_args = mock_task.call_args[0][0]
             # The coroutine is async, we can't easily inspect it, but we can check it was called
-            # For now, just verify create_task was called
+            # For now, just verify safe_create_task was called
             assert mock_task.called
 
     @pytest.mark.asyncio

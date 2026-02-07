@@ -41,8 +41,10 @@ def gateway():
 @pytest.mark.asyncio
 async def test_gateway_start_all_paths(gateway):
     """Test start logic covering all conditional branches"""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    mock_async_proc = AsyncMock()
+    mock_async_proc.wait = AsyncMock(return_value=0)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_async_proc):
         with patch("subprocess.Popen") as mock_popen:
             mock_popen_instance = MagicMock()
             mock_popen_instance.poll.return_value = None  # Running
@@ -121,9 +123,10 @@ async def test_gateway_health_monitor_restart(gateway):
     gateway.health_status[ConnectionType.CLOUDFLARE.value] = True
     gateway.enable_cloudflare = True
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    mock_async_proc = AsyncMock()
+    mock_async_proc.wait = AsyncMock(return_value=0)
 
+    with patch("asyncio.create_subprocess_exec", return_value=mock_async_proc):
         # Set up rate limits with string key to avoid KeyError
         gateway.rate_limits[ConnectionType.CLOUDFLARE.value] = {}
 
@@ -260,9 +263,11 @@ async def test_start_https_server_failure_handled(gateway):
 @pytest.mark.asyncio
 async def test_start_cloudflare_tunnel_fail_path(gateway):
     """Test start failure branches for cloudflare"""
-    with patch("subprocess.run") as mock_run:
+    mock_proc = AsyncMock()
+    mock_proc.wait = AsyncMock(return_value=1)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         # cloudflared not found
-        mock_run.return_value = MagicMock(returncode=1)
         await gateway._start_cloudflare_tunnel()
         assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is False
 
@@ -270,9 +275,11 @@ async def test_start_cloudflare_tunnel_fail_path(gateway):
 @pytest.mark.asyncio
 async def test_start_tailscale_vpn_fail_path(gateway):
     """Test start failure branches for tailscale"""
-    with patch("subprocess.run") as mock_run:
+    mock_proc = AsyncMock()
+    mock_proc.wait = AsyncMock(return_value=1)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         # tailscale not found
-        mock_run.return_value = MagicMock(returncode=1)
         await gateway._start_tailscale_vpn()
         assert gateway.health_status[ConnectionType.VPN.value] is False
 
@@ -315,8 +322,10 @@ async def test_malicious_command_interception_metadata(gateway):
 @pytest.mark.asyncio
 async def test_gateway_start_cloudflare_failure_during_wait(gateway):
     """Test cloudflare process dying during wait sleep"""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    mock_ver_proc = AsyncMock()
+    mock_ver_proc.wait = AsyncMock(return_value=0)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_ver_proc):
         with patch("subprocess.Popen") as mock_popen:
             mock_proc = MagicMock()
             mock_proc.poll.return_value = 1  # Dead
@@ -576,11 +585,14 @@ async def test_send_error_exception_handling(gateway):
 async def test_tailscale_arguments_coverage(gateway):
     """Ensure all tailscale arguments are covered (lines 207-214)"""
     gateway.tailscale_auth_key = "my-key"
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    mock_proc = AsyncMock()
+    mock_proc.wait = AsyncMock(return_value=0)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         await gateway._start_tailscale_vpn()
 
-        args = mock_run.call_args[0][0]
+        # asyncio.create_subprocess_exec receives args positionally
+        args = mock_exec.call_args[0]
         assert "my-key" in args
         assert "megabot-gateway" in args
 
@@ -648,11 +660,16 @@ async def test_health_monitor_healthy_state(gateway):
     gateway.cloudflare_process = MagicMock()
     gateway.cloudflare_process.poll.return_value = None  # Running
 
-    with patch("asyncio.sleep", side_effect=[None, Exception("break")]):
-        try:
-            await gateway._health_monitor_loop()
-        except Exception:
-            pass
+    # VPN is enabled via fixture — patch the async subprocess for tailscale status
+    mock_ts_proc = AsyncMock()
+    mock_ts_proc.wait = AsyncMock(return_value=0)
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_ts_proc):
+        with patch("asyncio.sleep", side_effect=[None, Exception("break")]):
+            try:
+                await gateway._health_monitor_loop()
+            except Exception:
+                pass
 
     assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
 
