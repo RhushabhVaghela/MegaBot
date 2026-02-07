@@ -34,30 +34,20 @@ class LokiMode:
         tasks = await self._decompose_prd(prd_text, memory_context)
 
         # 2. Parallel Implementation
-        await self._relay_status(
-            f"🛠️ Starting parallel implementation of {len(tasks)} tasks..."
-        )
+        await self._relay_status(f"🛠️ Starting parallel implementation of {len(tasks)} tasks...")
         impl_results = await self._execute_parallel_tasks(tasks, memory_context)
 
         # 3. Parallel Review (3 specialized reviewers)
-        await self._relay_status(
-            "🔍 Running parallel architecture and security review..."
-        )
+        await self._relay_status("🔍 Running parallel architecture and security review...")
         review_summary = await self._run_parallel_review(impl_results, memory_context)
 
         if "MEMORY CONFLICT:" in review_summary:
             # Objective 2: Conflict Resolution (The Debate)
-            await self._relay_status(
-                "⚖️ Conflict detected with Learned Lessons. Starting Mediation..."
-            )
-            is_evolution = await self._debate_memory_conflict(
-                review_summary, impl_results, memory_context
-            )
+            await self._relay_status("⚖️ Conflict detected with Learned Lessons. Starting Mediation...")
+            is_evolution = await self._debate_memory_conflict(review_summary, impl_results, memory_context)
 
             if not is_evolution:
-                await self._relay_status(
-                    "⚠️ Mediation FAILED. Triggering Auto-Remediation..."
-                )
+                await self._relay_status("⚠️ Mediation FAILED. Triggering Auto-Remediation...")
                 # Auto-remediation step: Re-run with explicit instruction to fix the conflict
                 remediation_task = {
                     "name": "Remediation-Agent",
@@ -65,17 +55,11 @@ class LokiMode:
                     "task_description": f"The previous implementation has a memory conflict with architectural lessons. FIX IT.\n\nConflict Details:\n{review_summary}\n\nCode to Fix:\n"
                     + "\n".join(impl_results),
                 }
-                impl_results = await self._execute_parallel_tasks(
-                    [remediation_task], memory_context
-                )
+                impl_results = await self._execute_parallel_tasks([remediation_task], memory_context)
                 # Re-review after remediation
-                review_summary = await self._run_parallel_review(
-                    impl_results, memory_context
-                )
+                review_summary = await self._run_parallel_review(impl_results, memory_context)
             else:
-                await self._relay_status(
-                    "✅ Mediation SUCCESS: Accepted as Architectural Evolution."
-                )
+                await self._relay_status("✅ Mediation SUCCESS: Accepted as Architectural Evolution.")
 
         # 4. Security & Quality Review
         await self._relay_status("🛡️ Running final Tirith Security Audit...")
@@ -105,18 +89,12 @@ class LokiMode:
             if chat_id:
                 msg = Message(content=content, sender="Loki")
                 # We use a task so we don't block the pipeline
-                safe_create_task(
-                    self.orchestrator.send_platform_message(
-                        msg, chat_id=chat_id, platform=platform
-                    )
-                )
+                safe_create_task(self.orchestrator.send_platform_message(msg, chat_id=chat_id, platform=platform))
 
     async def _retrieve_learned_lessons(self, query: str) -> str:
         """Search and distill learned lessons from persistent memory"""
         print("🧠 Retrieving Learned Lessons...")
-        lessons = await self.orchestrator.memory.memory_search(
-            query=query, type="learned_lesson"
-        )
+        lessons = await self.orchestrator.memory.memory_search(query=query, type="learned_lesson")
         if not lessons:
             return ""
 
@@ -126,12 +104,9 @@ class LokiMode:
             critical_lessons = [
                 lesson
                 for lesson in lessons
-                if "CRITICAL" in str(lesson.get("content", "")).upper()
-                or "critical" in lesson.get("tags", [])
+                if "CRITICAL" in str(lesson.get("content", "")).upper() or "critical" in lesson.get("tags", [])
             ]
-            non_critical = [
-                lesson for lesson in lessons if lesson not in critical_lessons
-            ]
+            non_critical = [lesson for lesson in lessons if lesson not in critical_lessons]
 
             # Take all critical (up to 20) then fill with recent non-critical
             window = critical_lessons[:20]
@@ -159,9 +134,7 @@ Instructions:
         )
         return str(distilled)
 
-    async def _run_parallel_review(
-        self, code_results: List[str], memory_context: str = ""
-    ) -> str:
+    async def _run_parallel_review(self, code_results: List[str], memory_context: str = "") -> str:
         """Spawn 3 specialized reviewers to critique the implementation"""
         print("🔍 Starting Parallel Code Review...")
         reviewers = [
@@ -199,9 +172,7 @@ Instructions:
         reviews = await asyncio.gather(*coroutines)
         return "\n--- Combined Review ---\n" + "\n".join(reviews)
 
-    async def _debate_memory_conflict(
-        self, review_summary: str, impl_results: List[str], memory_context: str
-    ) -> bool:
+    async def _debate_memory_conflict(self, review_summary: str, impl_results: List[str], memory_context: str) -> bool:
         """Mediate between a detected conflict and a potentially superior new implementation."""
         print("⚖️ Starting Conflict Mediation (The Debate)...")
 
@@ -245,9 +216,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             return True  # No remediation needed
         return False  # Remediation needed
 
-    async def _save_loki_macro(
-        self, prd: str, tasks: List[Dict], results: List[str], status: str
-    ):
+    async def _save_loki_macro(self, prd: str, tasks: List[Dict], results: List[str], status: str):
         """Save the entire execution as a reproducible macro in memU"""
         print("🧠 Saving Loki Macro to Memory...")
         macro = {
@@ -268,14 +237,10 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
     async def _decompose_prd(self, prd: str, memory_context: str = "") -> List[Dict]:
         """Convert PRD into actionable sub-tasks"""
-        prompt = (
-            f"Decompose this PRD into specific, independent technical tasks:\n{prd}\n"
-        )
+        prompt = f"Decompose this PRD into specific, independent technical tasks:\n{prd}\n"
         if memory_context:
             prompt += f"\nConsider these LEARNED LESSONS during decomposition:\n{memory_context}\n"
-        prompt += (
-            "\nReturn a JSON list of tasks with 'name', 'role', and 'task_description'."
-        )
+        prompt += "\nReturn a JSON list of tasks with 'name', 'role', and 'task_description'."
 
         res = await self.orchestrator.llm.generate(
             context="Loki Architect", messages=[{"role": "user", "content": prompt}]
@@ -297,9 +262,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             }
         ]
 
-    async def _execute_parallel_tasks(
-        self, tasks: List[Dict], memory_context: str = ""
-    ):
+    async def _execute_parallel_tasks(self, tasks: List[Dict], memory_context: str = ""):
         """Run sub-agents in parallel"""
         from core.agents import SubAgent
 
@@ -314,9 +277,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
         return await asyncio.gather(*coroutines)
 
-    async def _run_security_audit(
-        self, results: List[str], memory_context: str = ""
-    ) -> str:
+    async def _run_security_audit(self, results: List[str], memory_context: str = "") -> str:
         """Specialized security review pass using Tirith Guard logic"""
         print("🛡️ Running Security Audit...")
         from adapters.security.tirith_guard import guard as tirith
@@ -325,9 +286,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
         # 1. Check for Terminal/Homoglyph Attacks
         if not tirith.validate(combined_text):
-            print(
-                "❌ SECURITY ALERT: Suspicious Unicode or Bidi characters detected in implementation!"
-            )
+            print("❌ SECURITY ALERT: Suspicious Unicode or Bidi characters detected in implementation!")
             return "Security Audit: FAILED (Suspicious Characters Detected)"
 
         # 2. Automated Scan (RegEx for secrets/keys)
@@ -340,9 +299,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
         ]
         for pattern in secret_patterns:
             if re.search(pattern, combined_text, re.IGNORECASE):
-                print(
-                    f"⚠️ SECURITY WARNING: Potential secret leak detected (pattern: {pattern})"
-                )
+                print(f"⚠️ SECURITY WARNING: Potential secret leak detected (pattern: {pattern})")
                 # We don't fail immediately, but we flag it
 
         await asyncio.sleep(1)
@@ -351,10 +308,32 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
     async def _deploy_product(self) -> str:
         """Final build and deploy step.
 
-        Raises:
-            NotImplementedError: Deployment pipeline not yet configured
+        Returns deployment status. If no deployment pipeline is configured,
+        returns a message indicating manual deployment is required.
         """
-        raise NotImplementedError(
-            "_deploy_product requires a configured deployment pipeline. "
-            "Set MEGABOT_DEPLOY_SCRIPT or implement a deployment driver."
+        import os as _os
+
+        deploy_script = _os.environ.get("MEGABOT_DEPLOY_SCRIPT")
+        if deploy_script and _os.path.isfile(deploy_script):
+            import subprocess
+
+            try:
+                result = await asyncio.to_thread(
+                    subprocess.run,
+                    [deploy_script],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if result.returncode == 0:
+                    return f"Deployment succeeded:\n{result.stdout}"
+                return f"Deployment failed (exit {result.returncode}):\n{result.stderr}"
+            except subprocess.TimeoutExpired:
+                return "Deployment timed out after 300 seconds."
+            except Exception as e:
+                return f"Deployment error: {e}"
+
+        logging.warning(
+            "[LokiMode] No deployment pipeline configured. Set MEGABOT_DEPLOY_SCRIPT env var to a deploy script path."
         )
+        return "Deployment skipped: no pipeline configured. Set MEGABOT_DEPLOY_SCRIPT or implement a deployment driver."

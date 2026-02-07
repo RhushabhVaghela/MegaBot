@@ -91,13 +91,29 @@ class ComputerDriver:
 
         Returns:
             JSON string with analysis results including bounding boxes
-
-        Raises:
-            NotImplementedError: Vision model integration not yet implemented
         """
-        raise NotImplementedError(
-            "analyze_image requires a vision model integration (e.g. Claude 3.5 Vision, GPT-4o). "
-            "See docs/developer_notes.md for implementation guidance."
+        import json as _json
+
+        # Decode and get basic image metadata as a fallback analysis
+        try:
+            img_bytes = base64.b64decode(image_data)
+            img = Image.open(io.BytesIO(img_bytes))
+            width, height = img.size
+            mode = img.mode
+            fmt = img.format or "unknown"
+        except Exception as e:
+            return _json.dumps({"error": f"Failed to decode image: {e}", "bounding_boxes": []})
+
+        print("[ComputerDriver] analyze_image: vision model not configured, returning image metadata only.")
+        return _json.dumps(
+            {
+                "description": "Vision model not configured. Returning metadata only.",
+                "width": width,
+                "height": height,
+                "mode": mode,
+                "format": fmt,
+                "bounding_boxes": [],
+            }
         )
 
     def blur_regions(self, image_base64: str, regions: List[Dict[str, int]]) -> str:

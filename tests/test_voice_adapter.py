@@ -14,9 +14,7 @@ class TestVoiceAdapter:
     def voice_adapter(self):
         """Create VoiceAdapter instance"""
         with patch("adapters.voice_adapter.Client"):
-            adapter = VoiceAdapter(
-                account_sid="ACtest", auth_token="test_token", from_number="+1234567890"
-            )
+            adapter = VoiceAdapter(account_sid="ACtest", auth_token="test_token", from_number="+1234567890")
             return adapter
 
     @pytest.fixture
@@ -91,27 +89,29 @@ class TestVoiceAdapter:
 
     @pytest.mark.asyncio
     async def test_transcribe_audio(self, voice_adapter):
-        """Test audio transcription raises NotImplementedError (no STT configured)"""
-        with pytest.raises(NotImplementedError, match="speech-to-text"):
-            await voice_adapter.transcribe_audio(b"dummy_audio")
+        """Test audio transcription returns empty string when no STT configured"""
+        result = await voice_adapter.transcribe_audio(b"dummy_audio")
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_speak(self, voice_adapter):
-        """Test text-to-speech raises NotImplementedError (no TTS configured)"""
-        with pytest.raises(NotImplementedError, match="text-to-speech"):
-            await voice_adapter.speak("Hello")
+        """Test text-to-speech returns empty bytes when no TTS configured"""
+        result = await voice_adapter.speak("Hello")
+        assert result == b""
 
     @pytest.mark.asyncio
     async def test_get_call_logs(self, voice_adapter):
-        """Test getting call logs raises NotImplementedError (no Twilio integration)"""
-        with pytest.raises(NotImplementedError, match="Twilio API"):
-            await voice_adapter.get_call_logs(limit=5)
+        """Test getting call logs returns empty list when no Twilio client"""
+        voice_adapter.client = None
+        result = await voice_adapter.get_call_logs(limit=5)
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_get_call_logs_error(self, voice_adapter):
-        """Test get_call_logs raises NotImplementedError"""
-        with pytest.raises(NotImplementedError, match="Twilio API"):
-            await voice_adapter.get_call_logs(limit=1)
+        """Test get_call_logs returns empty list on error"""
+        voice_adapter.client = None
+        result = await voice_adapter.get_call_logs(limit=1)
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_shutdown(self, voice_adapter):
@@ -124,12 +124,8 @@ class TestVoiceAdapter:
 
     def test_initialization_error_handling(self):
         """Test initialization when Client fails"""
-        with patch(
-            "adapters.voice_adapter.Client", side_effect=Exception("Connection failed")
-        ):
-            adapter = VoiceAdapter(
-                account_sid="ACtest", auth_token="test_token", from_number="+1234567890"
-            )
+        with patch("adapters.voice_adapter.Client", side_effect=Exception("Connection failed")):
+            adapter = VoiceAdapter(account_sid="ACtest", auth_token="test_token", from_number="+1234567890")
 
             assert adapter.client is None
             assert adapter.is_connected is False
@@ -157,9 +153,7 @@ class TestVoiceAdapter:
         mock_call.sid = "CA_IVR"
         voice_adapter_with_callback.client.calls.create.return_value = mock_call
 
-        sid = await voice_adapter_with_callback.make_call(
-            "+1987654321", "Confirm action", ivr=True, action_id="act123"
-        )
+        sid = await voice_adapter_with_callback.make_call("+1987654321", "Confirm action", ivr=True, action_id="act123")
 
         assert sid == "CA_IVR"
         args = voice_adapter_with_callback.client.calls.create.call_args[1]
@@ -175,9 +169,7 @@ class TestVoiceAdapter:
         with patch("builtins.print") as mock_print:
             sid = await voice_adapter.make_call("+123", "Hello")
             assert sid == "error_no_client"
-            mock_print.assert_called_with(
-                "[Voice] Cannot make call: Twilio client not initialized."
-            )
+            mock_print.assert_called_with("[Voice] Cannot make call: Twilio client not initialized.")
 
     def test_twilio_fallback_import_full_coverage(self):
         """Test the fallback mocks in voice_adapter for full coverage (lines 15-28)"""

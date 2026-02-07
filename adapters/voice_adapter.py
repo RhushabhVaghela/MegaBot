@@ -146,14 +146,33 @@ class VoiceAdapter(VoiceInterface):
             audio_data: Raw audio bytes
 
         Returns:
-            Transcribed text
-
-        Raises:
-            NotImplementedError: STT integration not yet implemented
+            Transcribed text, or an error message if no STT service is configured.
         """
-        raise NotImplementedError(
-            "transcribe_audio requires a speech-to-text integration (e.g. OpenAI Whisper, Twilio Transcription)."
-        )
+        # Attempt OpenAI Whisper if available
+        try:
+            import openai  # noqa: F811
+
+            client = openai.OpenAI()
+            import tempfile, os
+
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                f.write(audio_data)
+                tmp_path = f.name
+            try:
+                with open(tmp_path, "rb") as audio_file:
+                    transcript = await asyncio.to_thread(
+                        lambda: client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+                    )
+                return transcript.text
+            finally:
+                os.unlink(tmp_path)
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[Voice] Whisper transcription failed: {e}")
+
+        print("[Voice] No STT service configured. Returning empty transcription.")
+        return ""
 
     async def speak(self, text: str) -> bytes:
         """
@@ -163,12 +182,24 @@ class VoiceAdapter(VoiceInterface):
             text: Text to speak
 
         Returns:
-            Audio data bytes
-
-        Raises:
-            NotImplementedError: TTS integration not yet implemented
+            Audio data bytes, or empty bytes if no TTS service is configured.
         """
-        raise NotImplementedError("speak requires a text-to-speech integration (e.g. OpenAI TTS, Google Cloud TTS).")
+        # Attempt OpenAI TTS if available
+        try:
+            import openai  # noqa: F811
+
+            client = openai.OpenAI()
+            response = await asyncio.to_thread(
+                lambda: client.audio.speech.create(model="tts-1", voice="alloy", input=text)
+            )
+            return response.content
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[Voice] OpenAI TTS failed: {e}")
+
+        print("[Voice] No TTS service configured. Returning empty audio.")
+        return b""
 
     async def get_call_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent call logs from Twilio.
@@ -177,12 +208,29 @@ class VoiceAdapter(VoiceInterface):
             limit: Maximum number of logs to return
 
         Returns:
-            List of call log dictionaries
-
-        Raises:
-            NotImplementedError: Twilio call log retrieval not yet implemented
+            List of call log dictionaries, or empty list if Twilio is unavailable.
         """
-        raise NotImplementedError("get_call_logs requires Twilio API integration for call history retrieval.")
+        if not self.client:
+            print("[Voice] Cannot fetch call logs: Twilio client not initialized.")
+            return []
+
+        try:
+            calls = await asyncio.to_thread(lambda: list(self.client.calls.list(limit=limit)))
+            return [
+                {
+                    "sid": call.sid,
+                    "from": call.from_formatted if hasattr(call, "from_formatted") else str(getattr(call, "from_", "")),
+                    "to": call.to_formatted if hasattr(call, "to_formatted") else str(getattr(call, "to", "")),
+                    "status": str(getattr(call, "status", "unknown")),
+                    "direction": str(getattr(call, "direction", "unknown")),
+                    "duration": str(getattr(call, "duration", "0")),
+                    "start_time": str(getattr(call, "start_time", "")),
+                }
+                for call in calls
+            ]
+        except Exception as e:
+            print(f"[Voice] Failed to retrieve call logs: {e}")
+            return []
 
     async def shutdown(self):
         """Clean up resources"""

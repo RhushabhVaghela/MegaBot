@@ -150,9 +150,30 @@ class TestComputerDriver:
 
     @pytest.mark.asyncio
     async def test_analyze_image(self, driver):
-        """Test image analysis raises NotImplementedError (no vision model configured)"""
-        with pytest.raises(NotImplementedError, match="vision model"):
-            await driver.analyze_image("dummy_data")
+        """Test image analysis returns metadata when no vision model configured"""
+        import json
+
+        # Create valid base64 image data
+        img = Image.new("RGB", (50, 50), (128, 128, 128))
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        result = await driver.analyze_image(img_base64)
+        parsed = json.loads(result)
+        assert parsed["width"] == 50
+        assert parsed["height"] == 50
+        assert parsed["bounding_boxes"] == []
+        assert "Vision model not configured" in parsed["description"]
+
+    @pytest.mark.asyncio
+    async def test_analyze_image_invalid_data(self, driver):
+        """Test image analysis with invalid base64 data returns error"""
+        import json
+
+        result = await driver.analyze_image("not-valid-base64!!!")
+        parsed = json.loads(result)
+        assert "error" in parsed
 
     def test_blur_regions(self, driver):
         """Test blurring regions in image"""

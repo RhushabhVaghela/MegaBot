@@ -69,9 +69,7 @@ class TestLokiMode:
             {"content": "CRITICAL: Test lesson 2", "tags": ["critical"]},
         ]
         loki_mode.orchestrator.memory.memory_search = AsyncMock(return_value=lessons)
-        loki_mode.orchestrator.llm.generate = AsyncMock(
-            return_value="Distilled lessons"
-        )
+        loki_mode.orchestrator.llm.generate = AsyncMock(return_value="Distilled lessons")
 
         result = await loki_mode._retrieve_learned_lessons("test query")
         assert "Distilled lessons" in result
@@ -112,9 +110,7 @@ class TestLokiMode:
     @pytest.mark.asyncio
     async def test_debate_memory_conflict_evolve(self, loki_mode):
         """Test _debate_memory_conflict with evolve decision"""
-        loki_mode.orchestrator.llm.generate = AsyncMock(
-            return_value="DECISION: EVOLVE - justification"
-        )
+        loki_mode.orchestrator.llm.generate = AsyncMock(return_value="DECISION: EVOLVE - justification")
         loki_mode.orchestrator.memory.memory_write = AsyncMock()
 
         result = await loki_mode._debate_memory_conflict("conflict", ["impl"], "memory")
@@ -124,9 +120,7 @@ class TestLokiMode:
     @pytest.mark.asyncio
     async def test_debate_memory_conflict_remediate(self, loki_mode):
         """Test _debate_memory_conflict with remediate decision"""
-        loki_mode.orchestrator.llm.generate = AsyncMock(
-            return_value="DECISION: REMEDIATE"
-        )
+        loki_mode.orchestrator.llm.generate = AsyncMock(return_value="DECISION: REMEDIATE")
 
         result = await loki_mode._debate_memory_conflict("conflict", ["impl"], "memory")
         assert result is False
@@ -141,9 +135,7 @@ class TestLokiMode:
         status = "success"
 
         await loki_mode._save_loki_macro(prd, tasks, results, status)
-        loki_mode.orchestrator.adapters[
-            "memu"
-        ].learn_from_interaction.assert_called_once()
+        loki_mode.orchestrator.adapters["memu"].learn_from_interaction.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_decompose_prd_success(self, loki_mode):
@@ -200,9 +192,9 @@ class TestLokiMode:
 
     @pytest.mark.asyncio
     async def test_deploy_product(self, loki_mode):
-        """Test _deploy_product raises NotImplementedError (no deployment pipeline)"""
-        with pytest.raises(NotImplementedError, match="deployment pipeline"):
-            await loki_mode._deploy_product()
+        """Test _deploy_product returns skip message when no pipeline configured"""
+        result = await loki_mode._deploy_product()
+        assert "skipped" in result.lower() or "no pipeline" in result.lower()
 
     @pytest.mark.asyncio
     async def test_activate_full_pipeline_no_conflict(self, loki_mode):
@@ -211,35 +203,17 @@ class TestLokiMode:
 
         # Mock all the methods
         with (
-            patch.object(
-                loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock
-            ) as mock_retrieve,
-            patch.object(
-                loki_mode, "_decompose_prd", new_callable=AsyncMock
-            ) as mock_decompose,
-            patch.object(
-                loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock
-            ) as mock_execute,
-            patch.object(
-                loki_mode, "_run_parallel_review", new_callable=AsyncMock
-            ) as mock_review,
-            patch.object(
-                loki_mode, "_run_security_audit", new_callable=AsyncMock
-            ) as mock_audit,
-            patch.object(
-                loki_mode, "_deploy_product", new_callable=AsyncMock
-            ) as mock_deploy,
-            patch.object(
-                loki_mode, "_save_loki_macro", new_callable=AsyncMock
-            ) as mock_save,
-            patch.object(
-                loki_mode, "_relay_status", new_callable=AsyncMock
-            ) as mock_relay,
+            patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
+            patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
+            patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
+            patch.object(loki_mode, "_run_parallel_review", new_callable=AsyncMock) as mock_review,
+            patch.object(loki_mode, "_run_security_audit", new_callable=AsyncMock) as mock_audit,
+            patch.object(loki_mode, "_deploy_product", new_callable=AsyncMock) as mock_deploy,
+            patch.object(loki_mode, "_save_loki_macro", new_callable=AsyncMock) as mock_save,
+            patch.object(loki_mode, "_relay_status", new_callable=AsyncMock) as mock_relay,
         ):
             mock_retrieve.return_value = "memory context"
-            mock_decompose.return_value = [
-                {"name": "dev", "role": "Senior Dev", "task_description": "implement"}
-            ]
+            mock_decompose.return_value = [{"name": "dev", "role": "Senior Dev", "task_description": "implement"}]
             mock_execute.return_value = ["code result"]
             mock_review.return_value = "review summary without conflict"
             mock_audit.return_value = "audit passed"
@@ -259,38 +233,18 @@ class TestLokiMode:
         prd_text = "Build app"
 
         with (
-            patch.object(
-                loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock
-            ) as mock_retrieve,
-            patch.object(
-                loki_mode, "_decompose_prd", new_callable=AsyncMock
-            ) as mock_decompose,
-            patch.object(
-                loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock
-            ) as mock_execute,
-            patch.object(
-                loki_mode, "_run_parallel_review", new_callable=AsyncMock
-            ) as mock_review,
-            patch.object(
-                loki_mode, "_debate_memory_conflict", new_callable=AsyncMock
-            ) as mock_debate,
-            patch.object(
-                loki_mode, "_run_security_audit", new_callable=AsyncMock
-            ) as mock_audit,
-            patch.object(
-                loki_mode, "_deploy_product", new_callable=AsyncMock
-            ) as mock_deploy,
-            patch.object(
-                loki_mode, "_save_loki_macro", new_callable=AsyncMock
-            ) as mock_save,
-            patch.object(
-                loki_mode, "_relay_status", new_callable=AsyncMock
-            ) as mock_relay,
+            patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
+            patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
+            patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
+            patch.object(loki_mode, "_run_parallel_review", new_callable=AsyncMock) as mock_review,
+            patch.object(loki_mode, "_debate_memory_conflict", new_callable=AsyncMock) as mock_debate,
+            patch.object(loki_mode, "_run_security_audit", new_callable=AsyncMock) as mock_audit,
+            patch.object(loki_mode, "_deploy_product", new_callable=AsyncMock) as mock_deploy,
+            patch.object(loki_mode, "_save_loki_macro", new_callable=AsyncMock) as mock_save,
+            patch.object(loki_mode, "_relay_status", new_callable=AsyncMock) as mock_relay,
         ):
             mock_retrieve.return_value = "memory context"
-            mock_decompose.return_value = [
-                {"name": "dev", "role": "Senior Dev", "task_description": "implement"}
-            ]
+            mock_decompose.return_value = [{"name": "dev", "role": "Senior Dev", "task_description": "implement"}]
             mock_execute.return_value = ["code result"]
             mock_review.return_value = "MEMORY CONFLICT: some conflict"
             mock_debate.return_value = False  # Remediation needed
@@ -309,38 +263,18 @@ class TestLokiMode:
         """Test activate with memory conflict resolving to evolution (line 74)"""
         prd_text = "Build app"
         with (
-            patch.object(
-                loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock
-            ) as mock_retrieve,
-            patch.object(
-                loki_mode, "_decompose_prd", new_callable=AsyncMock
-            ) as mock_decompose,
-            patch.object(
-                loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock
-            ) as mock_execute,
-            patch.object(
-                loki_mode, "_run_parallel_review", new_callable=AsyncMock
-            ) as mock_review,
-            patch.object(
-                loki_mode, "_debate_memory_conflict", new_callable=AsyncMock
-            ) as mock_debate,
-            patch.object(
-                loki_mode, "_run_security_audit", new_callable=AsyncMock
-            ) as mock_audit,
-            patch.object(
-                loki_mode, "_deploy_product", new_callable=AsyncMock
-            ) as mock_deploy,
-            patch.object(
-                loki_mode, "_save_loki_macro", new_callable=AsyncMock
-            ) as mock_save,
-            patch.object(
-                loki_mode, "_relay_status", new_callable=AsyncMock
-            ) as mock_relay,
+            patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
+            patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
+            patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
+            patch.object(loki_mode, "_run_parallel_review", new_callable=AsyncMock) as mock_review,
+            patch.object(loki_mode, "_debate_memory_conflict", new_callable=AsyncMock) as mock_debate,
+            patch.object(loki_mode, "_run_security_audit", new_callable=AsyncMock) as mock_audit,
+            patch.object(loki_mode, "_deploy_product", new_callable=AsyncMock) as mock_deploy,
+            patch.object(loki_mode, "_save_loki_macro", new_callable=AsyncMock) as mock_save,
+            patch.object(loki_mode, "_relay_status", new_callable=AsyncMock) as mock_relay,
         ):
             mock_retrieve.return_value = "memory context"
-            mock_decompose.return_value = [
-                {"name": "dev", "role": "Senior Dev", "task_description": "implement"}
-            ]
+            mock_decompose.return_value = [{"name": "dev", "role": "Senior Dev", "task_description": "implement"}]
             mock_execute.return_value = ["code result"]
             mock_review.return_value = "MEMORY CONFLICT: some conflict"
             mock_debate.return_value = True  # Evolution! (line 74)
@@ -349,9 +283,7 @@ class TestLokiMode:
 
             await loki_mode.activate(prd_text)
 
-            mock_relay.assert_any_call(
-                "✅ Mediation SUCCESS: Accepted as Architectural Evolution."
-            )
+            mock_relay.assert_any_call("✅ Mediation SUCCESS: Accepted as Architectural Evolution.")
 
     @pytest.mark.asyncio
     async def test_decompose_prd_json_parse_exception(self, loki_mode):
@@ -375,6 +307,4 @@ class TestLokiMode:
                 result = await loki_mode._run_security_audit(results)
                 assert "Passed" in result
                 # Check for warning print
-                mock_print.assert_any_call(
-                    "⚠️ SECURITY WARNING: Potential secret leak detected (pattern: api[_-]?key)"
-                )
+                mock_print.assert_any_call("⚠️ SECURITY WARNING: Potential secret leak detected (pattern: api[_-]?key)")
