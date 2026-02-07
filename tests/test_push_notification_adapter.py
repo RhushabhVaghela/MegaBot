@@ -834,6 +834,7 @@ class TestPushNotificationAdapterBranches:
             patch("adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class,
             patch("adapters.push_notification_adapter.create_notification") as mock_create,
             patch("builtins.print") as mock_print,
+            patch.dict("os.environ", {"FCM_TOKEN": "test-fcm-token"}),
         ):
             mock_adapter = AsyncMock()
             mock_adapter_class.return_value = mock_adapter
@@ -1166,6 +1167,7 @@ async def test_push_notification_adapter_main():
             AsyncMock(),
         ),
         patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),
+        patch.dict("os.environ", {"FCM_TOKEN": "test-fcm-token"}),
     ):
         try:
             await main()

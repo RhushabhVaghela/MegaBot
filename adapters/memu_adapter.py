@@ -74,7 +74,7 @@ class MemUAdapter(MemoryInterface):
                             "provider": "ollama",
                             "api_key": "local",
                             "chat_model": "llama3",
-                            "base_url": "http://127.0.0.1:11434/v1",
+                            "base_url": os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/v1"),
                         }
                     },
                     database_config={

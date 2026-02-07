@@ -1916,6 +1916,7 @@ class TestDiscordAdapter:
             patch("adapters.discord_adapter.DiscordAdapter") as mock_adapter_class,
             patch("asyncio.sleep") as mock_sleep,
             patch("builtins.print") as mock_print,
+            patch.dict("os.environ", {"DISCORD_BOT_TOKEN": "test-token"}),
         ):
             # Set up mock adapter
             mock_adapter = Mock()

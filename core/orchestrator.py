@@ -463,4 +463,4 @@ from core.app import (  # noqa: E402, F401
 if __name__ == "__main__":  # pragma: no cover
     import uvicorn  # type: ignore
 
-    uvicorn.run(app, host=config.system.bind_address, port=8000)
+    uvicorn.run(app, host=config.system.bind_address, port=config.system.port)

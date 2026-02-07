@@ -1849,7 +1849,7 @@ class TestMainFunction:
 
         await main()
 
-        mock_server_class.assert_called_once_with(host="127.0.0.1", port=18790, enable_encryption=True)
+        mock_server_class.assert_called_once_with()
         mock_server.register_handler.assert_called_once()
 
     @patch("adapters.messaging.MegaBotMessagingServer")
@@ -1875,7 +1875,7 @@ class TestMainFunction:
         finally:
             sys.argv = original_argv
 
-        mock_server_class.assert_called_once_with(host="127.0.0.1", port=18790, enable_encryption=True)
+        mock_server_class.assert_called_once_with()
 
     @patch("adapters.messaging.MegaBotMessagingServer")
     @pytest.mark.asyncio

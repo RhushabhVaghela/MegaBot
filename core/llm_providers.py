@@ -99,9 +99,7 @@ class LLMProvider(ABC):
                 await asyncio.sleep(delay)
 
         # Should not reach here, but satisfy type checker
-        raise last_exc or RuntimeError(
-            "Retry loop exited unexpectedly"
-        )  # pragma: no cover
+        raise last_exc or RuntimeError("Retry loop exited unexpectedly")  # pragma: no cover
 
     @abstractmethod
     @track_telemetry
@@ -177,8 +175,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
         payload = {
             "model": self.model,
-            "messages": [{"role": "system", "content": f"Context: {context}"}]
-            + final_messages,
+            "messages": [{"role": "system", "content": f"Context: {context}"}] + final_messages,
         }
         if tools:
             payload["tools"] = tools
@@ -196,9 +193,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 if message.get("tool_calls"):
                     return message
                 return message["content"]
-            return (
-                f"{self.__class__.__name__} error: {resp.status} - {await resp.text()}"
-            )
+            return f"{self.__class__.__name__} error: {resp.status} - {await resp.text()}"
         except Exception as e:
             return f"{self.__class__.__name__} connection failed: {e}"
 
@@ -301,10 +296,7 @@ class LMStudioProvider(OpenAICompatibleProvider):
         super().__init__(
             model=model,
             api_key="lm-studio",  # LM Studio doesn't require a real key
-            base_url=base_url
-            or os.environ.get(
-                "LM_STUDIO_URL", "http://localhost:1234/v1/chat/completions"
-            ),
+            base_url=base_url or os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1/chat/completions"),
         )
 
 
@@ -313,22 +305,16 @@ class LlamaCppProvider(OpenAICompatibleProvider):
         super().__init__(
             model=model,
             api_key="llama-cpp",  # llama.cpp doesn't require a real key
-            base_url=base_url
-            or os.environ.get(
-                "LLAMA_CPP_URL", "http://localhost:8080/v1/chat/completions"
-            ),
+            base_url=base_url or os.environ.get("LLAMA_CPP_URL", "http://localhost:8080/v1/chat/completions"),
         )
 
 
 class VLLMProvider(OpenAICompatibleProvider):
-    def __init__(
-        self, model: str, api_key: Optional[str] = None, base_url: Optional[str] = None
-    ):
+    def __init__(self, model: str, api_key: Optional[str] = None, base_url: Optional[str] = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("VLLM_API_KEY", "vllm-key"),
-            base_url=base_url
-            or os.environ.get("VLLM_URL", "http://localhost:8000/v1/chat/completions"),
+            base_url=base_url or os.environ.get("VLLM_URL", "http://localhost:8000/v1/chat/completions"),
         )
 
 
@@ -336,9 +322,7 @@ class OllamaProvider(LLMProvider):
     def __init__(self, model: str = "llama3", url: Optional[str] = None):
         super().__init__()
         self.model = model
-        self.url = url or os.environ.get(
-            "OLLAMA_URL", "http://localhost:11434/api/generate"
-        )
+        self.url = url or os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
 
     @track_telemetry
     async def generate(
@@ -375,9 +359,7 @@ class OllamaProvider(LLMProvider):
 
 
 class AnthropicProvider(LLMProvider):
-    def __init__(
-        self, model: str = "claude-3-5-sonnet-20240620", api_key: Optional[str] = None
-    ):
+    def __init__(self, model: str = "claude-3-5-sonnet-20240620", api_key: Optional[str] = None):
         super().__init__()
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
@@ -503,9 +485,7 @@ class GeminiProvider(LLMProvider):
 
 
 class MistralProvider(OpenAICompatibleProvider):
-    def __init__(
-        self, model: str = "mistral-large-latest", api_key: Optional[str] = None
-    ):
+    def __init__(self, model: str = "mistral-large-latest", api_key: Optional[str] = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("MISTRAL_API_KEY"),
@@ -514,9 +494,7 @@ class MistralProvider(OpenAICompatibleProvider):
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
-    def __init__(
-        self, model: str = "anthropic/claude-3.5-sonnet", api_key: Optional[str] = None
-    ):
+    def __init__(self, model: str = "anthropic/claude-3.5-sonnet", api_key: Optional[str] = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("OPENROUTER_API_KEY"),
@@ -538,7 +516,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/MegaBot-AI/MegaBot",
+            "HTTP-Referer": "https://github.com/RhushabhVaghela/MegaBot",
             "X-Title": "MegaBot",
         }
 
@@ -548,8 +526,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 
         payload = {
             "model": self.model,
-            "messages": [{"role": "system", "content": f"Context: {context}"}]
-            + final_messages,
+            "messages": [{"role": "system", "content": f"Context: {context}"}] + final_messages,
         }
         if tools:
             payload["tools"] = tools
@@ -610,8 +587,7 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
 
         payload = {
             "model": self.model,
-            "messages": [{"role": "system", "content": f"Context: {context}"}]
-            + final_messages,
+            "messages": [{"role": "system", "content": f"Context: {context}"}] + final_messages,
         }
         # Note: Github Copilot API support for tools may vary by model/tier
         if tools:
@@ -658,9 +634,7 @@ def get_llm_provider(config: Dict[str, Any]) -> LLMProvider:
     elif provider_type == "sambanova":
         return SambaNovaProvider(model=model or "llama3-70b")
     elif provider_type == "fireworks":
-        return FireworksProvider(
-            model=model or "accounts/fireworks/models/llama-v3p1-70b-instruct"
-        )
+        return FireworksProvider(model=model or "accounts/fireworks/models/llama-v3p1-70b-instruct")
     elif provider_type == "deepinfra":
         return DeepInfraProvider(model=model or "meta-llama/Meta-Llama-3-70B-Instruct")
     elif provider_type == "mistral":

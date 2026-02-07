@@ -128,6 +128,7 @@ class SystemConfig(BaseModel):
     name: str = "MegaBot"
     local_only: bool = True
     bind_address: str = "127.0.0.1"
+    port: int = 8000
     messaging_host: str = "127.0.0.1"
     messaging_port: int = 18790
     telemetry: bool = False
@@ -257,6 +258,7 @@ def _populate_from_environment(config: Config) -> None:
         "security.megabot_encryption_salt": "MEGABOT_ENCRYPTION_SALT",
         "security.megabot_media_path": "MEGABOT_MEDIA_PATH",
         "system.admin_phone": "ADMIN_PHONE_NUMBER",
+        "system.port": "MEGABOT_PORT",
         "system.dnd_start": "DND_START_HOUR",
         "system.dnd_end": "DND_END_HOUR",
     }

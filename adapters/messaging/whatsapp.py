@@ -12,6 +12,9 @@ class WhatsAppAdapter(PlatformAdapter):
     Falls back to WhatsApp Business API if OpenClaw is not available.
     """
 
+    GRAPH_API_VERSION = "v17.0"
+    GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+
     def __init__(self, platform_name: str, server: Any, config: Optional[Dict[str, Any]] = None):
         super().__init__(platform_name, server)
         self.config = config or {}
@@ -82,7 +85,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 print("[WhatsApp] Warning: No phone_number_id configured")
                 return False
 
-            async with self.session.get(f"https://graph.facebook.com/v17.0/{self.phone_number_id}") as resp:
+            async with self.session.get(f"{self.GRAPH_API_BASE}/{self.phone_number_id}") as resp:
                 if resp.status == 200:
                     self.is_initialized = True
                     print("[WhatsApp] Connected via Business API")
@@ -627,7 +630,7 @@ class WhatsAppAdapter(PlatformAdapter):
         """Get message delivery status."""
         try:
             if self.is_initialized and self.session:
-                async with self.session.get(f"https://graph.facebook.com/v17.0/{msg_id}") as resp:
+                async with self.session.get(f"{self.GRAPH_API_BASE}/{msg_id}") as resp:
                     if resp.status == 200:
                         return await resp.json()
             return {"status": "sent"}
@@ -710,7 +713,7 @@ class WhatsAppAdapter(PlatformAdapter):
         for attempt in range(self.retry_attempts):
             try:
                 async with self.session.post(
-                    f"https://graph.facebook.com/v17.0/{self.phone_number_id}/messages",
+                    f"{self.GRAPH_API_BASE}/{self.phone_number_id}/messages",
                     json=payload,
                 ) as resp:
                     if resp.status == 200:
@@ -827,7 +830,7 @@ class WhatsAppAdapter(PlatformAdapter):
             )
 
             async with self.session.post(
-                f"https://graph.facebook.com/v17.0/{self.phone_number_id}/media",
+                f"{self.GRAPH_API_BASE}/{self.phone_number_id}/media",
                 data=data,
             ) as resp:
                 if resp.status == 200:

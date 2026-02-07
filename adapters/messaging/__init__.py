@@ -16,9 +16,7 @@ import aiofiles
 
 async def main():
     """Main entrypoint for the messaging server."""
-    server = MegaBotMessagingServer(
-        host="127.0.0.1", port=18790, enable_encryption=True
-    )
+    server = MegaBotMessagingServer()
 
     async def log_msg(msg):
         print(f"New Message: {msg.content}")

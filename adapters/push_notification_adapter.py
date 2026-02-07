@@ -1179,7 +1179,7 @@ async def main():
     if await adapter.initialize():
         print("Push adapter ready!")
 
-        await adapter.register_token(token="fcm_token_here", platform=Platform.ANDROID, user_id="user123")
+        await adapter.register_token(token=os.environ["FCM_TOKEN"], platform=Platform.ANDROID, user_id="user123")
 
         notification = create_notification(
             title="Hello!",
@@ -1187,7 +1187,7 @@ async def main():
             notification_type=NotificationType.MESSAGE,
         )
 
-        result = await adapter.send_to_token(token="fcm_token_here", notification=notification)
+        result = await adapter.send_to_token(token=os.environ["FCM_TOKEN"], notification=notification)
 
         print(f"Send result: {result.success}")
 

@@ -771,7 +771,7 @@ async def ping(interaction: discord.Interaction):
 async def main():
     """Example usage of Discord adapter"""
     # Mock token - replace with real token
-    adapter = DiscordAdapter("discord", Mock(), token="YOUR_DISCORD_BOT_TOKEN")
+    adapter = DiscordAdapter("discord", Mock(), token=os.environ["DISCORD_BOT_TOKEN"])
 
     # Add example slash command
     adapter.add_slash_command(ping)
