@@ -34,10 +34,14 @@ session-*.md
 PENTEST_REPORT.md
 SECURITY_AUDIT_REPORT.md
 
+# Ephemeral build/coverage reports
+coverage_report.txt
+coverage_results.txt
+final_coverage.txt
+final_results.txt
+verification_coverage.txt
+
 # OS
 .DS_Store
 Thumbs.db
 megabot.egg-info/
-*.pyc
-__pycache__/
-.pytest_cache/
