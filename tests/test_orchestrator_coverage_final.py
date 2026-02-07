@@ -68,7 +68,7 @@ async def test_orchestrator_spawn_sub_agent(orchestrator):
     orchestrator.discovery = MagicMock()
     orchestrator.discovery.get_module.return_value = MagicMock()
 
-    with patch("core.orchestrator.SubAgent") as mock_agent_class:
+    with patch("core.agent_coordinator.SubAgent") as mock_agent_class:
         mock_agent = mock_agent_class.return_value
         mock_agent.id = "agent_123"
         mock_agent.generate_plan = AsyncMock(return_value="plan")

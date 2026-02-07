@@ -16,7 +16,7 @@ async def test_spawn_sub_agent_validation_fail(orchestrator):
     mock_agent.run = AsyncMock(return_value="raw result")
 
     # Patch orchestrator.SubAgent as some tests patch core.orchestrator.SubAgent
-    with patch("core.orchestrator.SubAgent", return_value=mock_agent):
+    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
         # LLM returns non-VALID -> blocked
         orch.llm = MagicMock()
         orch.llm.generate = AsyncMock(return_value="nope")

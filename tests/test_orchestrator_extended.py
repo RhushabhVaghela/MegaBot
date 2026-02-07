@@ -120,7 +120,7 @@ async def test_spawn_sub_agent_validation_fail(orchestrator):
     mock_agent = MagicMock()
     mock_agent.generate_plan = AsyncMock(return_value=["format"])
     mock_agent.run = AsyncMock(return_value="executed")
-    with patch("core.orchestrator.SubAgent", return_value=mock_agent):
+    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "blocked by pre-flight check" in result
 
@@ -138,7 +138,7 @@ async def test_spawn_sub_agent_synthesis_fallback(orchestrator):
     mock_agent = MagicMock()
     mock_agent.generate_plan = AsyncMock()
     mock_agent.run = AsyncMock(return_value="raw result")
-    with patch("core.orchestrator.SubAgent", return_value=mock_agent):
+    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "CRITICAL: Always backup" in result
 

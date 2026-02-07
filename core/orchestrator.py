@@ -2,7 +2,6 @@ import asyncio
 import os
 import sys
 import json
-import base64
 import uvicorn  # type: ignore
 import importlib.util
 import re
@@ -80,8 +79,6 @@ from core.dependencies import (
     register_factory,
     register_singleton,
     resolve_service,
-    ServiceTypes,
-    DependencyContainer,
 )
 from core.discovery import ModuleDiscovery
 from core.config import load_config, Config, AdapterConfig
@@ -91,14 +88,13 @@ from core.drivers import ComputerDriver
 from core.projects import ProjectManager
 from core.secrets import SecretManager
 from core.rag.pageindex import PageIndexRAG
-from core.agents import SubAgent
 from core.loki import LokiMode
 from core.permissions import PermissionManager
 from core.memory.mcp_server import MemoryServer
 from adapters.openclaw_adapter import OpenClawAdapter
 from adapters.memu_adapter import MemUAdapter
 from adapters.mcp_adapter import MCPManager
-from adapters.messaging import MegaBotMessagingServer, PlatformMessage, MessageType
+from adapters.messaging import MegaBotMessagingServer
 from adapters.unified_gateway import UnifiedGateway
 from adapters.security.tirith_guard import guard as tirith
 

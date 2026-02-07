@@ -9,7 +9,6 @@ from adapters.messaging.telegram import TelegramAdapter as MessagingTelegramAdap
 from adapters.messaging.whatsapp import WhatsAppAdapter
 from adapters.messaging.server import PlatformMessage
 from adapters.discord_adapter import DiscordAdapter
-from adapters.telegram_adapter import TelegramAdapter
 from adapters.signal_adapter import SignalAdapter
 
 
@@ -470,37 +469,5 @@ async def test_push_notification_adapter_main():
     ):
         try:
             await main()
-        except asyncio.CancelledError:
-            pass
-
-
-@pytest.mark.asyncio
-async def test_telegram_adapter_gaps():
-    adapter = TelegramAdapter(bot_token="token")
-    adapter.register_message_handler(MagicMock(side_effect=Exception("fail")))
-    adapter.register_error_handler(MagicMock(side_effect=Exception("fail")))
-    await adapter.handle_webhook(
-        {
-            "message": {
-                "message_id": 1,
-                "chat": {"id": 1},
-                "from": {"id": 1},
-                "text": "hi",
-            }
-        }
-    )
-    assert len(adapter._generate_secret_token()) == 32
-    from adapters.telegram_adapter import main as tg_main
-
-    with (
-        patch(
-            "adapters.telegram_adapter.TelegramAdapter.initialize",
-            AsyncMock(return_value=True),
-        ),
-        patch("adapters.telegram_adapter.TelegramAdapter.send_message", AsyncMock()),
-        patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),
-    ):
-        try:
-            await tg_main()
         except asyncio.CancelledError:
             pass

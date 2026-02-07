@@ -103,7 +103,7 @@ async def test_memory_learning_and_distillation(orchestrator):
     orchestrator.llm.generate.side_effect = mock_gen
 
     # Trigger _spawn_sub_agent (we mock the SubAgent class inside)
-    with patch("core.orchestrator.SubAgent") as MockSubAgent:
+    with patch("core.agent_coordinator.SubAgent") as MockSubAgent:
         mock_agent = MockSubAgent.return_value
         mock_agent.run = AsyncMock(return_value=raw_result)
         mock_agent.generate_plan = AsyncMock(return_value=["Step 1"])

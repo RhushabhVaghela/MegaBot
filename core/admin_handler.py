@@ -3,20 +3,13 @@ Admin command processing for MegaBot orchestrator.
 Handles administrative commands and system management.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 import asyncio
 import shlex
-import uuid
-import importlib.util
 import os
-from datetime import datetime
 from pathlib import Path
 
-from core.dependencies import resolve_service
-from core.config import Config
 from core.interfaces import Message
-from core.llm_providers import LLMProvider
-from core.memory.mcp_server import MemoryServer
 
 
 class AdminHandler:

@@ -534,15 +534,16 @@ async def test_agent_coordinator_subagent_fallback_all_fail(orchestrator):
                     side_effect=AttributeError("no SubAgent")
                 )
                 try:
-                    # Also make core.orchestrator.SubAgent unavailable
-                    with patch("core.orchestrator.SubAgent", None):
-                        result = await coord._spawn_sub_agent(
-                            {
-                                "name": "test-fb",
-                                "role": "researcher",
-                                "task": "test task",
-                            }
-                        )
+                    # core.orchestrator.SubAgent no longer exists (removed
+                    # dead import), so step 3 of the resolution chain
+                    # already returns None without any patch.
+                    result = await coord._spawn_sub_agent(
+                        {
+                            "name": "test-fb",
+                            "role": "researcher",
+                            "task": "test task",
+                        }
+                    )
                 finally:
                     # Clean up the property mock
                     try:

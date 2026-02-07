@@ -6,7 +6,7 @@ import pytest
 import json
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from adapters.telegram_adapter import TelegramAdapter
+from adapters.messaging.telegram import TelegramAdapter
 from adapters.signal_adapter import SignalAdapter
 from adapters.push_notification_adapter import (
     PushNotificationAdapter,
@@ -21,10 +21,9 @@ class TestMessagingIntegration:
 
     @pytest.fixture
     def adapters(self):
-        # Telegram
-        tg = TelegramAdapter(bot_token="test_tg")
+        # Telegram (messaging adapter requires server param)
+        tg = TelegramAdapter(bot_token="test_tg", server=MagicMock())
         tg.session = MagicMock()
-        tg.is_initialized = True
 
         # Signal
         sig = SignalAdapter(phone_number="+919601777533")
@@ -55,7 +54,7 @@ class TestMessagingIntegration:
         # 1. Telegram
         with patch.object(adapters["tg"], "_make_request", new_callable=AsyncMock) as m:
             m.return_value = {"message_id": 1}
-            await adapters["tg"].send_message(
+            await adapters["tg"].send_text(
                 chat_id=indian_number, text="Integration Test"
             )
             m.assert_called_once()
