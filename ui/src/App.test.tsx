@@ -2,9 +2,20 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import App from './App'
 
+interface MockWebSocketStatic {
+  instances: Array<{
+    onmessage: ((ev: { data: string }) => void) | null;
+    close: () => void;
+  }>;
+}
+
+function getMockWS() {
+  return (window.WebSocket as unknown as MockWebSocketStatic).instances[0]
+}
+
 describe('App Component', () => {
   beforeEach(() => {
-    (window.WebSocket as any).instances = []
+    (window.WebSocket as unknown as MockWebSocketStatic).instances = []
   })
 
   it('renders MegaBot header', () => {
@@ -61,9 +72,9 @@ describe('App Component', () => {
 
   it('handles openclaw events', async () => {
     render(<App />)
-    const ws = (window.WebSocket as any).instances[0]
+    const ws = getMockWS()
     act(() => {
-      ws.onmessage({ data: JSON.stringify({
+      ws.onmessage?.({ data: JSON.stringify({
         type: 'openclaw_event',
         payload: {
           method: 'chat.message',
@@ -82,9 +93,9 @@ describe('App Component', () => {
     const refreshButton = screen.getByText(/Refresh/i)
     fireEvent.click(refreshButton)
 
-    const ws = (window.WebSocket as any).instances[0]
+    const ws = getMockWS()
     act(() => {
-      ws.onmessage({ data: JSON.stringify({
+      ws.onmessage?.({ data: JSON.stringify({
         type: 'search_results',
         results: [{ content: 'memory item 1' }]
       })})
@@ -94,18 +105,18 @@ describe('App Component', () => {
 
   it('handles generic messages', async () => {
     render(<App />)
-    const ws = (window.WebSocket as any).instances[0]
+    const ws = getMockWS()
     act(() => {
-      ws.onmessage({ data: 'Generic system update' })
+      ws.onmessage?.({ data: 'Generic system update' })
     })
     expect(screen.getByText('Generic system update')).toBeInTheDocument()
   })
 
   it('handles mode_updated message', async () => {
     render(<App />)
-    const ws = (window.WebSocket as any).instances[0]
+    const ws = getMockWS()
     act(() => {
-      ws.onmessage({ data: JSON.stringify({
+      ws.onmessage?.({ data: JSON.stringify({
         type: 'mode_updated',
         mode: 'debug'
       }) })
@@ -117,7 +128,7 @@ describe('App Component', () => {
   it('handles sendMessage when ws is null', async () => {
     // First render with working websocket
     render(<App />)
-    const ws = (window.WebSocket as any).instances[0]
+    const ws = getMockWS()
     
     // Close the websocket to make ws.current null
     act(() => {

@@ -2,11 +2,15 @@ import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
 // Mock WebSocket
+interface MockMessageEvent {
+  data: string;
+}
+
 class MockWebSocket {
   url: string;
-  onmessage: ((ev: any) => any) | null = null;
-  onopen: (() => any) | null = null;
-  onclose: (() => any) | null = null;
+  onmessage: ((ev: MockMessageEvent) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onclose: (() => void) | null = null;
   readyState: number = 1;
   static instances: MockWebSocket[] = [];
 
@@ -21,7 +25,7 @@ class MockWebSocket {
     const msg = JSON.parse(data);
     if (msg.type === 'set_mode') {
       setTimeout(() => {
-        this.onmessage?.({ data: JSON.stringify({ type: 'mode_updated', mode: msg.mode }) } as any);
+        this.onmessage?.({ data: JSON.stringify({ type: 'mode_updated', mode: msg.mode }) });
       }, 0);
     }
   }
