@@ -29,7 +29,7 @@ class MessageHandler:
         self.chat_contexts: OrderedDict[str, list[dict]] = OrderedDict()
         self._computer_driver = None  # Lazily cached DI resolution
 
-    async def process_gateway_message(self, data: dict):
+    async def process_gateway_message(self, data: dict) -> None:
         """Handle messages incoming from the Unified Gateway"""
         logger.debug("Gateway Message: %s", data)
         msg_type = data.get("type")
@@ -43,7 +43,7 @@ class MessageHandler:
         if msg_type == "message":
             await self._handle_user_message(data, sender_id, chat_id, platform)
 
-    async def _handle_user_message(self, data: dict, sender_id: str, chat_id: str, platform: str):
+    async def _handle_user_message(self, data: dict, sender_id: str, chat_id: str, platform: str) -> None:
         """Handle user messages with attachments and admin commands."""
         content = data.get("content", "")
         attachments = data.get("attachments", [])
@@ -122,7 +122,7 @@ class MessageHandler:
 
         return vision_context
 
-    async def _update_chat_context(self, chat_id: str, content: str):
+    async def _update_chat_context(self, chat_id: str, content: str) -> None:
         """Update local chat context cache with LRU eviction."""
         if chat_id not in self.chat_contexts:
             # Load recent history from DB
@@ -150,7 +150,7 @@ class HealthMonitor:
         self.last_status: dict[str, Any] = {}
         self.restart_counts: dict[str, int] = {}
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Cancel and await any tasks started by BackgroundTasks."""
         # Cancel scheduled tasks and await them safely
         for t in list(self._tasks):
@@ -225,7 +225,7 @@ class HealthMonitor:
 
         return health
 
-    async def start_monitoring(self):
+    async def start_monitoring(self) -> None:
         """Start the heartbeat monitoring loop."""
         while True:
             try:
@@ -269,7 +269,7 @@ class BackgroundTasks:
         # Track scheduled background tasks so they can be cancelled/awaited on shutdown
         self._tasks: list[asyncio.Task] = []
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Cancel and await all scheduled background tasks."""
         for t in list(self._tasks):
             try:
@@ -291,13 +291,13 @@ class BackgroundTasks:
 
         self._tasks.clear()
 
-    async def start_all_tasks(self):
+    async def start_all_tasks(self) -> None:
         """Start all background tasks."""
 
         # Defensive scheduling: use safe_create_task from task_utils,
         # fall back to asyncio.ensure_future if scheduling fails
         # (tests may patch these functions to raise).
-        def _safe_schedule(coro):
+        def _safe_schedule(coro) -> asyncio.Task[Any] | None:
             try:
                 t = safe_create_task(coro)
                 logger.debug("[BackgroundTasks] scheduled via safe_create_task: %s", coro)
@@ -353,7 +353,7 @@ class BackgroundTasks:
         # during tests. BackgroundTasks is responsible only for internal
         # periodic loops.
 
-    async def sync_loop(self):
+    async def sync_loop(self) -> None:
         """Synchronization loop for cross-platform data sync."""
         while True:
             try:
@@ -397,7 +397,7 @@ class BackgroundTasks:
             except Exception as e:
                 logger.error("Sync loop error: %s", e)
 
-    async def proactive_loop(self):
+    async def proactive_loop(self) -> None:
         """Proactive task checking loop."""
         while True:
             try:
@@ -428,7 +428,7 @@ class BackgroundTasks:
                 logger.error("Proactive loop error: %s", e)
             await asyncio.sleep(3600)  # Check every hour
 
-    async def pruning_loop(self):
+    async def pruning_loop(self) -> None:
         """Background task to prune old chat history."""
         while True:
             try:
@@ -441,7 +441,7 @@ class BackgroundTasks:
                 logger.error("Pruning loop error: %s", e)
             await asyncio.sleep(86400)  # Run once every 24 hours
 
-    async def backup_loop(self):
+    async def backup_loop(self) -> None:
         """Background task to backup the memory database."""
         while True:
             try:

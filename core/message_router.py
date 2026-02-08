@@ -55,7 +55,7 @@ class MessageRouter:
         chat_id: str | None = None,
         platform: str = "native",
         target_client: str | None = None,
-    ):  # pragma: no cover
+    ) -> None:  # pragma: no cover
         """Send a message to a platform and record it in history.
 
         Behavior preserved exactly from core.orchestrator.send_platform_message.

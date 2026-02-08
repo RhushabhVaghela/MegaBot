@@ -11,7 +11,7 @@ from .interfaces import Message
 from .llm_providers import LLMProvider, get_llm_provider
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> type:
     """Lazy-load MegaBotOrchestrator to break the circular import cycle."""
     if name == "MegaBotOrchestrator":
         from .orchestrator import MegaBotOrchestrator

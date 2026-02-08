@@ -13,14 +13,14 @@ class SecretManager:
         self._load_from_env()
         self._load_from_files()
 
-    def _load_from_env(self):
+    def _load_from_env(self) -> None:
         """Load secrets from environment variables starting with MEGABOT_SECRET_"""
         for key, value in os.environ.items():
             if key.startswith("MEGABOT_SECRET_"):
                 secret_name = key[len("MEGABOT_SECRET_") :]
                 self.secrets[secret_name] = value
 
-    def _load_from_files(self):
+    def _load_from_files(self) -> None:
         """Load secrets from files in the secrets directory"""
         if not os.path.exists(self.secrets_dir):
             return

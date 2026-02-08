@@ -240,15 +240,15 @@ class MegaBotOrchestrator:
     # Lifecycle (delegated to core.lifecycle)
     # ------------------------------------------------------------------
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the orchestrator — delegates to ``core.lifecycle.start``."""
         await _lifecycle.start(self)
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Gracefully shutdown — delegates to ``core.lifecycle.shutdown``."""
         await _lifecycle.shutdown(self)
 
-    async def restart_component(self, name: str):  # pragma: no cover
+    async def restart_component(self, name: str) -> None:  # pragma: no cover
         """Restart a specific component — delegates to ``core.lifecycle``."""
         await _lifecycle.restart_component(self, name)
 
@@ -258,27 +258,27 @@ class MegaBotOrchestrator:
     # These methods were extracted to BackgroundTasks / HealthMonitor
     # but many tests still call them on the orchestrator directly.
 
-    async def heartbeat_loop(self):
+    async def heartbeat_loop(self) -> None:
         """Delegate to ``self.health_monitor.start_monitoring()``."""
         await self.health_monitor.start_monitoring()
 
-    async def proactive_loop(self):
+    async def proactive_loop(self) -> None:
         """Delegate to ``self.background_tasks.proactive_loop()``."""
         await self.background_tasks.proactive_loop()
 
-    async def backup_loop(self):
+    async def backup_loop(self) -> None:
         """Delegate to ``self.background_tasks.backup_loop()``."""
         await self.background_tasks.backup_loop()
 
-    async def pruning_loop(self):
+    async def pruning_loop(self) -> None:
         """Delegate to ``self.background_tasks.pruning_loop()``."""
         await self.background_tasks.pruning_loop()
 
-    async def sync_loop(self):
+    async def sync_loop(self) -> None:
         """Delegate to ``self.background_tasks.sync_loop()``."""
         await self.background_tasks.sync_loop()
 
-    async def get_system_health(self):
+    async def get_system_health(self) -> Any:
         """Delegate to ``self.health_monitor.get_system_health()``."""
         return await self.health_monitor.get_system_health()
 
@@ -286,7 +286,7 @@ class MegaBotOrchestrator:
     # WebSocket handling (delegated to core.websocket_handler)
     # ------------------------------------------------------------------
 
-    async def handle_client(self, websocket: WebSocket):
+    async def handle_client(self, websocket: WebSocket) -> None:
         """Handle a WebSocket client — delegates to ``core.websocket_handler``."""
         await _ws_handler.handle_client(self, websocket)
 
@@ -294,7 +294,7 @@ class MegaBotOrchestrator:
     # Messaging callbacks
     # ------------------------------------------------------------------
 
-    async def on_messaging_connect(self, client_id: str | None, platform: str):
+    async def on_messaging_connect(self, client_id: str | None, platform: str) -> None:
         """Handle new messaging platform connections."""
         logger.info("Greeting new connection: %s (%s)", platform, client_id or "all")
         greeting = Message(content=GREETING_TEXT, sender="MegaBot")
@@ -310,7 +310,7 @@ class MegaBotOrchestrator:
         """Delegate to AdminHandler (kept for backward compatibility)."""
         return await self.admin_handler.handle_command(text, sender_id, chat_id, platform)
 
-    async def on_gateway_message(self, data: dict):
+    async def on_gateway_message(self, data: dict) -> None:
         """Process messages received through the unified gateway."""
         await self.message_handler.process_gateway_message(data)
 
@@ -318,7 +318,7 @@ class MegaBotOrchestrator:
     # Business logic methods
     # ------------------------------------------------------------------
 
-    async def run_autonomous_gateway_build(self, message: Message, original_data: dict):
+    async def run_autonomous_gateway_build(self, message: Message, original_data: dict) -> None:
         """Delegate to ``core.build_session.run_autonomous_gateway_build``."""
         await _build_session.run_autonomous_gateway_build(self, message, original_data)
 
@@ -332,7 +332,7 @@ class MegaBotOrchestrator:
         chat_id: str | None = None,
         platform: str = "native",
         target_client: str | None = None,
-    ):  # pragma: no cover
+    ) -> Any:  # pragma: no cover
         """Delegate to MessageRouter for sending platform messages."""
         return await self.message_router.send_platform_message(
             message, chat_id=chat_id, platform=platform, target_client=target_client
@@ -358,11 +358,11 @@ class MegaBotOrchestrator:
             logger.error("Redaction-Verification: Error during check: %s", e)
             return False
 
-    async def _start_approval_escalation(self, action: dict):
+    async def _start_approval_escalation(self, action: dict) -> None:
         """Delegate to ``core.approval_workflows.start_approval_escalation``."""
         await _approval_workflows.start_approval_escalation(self, action)
 
-    async def _check_identity_claims(self, content: str, platform: str, platform_id: str, chat_id: str):
+    async def _check_identity_claims(self, content: str, platform: str, platform_id: str, chat_id: str) -> None:
         """Delegate to ``core.approval_workflows.check_identity_claims``."""
         await _approval_workflows.check_identity_claims(self, content, platform, platform_id, chat_id)
 
@@ -370,7 +370,7 @@ class MegaBotOrchestrator:
         """Delegate to ``core.build_session.get_relevant_lessons``."""
         return await _build_session.get_relevant_lessons(self, prompt)
 
-    async def run_autonomous_build(self, message: Message, websocket: WebSocket):  # pragma: no cover
+    async def run_autonomous_build(self, message: Message, websocket: WebSocket) -> None:  # pragma: no cover
         """Delegate to ``core.build_session.run_autonomous_build``."""
         await _build_session.run_autonomous_build(self, message, websocket)
 
@@ -388,7 +388,7 @@ class MegaBotOrchestrator:
         websocket: WebSocket,
         action_id: str,
         callback: Any | None = None,
-    ):
+    ) -> None:
         """Delegate to ``core.approval_workflows.handle_computer_tool``."""
         await _approval_workflows.handle_computer_tool(self, tool_input, websocket, action_id, callback)
 
@@ -400,7 +400,7 @@ class MegaBotOrchestrator:
         """Delegate to ``core.openclaw_handler.check_policy``."""
         return _openclaw_handler.check_policy(self, data)
 
-    async def on_openclaw_event(self, data):
+    async def on_openclaw_event(self, data) -> None:
         """Delegate to ``core.openclaw_handler.on_openclaw_event``."""
         await _openclaw_handler.on_openclaw_event(self, data)
 
@@ -429,7 +429,7 @@ class MegaBotOrchestrator:
         except (ConnectionError, RuntimeError, OSError):
             return False
 
-    async def _process_approval(self, action_id: str, approved: bool):
+    async def _process_approval(self, action_id: str, approved: bool) -> None:
         """Delegate approval processing to admin_handler (SEC-FIX-002)."""
         await self.admin_handler._process_approval(action_id, approved)
 

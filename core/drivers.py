@@ -2,6 +2,8 @@ import base64
 import io
 import logging
 
+from typing import Any
+
 from PIL import Image, ImageFilter
 
 logger = logging.getLogger(__name__)
@@ -12,7 +14,7 @@ class ComputerDriver:
         self.width = width
         self.height = height
 
-    def _get_pyautogui(self):
+    def _get_pyautogui(self) -> Any:
         try:
             import pyautogui
 
@@ -23,22 +25,22 @@ class ComputerDriver:
             class MockPyAutoGUI:
                 FAILSAFE = True
 
-                def moveTo(self, x, y):
+                def moveTo(self, x, y) -> None:
                     logger.debug("Headless Mock: Moving mouse to (%s, %s)", x, y)
 
-                def click(self):
+                def click(self) -> None:
                     logger.debug("Headless Mock: Clicking")
 
-                def rightClick(self):
+                def rightClick(self) -> None:
                     logger.debug("Headless Mock: Right-clicking")
 
-                def write(self, text):
+                def write(self, text) -> None:
                     logger.debug("Headless Mock: Typing '%s'", text)
 
-                def press(self, key):
+                def press(self, key) -> None:
                     logger.debug("Headless Mock: Pressing '%s'", key)
 
-                def screenshot(self):
+                def screenshot(self) -> Image.Image:
                     logger.debug("Headless Mock: Taking screenshot")
                     return Image.new("RGB", (1024, 768), (0, 0, 0))
 

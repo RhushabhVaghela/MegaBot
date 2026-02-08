@@ -30,7 +30,7 @@ class PermissionManager:
 
         self.overrides: dict[str, PermissionLevel] = {}
 
-    def set_policy(self, scope: str, level: str):
+    def set_policy(self, scope: str, level: str) -> None:
         """Set a policy for a specific scope."""
         try:
             self.overrides[scope] = PermissionLevel(level.upper())
@@ -80,7 +80,7 @@ class PermissionManager:
             return False
         return None  # ASK_EACH
 
-    def load_from_config(self, config_dict: dict):
+    def load_from_config(self, config_dict: dict) -> None:
         """Load policies from a configuration dictionary."""
         policies = config_dict.get("policies", {})
 

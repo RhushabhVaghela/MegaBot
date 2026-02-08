@@ -2,18 +2,20 @@ import functools
 import json
 import logging
 import time
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("megabot.instrumentation")
 
 
-def track_telemetry(func):
+def track_telemetry(func) -> Callable:
     """
     Decorator to track latency, token usage, and other metadata for LLM calls.
     Ports patterns from agent-lightning for high-precision observability.
     """
 
     @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs) -> Any:
         start_time = time.perf_counter()
 
         # Try to capture prompt/messages for context

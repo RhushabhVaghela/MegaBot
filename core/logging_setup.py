@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 
 def attach_audit_file_handler(
     path: str = "logs/audit.log", maxBytes: int = 5 * 1024 * 1024, backupCount: int = 5
-):
+) -> RotatingFileHandler:
     """Attach a rotating file handler for the `megabot.audit` logger.
 
     This is an opt-in helper. Call it early in your process (before agents run)
@@ -18,9 +18,7 @@ def attach_audit_file_handler(
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    handler = RotatingFileHandler(
-        path, maxBytes=maxBytes, backupCount=backupCount, encoding="utf-8"
-    )
+    handler = RotatingFileHandler(path, maxBytes=maxBytes, backupCount=backupCount, encoding="utf-8")
     # The AgentCoordinator already emits JSON strings; keep the handler
     # formatter minimal so we preserve JSON lines intact.
     handler.setFormatter(logging.Formatter("%(message)s"))

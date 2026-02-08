@@ -21,7 +21,7 @@ class LokiMode:
         self.orchestrator = orchestrator
         self.is_active = False
 
-    async def activate(self, prd_text: str):
+    async def activate(self, prd_text: str) -> str:
         """Start the Loki Mode pipeline"""
         self.is_active = True
         logger.info("LOKI MODE ACTIVATED")
@@ -89,7 +89,7 @@ class LokiMode:
         await self._relay_status(final_msg)
         return final_msg
 
-    async def _relay_status(self, content: str):
+    async def _relay_status(self, content: str) -> None:
         """Relay status updates to the last active chat platform if available"""
         if self.orchestrator.last_active_chat:
             from core.interfaces import Message
@@ -227,7 +227,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             return True  # No remediation needed
         return False  # Remediation needed
 
-    async def _save_loki_macro(self, prd: str, tasks: list[dict], results: list[str], status: str):
+    async def _save_loki_macro(self, prd: str, tasks: list[dict], results: list[str], status: str) -> None:
         """Save the entire execution as a reproducible macro in memU"""
         logger.info("Saving Loki Macro to Memory...")
         macro = {
@@ -273,7 +273,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             }
         ]
 
-    async def _execute_parallel_tasks(self, tasks: list[dict], memory_context: str = ""):
+    async def _execute_parallel_tasks(self, tasks: list[dict], memory_context: str = "") -> list[str]:
         """Run sub-agents in parallel"""
         from core.agents import SubAgent
 

@@ -10,7 +10,9 @@ lives in ``core.orchestrator`` — route handlers access it lazily via
 import logging
 import os
 import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ config = load_config()
 config.validate_environment()
 
 
-def _get_orchestrator():
+def _get_orchestrator() -> Any:
     """Return the current orchestrator instance from ``core.orchestrator``.
 
     The canonical ``orchestrator`` variable lives in ``core.orchestrator``.
@@ -45,7 +47,7 @@ def _get_orchestrator():
 # Lifespan
 # ---------------------------------------------------------------------------
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """FastAPI lifespan context manager for orchestrator initialization and cleanup.
 
     Handles the startup and shutdown lifecycle of the MegaBot orchestrator,
@@ -137,7 +139,7 @@ def _validate_twilio_signature(request: Request, form_data: dict) -> bool:
 # Route handlers
 # ---------------------------------------------------------------------------
 @app.post("/ivr")
-async def ivr_callback(request: Request, action_id: str = Query(...)):
+async def ivr_callback(request: Request, action_id: str = Query(...)) -> Response:
     form_data = await request.form()
     form_dict = dict(form_data)
 
@@ -171,7 +173,7 @@ async def ivr_callback(request: Request, action_id: str = Query(...)):
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     return {
         "status": "online",
         "message": "MegaBot API is running",
@@ -181,7 +183,7 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+async def health() -> JSONResponse:
     """Deep health check — verifies all critical components.
 
     Returns 200 with component statuses when the orchestrator is running and
@@ -221,7 +223,7 @@ async def health():
 
 
 @app.websocket("/ws")  # pragma: no cover
-async def websocket_endpoint(websocket: WebSocket):  # pragma: no cover
+async def websocket_endpoint(websocket: WebSocket) -> None:  # pragma: no cover
     # --- WebSocket Authentication (SEC-FIX-001) ---
     # Validate token from query parameter before accepting connection.
     ws_token = os.environ.get("WS_AUTH_TOKEN") or os.environ.get("OPENCLAW_AUTH_TOKEN")

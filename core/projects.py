@@ -11,10 +11,10 @@ class ProjectContext:
         self.memory_path = self.base_path / "memory"
         self.logs_path = self.base_path / "logs"
         self.config_path = self.base_path / "project-config.yaml"
-        
+
         self._ensure_dirs()
 
-    def _ensure_dirs(self):
+    def _ensure_dirs(self) -> None:
         """Create project structure if it doesn't exist"""
         for path in [self.files_path, self.prompts_path, self.memory_path, self.logs_path]:
             path.mkdir(parents=True, exist_ok=True)
@@ -26,9 +26,10 @@ class ProjectContext:
             return prompt_file.read_text()
         return ""
 
-    def list_files(self):
+    def list_files(self) -> list[str]:
         """List files in the project workspace"""
         return [str(p.relative_to(self.files_path)) for p in self.files_path.rglob("*") if p.is_file()]
+
 
 class ProjectManager:
     def __init__(self, base_path: str):
@@ -44,7 +45,7 @@ class ProjectManager:
         self.current_project = ProjectContext(name, self.base_path)
         return self.current_project
 
-    def delete_project(self, name: str):
+    def delete_project(self, name: str) -> None:
         """Delete a project workspace"""
         project_path = Path(self.base_path) / "projects" / name
         if project_path.exists():

@@ -266,7 +266,7 @@ async def run_autonomous_build(
                             loop = asyncio.get_running_loop()
                             future = loop.create_future()
 
-                            def on_executed(result, _future=future):
+                            def on_executed(result, _future=future) -> None:
                                 if not _future.done():
                                     _future.set_result(result)
 

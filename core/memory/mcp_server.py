@@ -45,7 +45,7 @@ class MemoryServer:
     # ------------------------------------------------------------------
     # Schema migration infrastructure
     # ------------------------------------------------------------------
-    def _run_migrations(self):
+    def _run_migrations(self) -> None:
         """Apply schema migrations up to _SCHEMA_VERSION."""
         conn = sqlite3.connect(self.db_path)
         try:
@@ -76,7 +76,7 @@ class MemoryServer:
         finally:
             conn.close()
 
-    async def close(self):
+    async def close(self) -> None:
         """Shut down the shared thread pool and close DB connections."""
         self.chat_memory.close()
         self.knowledge_memory.close()

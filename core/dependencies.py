@@ -11,7 +11,7 @@ asyncio.Lock (and make the registration methods ``async``).
 """
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
@@ -97,12 +97,12 @@ def get_container() -> DependencyContainer:
 def inject(service_type: type[T]) -> Callable:
     """Decorator to inject dependencies into functions/classes."""
 
-    def decorator(func_or_class):
+    def decorator(func_or_class) -> Any:
         if isinstance(func_or_class, type):
             # It's a class, inject into __init__
             original_init = func_or_class.__init__
 
-            def injected_init(self, *args, **kwargs):
+            def injected_init(self, *args, **kwargs) -> None:
                 # Inject services before calling original __init__
                 annotations = getattr(func_or_class, "__annotations__", {})
                 for param_name, param_type in annotations.items():
@@ -117,7 +117,7 @@ def inject(service_type: type[T]) -> Callable:
             return func_or_class
         else:
             # It's a function, inject into function call
-            def injected_func(*args, **kwargs):
+            def injected_func(*args, **kwargs) -> Any:
                 # Inject services
                 annotations = getattr(func_or_class, "__annotations__", {})
                 for param_name, param_type in annotations.items():
@@ -134,7 +134,7 @@ def inject(service_type: type[T]) -> Callable:
 
 
 @contextmanager
-def dependency_scope():
+def dependency_scope() -> Generator[DependencyContainer, None, None]:
     """Context manager for scoped dependencies (useful for testing)."""
     global _container
     old_container = _container

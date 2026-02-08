@@ -37,7 +37,7 @@ def safe_create_task(coro, name: str | None = None) -> asyncio.Task:
     except Exception as e:
         logger.debug("Failed to set task name %r: %s", name, e)
 
-    def _on_done(t: asyncio.Task):
+    def _on_done(t: asyncio.Task) -> None:
         try:
             exc = t.exception()
             if exc:

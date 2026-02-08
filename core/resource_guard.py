@@ -24,6 +24,7 @@ import subprocess
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from collections.abc import KeysView, ValuesView, ItemsView
 from typing import Any, Generic, TypeVar
 
 import psutil
@@ -263,13 +264,13 @@ class LRUCache(Generic[KT, VT]):
     def pop(self, key: KT, *args: Any) -> Any:
         return self._data.pop(key, *args)
 
-    def keys(self):
+    def keys(self) -> KeysView[KT]:
         return self._data.keys()
 
-    def values(self):
+    def values(self) -> ValuesView[VT]:
         return self._data.values()
 
-    def items(self):
+    def items(self) -> ItemsView[KT, VT]:
         return self._data.items()
 
     def clear(self) -> None:

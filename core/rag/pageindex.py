@@ -21,7 +21,7 @@ class PageIndexRAG:
         self.index: dict[str, Any] = {}
         self.index_path = os.path.join(root_dir, ".megabot_index.json")
 
-    async def build_index(self, force_rebuild: bool = False):
+    async def build_index(self, force_rebuild: bool = False) -> None:
         """Creates a hierarchical map of the codebase with summaries. Uses cache if available."""
         if not force_rebuild and os.path.exists(self.index_path):
             try:
@@ -45,7 +45,7 @@ class PageIndexRAG:
         except (OSError, TypeError) as e:
             logger.warning("RAG: Failed to save cache: %s", e)
 
-    def _walk_and_index(self, root_dir, current_index):
+    def _walk_and_index(self, root_dir, current_index) -> None:
         for root, dirs, files in os.walk(root_dir):
             # Avoid hidden folders and common noise
             dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["node_modules", "__pycache__", "venv"]]
@@ -112,7 +112,7 @@ class PageIndexRAG:
         results = []
         q = query.lower()
 
-        def search_dict(d, path=""):
+        def search_dict(d: dict, path: str = "") -> None:
             for fname, info in d.get("files", {}).items():
                 fpath = os.path.join(path, fname)
                 if q in fpath.lower() or q in info["summary"].lower() or any(q in s.lower() for s in info["headers"]):
@@ -164,7 +164,7 @@ class PageIndexRAG:
     def _get_collapsed_index(self, max_depth=2) -> dict:
         """Returns a simplified version of the index for LLM context."""
 
-        def collapse(d, depth):
+        def collapse(d: dict, depth: int) -> dict:
             if depth > max_depth:
                 return {"note": "Max depth reached"}
             res = {

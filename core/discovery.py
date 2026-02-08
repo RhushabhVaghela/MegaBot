@@ -9,7 +9,7 @@ class ModuleDiscovery:
         self.base_path = base_path
         self.capabilities = {}
 
-    def scan(self):
+    def scan(self) -> None:
         logger.info("Scanning for capabilities in %s...", self.base_path)
         # Scan all directories in base_path for skills and kits
         if not os.path.exists(self.base_path):
@@ -31,5 +31,5 @@ class ModuleDiscovery:
                     self.capabilities["skills"].extend(found_skills)
                     logger.info("Indexed %d skills from %s.", len(found_skills), item)
 
-    def get_capability_path(self, name: str):
+    def get_capability_path(self, name: str) -> str | None:
         return self.capabilities.get(name)

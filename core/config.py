@@ -25,7 +25,7 @@ _CRED_LINE_RE = re.compile(
 _LIST_ITEM_RE = re.compile(r"""["']([^"']*)["']""")
 
 
-def load_api_credentials():
+def load_api_credentials() -> None:
     """Load credentials from api-credentials.py using safe line-by-line parsing.
 
     Only simple ``KEY = "value"`` assignments are accepted.  Arbitrary
@@ -171,7 +171,7 @@ class Config(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
-    def validate_environment(self):
+    def validate_environment(self) -> bool:
         """Ensure required environment variables are present"""
         required_env_vars = {
             "OPENCLAW_AUTH_TOKEN": "Required for OpenClaw adapter authentication",
@@ -206,7 +206,7 @@ class Config(BaseModel):
             return False
         return True
 
-    def save(self, path: str = "mega-config.yaml"):
+    def save(self, path: str = "mega-config.yaml") -> None:
         """Save current configuration back to disk"""
         with open(path, "w") as f:
             yaml.safe_dump(self.model_dump(), f, default_flow_style=False)

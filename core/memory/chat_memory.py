@@ -18,8 +18,7 @@ class ChatMemoryManager:
         self._local = threading.local()  # Thread-local storage for connections
         self._init_tables()
 
-    def _init_tables(self):
-        """Initialize chat history tables and indexes."""
+    def _init_tables(self) -> None:
         conn = self._get_connection()
         conn.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
         conn.execute("""
@@ -38,16 +37,14 @@ class ChatMemoryManager:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_platform ON chat_history(platform)")
         conn.commit()
 
-    def _get_connection(self):
-        """Get a thread-local database connection."""
+    def _get_connection(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
             self._local.conn.execute("PRAGMA journal_mode=WAL")
             self._local.conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s on lock
         return self._local.conn
 
-    def close(self):
-        """Close the thread-local database connection if it exists."""
+    def close(self) -> None:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()
@@ -80,7 +77,7 @@ class ChatMemoryManager:
             logger.error("Error writing chat history: %s", e)
             return False
 
-    def _sync_write(self, chat_id: str, platform: str, role: str, content: str, metadata_json: str):
+    def _sync_write(self, chat_id: str, platform: str, role: str, content: str, metadata_json: str) -> None:
         """Synchronous write operation."""
         conn = self._get_connection()
         conn.execute(
@@ -111,7 +108,7 @@ class ChatMemoryManager:
             logger.error("Error reading chat history for %s: %s", chat_id, e)
             return []
 
-    def _sync_read(self, chat_id: str, limit: int):
+    def _sync_read(self, chat_id: str, limit: int) -> list[tuple[Any, ...]]:
         """Synchronous read operation."""
         conn = self._get_connection()
         cursor = conn.execute(

@@ -233,7 +233,7 @@ class AdminHandler:
         safe_create_task(self.orchestrator.send_platform_message(resp, chat_id=chat_id, platform=platform))
         return True
 
-    async def _process_approval(self, action_id: str, approved: bool):
+    async def _process_approval(self, action_id: str, approved: bool) -> None:
         """Process approval/rejection of queued actions.
 
         SEC-FIX-002: This is now the single source of truth for approval
@@ -265,7 +265,7 @@ class AdminHandler:
                 except Exception as e:
                     logger.error("Denial callback failed: %s", e)
 
-    async def _execute_approved_action(self, action: dict):
+    async def _execute_approved_action(self, action: dict) -> str | None:
         """Execute an approved action based on its type."""
         action_type = action.get("type", "")
         payload = action.get("payload", {})
@@ -479,7 +479,7 @@ class AdminHandler:
                 )
             return error_msg
 
-    async def _trigger_voice_briefing(self, phone: str, chat_id: str, platform: str):
+    async def _trigger_voice_briefing(self, phone: str, chat_id: str, platform: str) -> None:
         """Generate a summary of recent events and call the admin to read it"""
         try:
             # 1. Fetch recent activity

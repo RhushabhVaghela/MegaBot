@@ -94,7 +94,7 @@ class UnifiedGateway:
         self.logger = logging.getLogger(__name__)
         self._health_task: asyncio.Task | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         await self._start_local_server()
         if self.enable_cloudflare:
             await self._start_cloudflare_tunnel()
@@ -107,7 +107,7 @@ class UnifiedGateway:
         # that if tests patch `_health_monitor_loop` with AsyncMock or other
         # test-doubles the returned object will be awaited by this wrapper
         # and won't produce "coroutine was never awaited" warnings.
-        async def _health_wrapper():
+        async def _health_wrapper() -> None:
             try:
                 coro = None
                 try:
@@ -177,7 +177,7 @@ class UnifiedGateway:
             else:
                 self._health_task = task_obj
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop all gateway services and cleanup tasks."""
         # Cancel health task first
         if self._health_task:
@@ -393,7 +393,7 @@ class UnifiedGateway:
             self.health_status[ConnectionType.CLOUDFLARE.value] = False
             return False
 
-    async def _start_https_server(self):
+    async def _start_https_server(self) -> Any:
         try:
             from aiohttp import web
         except ImportError:
@@ -428,7 +428,7 @@ class UnifiedGateway:
             self.health_status[ConnectionType.DIRECT.value] = False
             return None
 
-    async def _handle_https_websocket(self, request):
+    async def _handle_https_websocket(self, request) -> Any:
         try:
             from aiohttp import web
         except ImportError:
@@ -461,7 +461,7 @@ class UnifiedGateway:
                 return ConnectionType.LOCAL
         return ConnectionType.LOCAL
 
-    async def _handle_websocket(self, websocket, path="", forced_type: ConnectionType | None = None):
+    async def _handle_websocket(self, websocket, path="", forced_type: ConnectionType | None = None) -> None:
         conn_type = forced_type or self._detect_connection_type(websocket)
         ip = "unknown"
         if getattr(websocket, "remote_address", None):
@@ -484,7 +484,7 @@ class UnifiedGateway:
         )
         await self._manage_connection(conn)
 
-    async def _manage_connection(self, conn: ClientConnection):
+    async def _manage_connection(self, conn: ClientConnection) -> None:
         self.clients[conn.client_id] = conn
         ws = conn.websocket
 
@@ -604,7 +604,7 @@ class UnifiedGateway:
             return True
         return False
 
-    async def _process_message(self, conn: ClientConnection, raw_message: Any):
+    async def _process_message(self, conn: ClientConnection, raw_message: Any) -> None:
         if isinstance(raw_message, bytes):
             try:
                 raw_message = raw_message.decode("utf-8", errors="ignore")
@@ -627,11 +627,11 @@ class UnifiedGateway:
         except Exception:
             await self._send_error(conn, "Internal error")
 
-    async def _forward_to_megabot(self, data: dict[str, Any]):
+    async def _forward_to_megabot(self, data: dict[str, Any]) -> None:
         if self.on_message:
             await self.on_message(data)
 
-    async def _send_error(self, conn: ClientConnection, message: str):
+    async def _send_error(self, conn: ClientConnection, message: str) -> None:
         payload = json.dumps({"error": message})
         ws = conn.websocket
         if hasattr(ws, "send"):
@@ -646,8 +646,8 @@ class UnifiedGateway:
             except (ConnectionError, RuntimeError, OSError) as e:
                 self.logger.debug("Failed to send error via ws.send_str: %s", e)
 
-    async def _start_local_server(self):
-        def process_request(_connection: WebSocketServerProtocol, request):
+    async def _start_local_server(self) -> Any:
+        def process_request(_connection: WebSocketServerProtocol, request) -> Any:
             host = request.headers.get("Host", "") if hasattr(request, "headers") else ""
             # VULN-011 fix: exact hostname match instead of substring
             # Strip port if present (e.g. "localhost:8080" → "localhost")
@@ -682,7 +682,7 @@ class UnifiedGateway:
             self.logger.error("Failed to send to gateway client %s: %s", client_id, e)
             return False
 
-    async def _health_monitor_loop(self):
+    async def _health_monitor_loop(self) -> None:
         while True:
             if self.enable_cloudflare:
                 if self.cloudflare_process is None or self.cloudflare_process.poll() is not None:
@@ -725,7 +725,7 @@ class UnifiedGateway:
             await asyncio.sleep(5)
 
 
-def _main():  # pragma: no cover - invoked in tests via run_module
+def _main() -> None:  # pragma: no cover - invoked in tests via run_module
     logging.basicConfig(level=logging.INFO)
     gateway = UnifiedGateway()
     try:

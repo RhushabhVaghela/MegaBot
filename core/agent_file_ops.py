@@ -36,7 +36,7 @@ logger_audit = logging.getLogger("megabot.audit")
 # ---------------------------------------------------------------------------
 
 
-def _audit(event: str, **data):
+def _audit(event: str, **data) -> None:
     """Emit a structured JSON audit event to the ``megabot.audit`` logger.
 
     Best-effort and intentionally small: tests and production can attach
@@ -92,7 +92,7 @@ def validate_path(orchestrator: "MegaBotOrchestrator", p: str) -> tuple[bool, st
         return False, f"Path validation error: {e}"
 
 
-def safe_lstat(path_str: str):
+def safe_lstat(path_str: str) -> os.stat_result | None:
     """Return ``os.lstat(path_str)`` or *None* on any error."""
     try:
         return os.lstat(path_str)

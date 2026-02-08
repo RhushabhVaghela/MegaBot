@@ -39,8 +39,7 @@ class KnowledgeMemoryManager:
         self._local = threading.local()
         self._init_tables()
 
-    def _init_tables(self):
-        """Initialize knowledge memory tables."""
+    def _init_tables(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
             conn.execute("""
@@ -59,16 +58,14 @@ class KnowledgeMemoryManager:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_tags ON memories(tags)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_updated_at ON memories(updated_at)")
 
-    def _get_connection(self):
-        """Get thread-local database connection."""
+    def _get_connection(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
             self._local.conn.execute("PRAGMA journal_mode=WAL")
             self._local.conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s on lock
         return self._local.conn
 
-    def close(self):
-        """Close the thread-local database connection if it exists."""
+    def close(self) -> None:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()

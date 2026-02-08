@@ -20,8 +20,7 @@ class UserIdentityManager:
         self._local = threading.local()
         self._init_tables()
 
-    def _init_tables(self):
-        """Initialize user identity tables."""
+    def _init_tables(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("""
@@ -38,16 +37,14 @@ class UserIdentityManager:
             # composite PRIMARY KEY (platform, platform_id), which already serves
             # as an index for platform-only lookups.
 
-    def _get_connection(self):
-        """Get thread-local database connection with WAL mode enabled."""
+    def _get_connection(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn"):
             self._local.conn = sqlite3.connect(self.db_path)
             self._local.conn.execute("PRAGMA journal_mode=WAL")
             self._local.conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s on lock
         return self._local.conn
 
-    def close(self):
-        """Close the thread-local database connection if it exists."""
+    def close(self) -> None:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()
@@ -71,7 +68,7 @@ class UserIdentityManager:
             logger.error("Error linking identity: %s", e)
             return False
 
-    def _sync_link_identity(self, internal_id: str, platform: str, platform_id: str):
+    def _sync_link_identity(self, internal_id: str, platform: str, platform_id: str) -> None:
         """Synchronous link identity operation."""
         conn = self._get_connection()
         conn.execute(
