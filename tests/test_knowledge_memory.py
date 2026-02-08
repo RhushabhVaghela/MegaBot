@@ -1,7 +1,9 @@
-import pytest
 import os
 import sqlite3
 import tempfile
+
+import pytest
+
 from core.memory.knowledge_memory import KnowledgeMemoryManager
 
 

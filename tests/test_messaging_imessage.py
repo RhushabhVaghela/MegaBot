@@ -1,7 +1,9 @@
 """Tests for iMessage adapter"""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+
 from adapters.messaging.imessage import IMessageAdapter
 
 

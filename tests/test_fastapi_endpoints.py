@@ -5,9 +5,11 @@ These tests are separated because they test module-level globals
 and need to run in isolation.
 """
 
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock, Mock
-from core.orchestrator import websocket_endpoint, lifespan
+
+from core.orchestrator import lifespan, websocket_endpoint
 
 
 @pytest.mark.asyncio
@@ -96,8 +98,9 @@ async def test_health_endpoint():
     The security sprint changed health() to return JSONResponse objects with
     deep component health checks instead of a plain dict.
     """
-    import core.orchestrator as orch_module
     from starlette.responses import JSONResponse
+
+    import core.orchestrator as orch_module
     from core.orchestrator import health
 
     original_orchestrator = orch_module.orchestrator

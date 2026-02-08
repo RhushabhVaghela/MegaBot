@@ -5,8 +5,9 @@ Target: lines 108-110, 119-120, 133-145, 147, 158-163, 172-173, 183-185,
 """
 
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from core.network.gateway import UnifiedGateway
 
@@ -165,11 +166,11 @@ async def test_start_create_task_fails_ensure_future_fallback(gateway):
                 raise RuntimeError("create_task broken")
             return original_create_task(coro, **kwargs)
 
-        with patch("asyncio.create_task", side_effect=failing_create_task):
-            with patch(
-                "asyncio.ensure_future", side_effect=RuntimeError("also broken")
-            ):
-                await gateway.start()
+        with (
+            patch("asyncio.create_task", side_effect=failing_create_task),
+            patch("asyncio.ensure_future", side_effect=RuntimeError("also broken")),
+        ):
+            await gateway.start()
 
     # task_obj should be None, and coro should be closed
     await gateway.stop()
@@ -178,15 +179,17 @@ async def test_start_create_task_fails_ensure_future_fallback(gateway):
 @pytest.mark.asyncio
 async def test_start_create_task_fails_ensure_future_succeeds(gateway):
     """Lines 158-161: create_task fails, ensure_future succeeds."""
-    with patch.object(gateway, "_start_local_server", new_callable=AsyncMock):
-        with patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock):
-            original_ensure_future = asyncio.ensure_future
+    with (
+        patch.object(gateway, "_start_local_server", new_callable=AsyncMock),
+        patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock),
+    ):
+        original_ensure_future = asyncio.ensure_future
 
-            def failing_create_task(coro, **kwargs):
-                raise RuntimeError("create_task broken")
+        def failing_create_task(coro, **kwargs):
+            raise RuntimeError("create_task broken")
 
-            with patch("asyncio.create_task", side_effect=failing_create_task):
-                await gateway.start()
+        with patch("asyncio.create_task", side_effect=failing_create_task):
+            await gateway.start()
 
     await asyncio.sleep(0.05)
     await gateway.stop()
@@ -198,14 +201,16 @@ async def test_start_create_task_fails_ensure_future_succeeds(gateway):
 @pytest.mark.asyncio
 async def test_start_coro_close_raises(gateway):
     """Lines 172-173: coro.close() raises in finally -> pass."""
-    with patch.object(gateway, "_start_local_server", new_callable=AsyncMock):
-        with patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock):
-            # Make both create_task and ensure_future return non-Task
-            with patch("asyncio.create_task", return_value="not-a-task"):
-                with patch("asyncio.ensure_future", return_value="also-not-a-task"):
-                    # The coroutine's close() will be called; we can't easily
-                    # make it raise, but we test the code path runs without error
-                    await gateway.start()
+    with (
+        patch.object(gateway, "_start_local_server", new_callable=AsyncMock),
+        patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock),
+        # Make both create_task and ensure_future return non-Task
+        patch("asyncio.create_task", return_value="not-a-task"),
+        patch("asyncio.ensure_future", return_value="also-not-a-task"),
+    ):
+        # The coroutine's close() will be called; we can't easily
+        # make it raise, but we test the code path runs without error
+        await gateway.start()
 
     await gateway.stop()
 

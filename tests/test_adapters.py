@@ -3,14 +3,14 @@
 
 import asyncio
 import os
-from adapters.messaging import (
-    IMessageAdapter,
-    SMSAdapter,
-    MegaBotMessagingServer,
-)
-
 
 import pytest
+
+from adapters.messaging import (
+    IMessageAdapter,
+    MegaBotMessagingServer,
+    SMSAdapter,
+)
 
 
 @pytest.mark.asyncio

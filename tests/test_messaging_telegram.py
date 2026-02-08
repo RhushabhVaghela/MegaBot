@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import aiohttp
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from adapters.messaging.telegram import TelegramAdapter
 
 
@@ -443,8 +445,9 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_make_request_exception_path(self, telegram_adapter):
         """Test _make_request exception handling"""
-        import aiohttp
         from unittest.mock import AsyncMock, MagicMock
+
+        import aiohttp
 
         mock_session = MagicMock()
         telegram_adapter.session = mock_session

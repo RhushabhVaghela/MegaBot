@@ -3,11 +3,12 @@ Tests for Push Notification Adapter
 """
 
 import asyncio
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, mock_open
-from datetime import datetime, timedelta
 import json
 import sys
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+
+import pytest
 
 # Mock Firebase messaging functions and classes at module level
 firebase_admin_mock = sys.modules["firebase_admin"]
@@ -68,17 +69,17 @@ def reset_firebase_mocks():
 
 
 from adapters.push_notification_adapter import (
-    PushNotification,
     AndroidConfig,
     ApnsConfig,
-    WebpushConfig,
     DeviceToken,
     NotificationChannel,
     NotificationResult,
-    PushNotificationAdapter,
+    NotificationType,
     Platform,
     Priority,
-    NotificationType,
+    PushNotification,
+    PushNotificationAdapter,
+    WebpushConfig,
     create_notification,
 )
 
@@ -410,12 +411,14 @@ class TestPushNotificationAdapterBranches:
     @pytest.mark.asyncio
     async def test_load_tokens_invalid_json(self, adapter):
         """Test loading tokens with invalid JSON"""
-        with patch("builtins.open", mock_open(read_data="invalid json")):
-            with patch("os.path.exists", return_value=True):
-                with patch("json.load", side_effect=json.JSONDecodeError("Invalid", "", 0)):
-                    adapter._load_tokens()
-                    # Should handle error gracefully
-                    assert len(adapter.device_tokens) == 0
+        with (
+            patch("builtins.open", mock_open(read_data="invalid json")),
+            patch("os.path.exists", return_value=True),
+            patch("json.load", side_effect=json.JSONDecodeError("Invalid", "", 0)),
+        ):
+            adapter._load_tokens()
+            # Should handle error gracefully
+            assert len(adapter.device_tokens) == 0
 
     @pytest.mark.asyncio
     async def test_load_tokens_file_not_found(self, adapter):
@@ -878,16 +881,18 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_credential_path = "/valid/path.json"
         adapter.fcm_project_id = "test-project"
 
-        with patch("adapters.push_notification_adapter.os.path.exists", return_value=True):
-            with patch(
+        with (
+            patch("adapters.push_notification_adapter.os.path.exists", return_value=True),
+            patch(
                 "adapters.push_notification_adapter.credentials.Certificate",
                 side_effect=ValueError("Credential error"),
-            ):
-                with patch("adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init:
-                    with patch("builtins.print") as mock_print:
-                        adapter._initialize_fcm()
-                        # Should try to initialize app with None credentials
-                        mock_init.assert_called_once_with(None, {"projectId": "test-project"})
+            ),
+            patch("adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init,
+            patch("builtins.print") as mock_print,
+        ):
+            adapter._initialize_fcm()
+            # Should try to initialize app with None credentials
+            mock_init.assert_called_once_with(None, {"projectId": "test-project"})
 
     @pytest.mark.asyncio
     async def test_initialize_fcm_app_initialization_exception(self, adapter, caplog):
@@ -897,18 +902,20 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_credential_path = "/valid/path.json"
         adapter.fcm_project_id = "test-project"
 
-        with patch("adapters.push_notification_adapter.os.path.exists", return_value=True):
-            with patch(
+        with (
+            patch("adapters.push_notification_adapter.os.path.exists", return_value=True),
+            patch(
                 "adapters.push_notification_adapter.credentials.Certificate",
                 return_value=MagicMock(),
-            ):
-                with patch(
-                    "adapters.push_notification_adapter.firebase_admin.initialize_app",
-                    side_effect=Exception("App init error"),
-                ):
-                    with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
-                        adapter._initialize_fcm()
-                        assert any("FCM initialization warning: App init error" in r.message for r in caplog.records)
+            ),
+            patch(
+                "adapters.push_notification_adapter.firebase_admin.initialize_app",
+                side_effect=Exception("App init error"),
+            ),
+            caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"),
+        ):
+            adapter._initialize_fcm()
+            assert any("FCM initialization warning: App init error" in r.message for r in caplog.records)
 
     def test_create_default_channels(self, adapter):
         """Test _create_default_channels creates expected channels"""
@@ -954,15 +961,17 @@ class TestPushNotificationAdapterBranches:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch(
-            "adapters.push_notification_adapter.messaging.send",
-            side_effect=Exception("WebPush failed"),
+        with (
+            patch(
+                "adapters.push_notification_adapter.messaging.send",
+                side_effect=Exception("WebPush failed"),
+            ),
+            caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"),
         ):
-            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
-                res = await adapter._send_webpush("t", notif)
-                assert res.success is False
-                assert "WebPush failed" in res.error
-                assert any("WebPush send failed: WebPush failed" in r.message for r in caplog.records)
+            res = await adapter._send_webpush("t", notif)
+            assert res.success is False
+            assert "WebPush failed" in res.error
+            assert any("WebPush send failed: WebPush failed" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_unsubscribe_from_topic_partial_success(self, adapter):
@@ -982,10 +991,12 @@ class TestPushNotificationAdapterBranches:
         adapter.apns_key_id = "test_key"
         adapter.apns_team_id = "test_team"
 
-        with patch("builtins.open", mock_open(read_data="key_data")):
-            with patch("jwt.encode", side_effect=ValueError("Encode error")):
-                result = await adapter._get_apns_jwt()
-                assert result == ""
+        with (
+            patch("builtins.open", mock_open(read_data="key_data")),
+            patch("jwt.encode", side_effect=ValueError("Encode error")),
+        ):
+            result = await adapter._get_apns_jwt()
+            assert result == ""
 
     @pytest.mark.asyncio
     async def test_delete_notification_channel_exception_handling(self, adapter, caplog):
@@ -1130,10 +1141,12 @@ class TestPushNotificationAdapterBranches:
         adapter.apns_key_id = "keyid"
         adapter.apns_team_id = "teamid"
 
-        with patch("builtins.open", mock_open(read_data="key_data")):
-            with patch("jwt.encode", return_value="mock_jwt_token"):
-                token = await adapter._get_apns_jwt()
-                assert token == "mock_jwt_token"
+        with (
+            patch("builtins.open", mock_open(read_data="key_data")),
+            patch("jwt.encode", return_value="mock_jwt_token"),
+        ):
+            token = await adapter._get_apns_jwt()
+            assert token == "mock_jwt_token"
 
     @pytest.mark.asyncio
     async def test_channel_management_success(self, adapter):

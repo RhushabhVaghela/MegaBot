@@ -1,9 +1,11 @@
-import pytest
 import os
-import tempfile
-import sqlite3
 import shutil
-from unittest.mock import patch, MagicMock
+import sqlite3
+import tempfile
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from core.memory.backup_manager import MemoryBackupManager
 
 
@@ -246,7 +248,7 @@ async def test_cleanup_old_backups(backup_manager):
         ("memory_backup_new.enc", 0),  # New file
     ]
 
-    for filename, age_seconds in test_files:
+    for filename, _age_seconds in test_files:
         filepath = os.path.join(backup_manager.backup_dir, filename)
         with open(filepath, "w") as f:
             f.write("test")

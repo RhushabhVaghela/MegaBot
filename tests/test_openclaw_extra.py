@@ -2,6 +2,7 @@
 
 import os
 from unittest.mock import patch
+
 from adapters.openclaw_adapter import OpenClawAdapter
 
 

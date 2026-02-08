@@ -3,22 +3,24 @@ Tests for MegaBotMessagingServer
 """
 
 import asyncio
+import base64
 import json
 import os
 import uuid
-import pytest
-import base64
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from adapters.messaging import (
-    MegaBotMessagingServer,
-    PlatformMessage,
     MediaAttachment,
+    MegaBotMessagingServer,
     MessageType,
+    PlatformMessage,
 )
 from adapters.messaging.server import (
-    SecureWebSocket,
     PlatformAdapter,
+    SecureWebSocket,
 )
 
 
@@ -543,7 +545,7 @@ async def test_server_handle_client_logic():
     server = MegaBotMessagingServer(enable_encryption=True)
     mock_ws = AsyncMock()
     mock_ws.remote_address = ("127.0.0.1", 12345)
-    mock_ws.__aiter__.return_value = ["bytes_msg".encode(), "text_msg"]
+    mock_ws.__aiter__.return_value = [b"bytes_msg", "text_msg"]
     client_id_found = None
 
     async def mock_process(cid, msg):

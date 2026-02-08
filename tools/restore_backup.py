@@ -1,7 +1,8 @@
-import os
-import zlib
 import argparse
+import os
 import shutil
+import zlib
+
 from cryptography.fernet import Fernet
 
 

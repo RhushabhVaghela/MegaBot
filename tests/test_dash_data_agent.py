@@ -5,11 +5,11 @@ Target: raise coverage from 19% to ~95%+.
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from features.dash_data.agent import DashDataAgent
+import pytest
 
+from features.dash_data.agent import DashDataAgent
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -3,17 +3,17 @@ MegaBot core component benchmarks.
 Run with: PYTHONPATH=. python -m pytest tests/benchmarks.py -v -s
 """
 
-import time
 import json
+import time
 
 import pytest
 
+from adapters.memu_adapter import MemUAdapter
 from adapters.messaging import (
     MegaBotMessagingServer,
     PlatformMessage,
     SecureWebSocket,
 )
-from adapters.memu_adapter import MemUAdapter
 
 
 @pytest.mark.asyncio
@@ -78,9 +78,7 @@ async def test_benchmark_messaging_throughput():
     elapsed = time.perf_counter() - start
 
     avg_ms = (elapsed / iterations) * 1000
-    print(
-        f"\nMessaging throughput: {iterations} ops in {elapsed:.4f}s, avg {avg_ms:.4f}ms"
-    )
+    print(f"\nMessaging throughput: {iterations} ops in {elapsed:.4f}s, avg {avg_ms:.4f}ms")
     assert elapsed < 2.0, f"Messaging throughput too slow: {elapsed:.2f}s"
 
 
@@ -98,14 +96,12 @@ async def test_benchmark_layer_fetching(tmp_path):
     total_fetched = 0
 
     start = time.perf_counter()
-    for offset in range(0, 1_000, batch_size):
+    for _offset in range(0, 1_000, batch_size):
         results = await adapter.search("item_")
         total_fetched += len(results[:batch_size])
     elapsed = time.perf_counter() - start
 
     num_layers = 1_000 / batch_size
     layer_ms = (elapsed / num_layers) * 1000
-    print(
-        f"\nLayer fetching: {num_layers:.0f} batches in {elapsed:.4f}s, avg {layer_ms:.4f}ms/batch"
-    )
+    print(f"\nLayer fetching: {num_layers:.0f} batches in {elapsed:.4f}s, avg {layer_ms:.4f}ms/batch")
     assert elapsed < 5.0, f"Layer fetching too slow: {elapsed:.2f}s"

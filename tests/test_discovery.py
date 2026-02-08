@@ -1,6 +1,9 @@
 import os
+
 import pytest
+
 from core.discovery import ModuleDiscovery
+
 
 @pytest.fixture
 def mock_repo_dir(tmp_path):

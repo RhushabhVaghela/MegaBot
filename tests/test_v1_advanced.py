@@ -1,10 +1,12 @@
-import pytest
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
-from core.orchestrator import MegaBotOrchestrator
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
 from core.interfaces import Message
 from core.memory.mcp_server import MemoryServer
-from fastapi.testclient import TestClient
+from core.orchestrator import MegaBotOrchestrator
 
 
 @pytest.fixture
@@ -15,16 +17,18 @@ def memory_server(tmp_path):
 
 @pytest.fixture
 def mock_orchestrator(mock_config):
-    with patch("core.orchestrator.ModuleDiscovery"):
-        with patch("core.orchestrator.OpenClawAdapter"):
-            with patch("core.orchestrator.MemUAdapter"):
-                with patch("core.orchestrator.MCPManager"):
-                    orc = MegaBotOrchestrator(mock_config)
-                    orc.adapters["openclaw"] = AsyncMock()
-                    orc.adapters["memu"] = AsyncMock()
-                    orc.adapters["mcp"] = AsyncMock()
-                    orc.adapters["messaging"] = AsyncMock()
-                    return orc
+    with (
+        patch("core.orchestrator.ModuleDiscovery"),
+        patch("core.orchestrator.OpenClawAdapter"),
+        patch("core.orchestrator.MemUAdapter"),
+        patch("core.orchestrator.MCPManager"),
+    ):
+        orc = MegaBotOrchestrator(mock_config)
+        orc.adapters["openclaw"] = AsyncMock()
+        orc.adapters["memu"] = AsyncMock()
+        orc.adapters["mcp"] = AsyncMock()
+        orc.adapters["messaging"] = AsyncMock()
+        return orc
 
 
 @pytest.mark.asyncio
@@ -75,13 +79,15 @@ def test_ivr_callback():
 
     client = TestClient(current_app)
     # Patch the global orchestrator variable in the module
-    with patch("core.orchestrator.orchestrator") as mock_orc:
-        with patch("core.app._validate_twilio_signature", return_value=True):
-            with patch("fastapi.Request.form", new_callable=AsyncMock) as mock_form:
-                mock_orc.admin_handler._process_approval = AsyncMock()
-                mock_form.return_value = {"Digits": "1"}
+    with (
+        patch("core.orchestrator.orchestrator") as mock_orc,
+        patch("core.app._validate_twilio_signature", return_value=True),
+        patch("fastapi.Request.form", new_callable=AsyncMock) as mock_form,
+    ):
+        mock_orc.admin_handler._process_approval = AsyncMock()
+        mock_form.return_value = {"Digits": "1"}
 
-                response = client.post("/ivr?action_id=test-id")
-                assert response.status_code == 200
-                assert "Action approved" in response.text
-                mock_orc.admin_handler._process_approval.assert_called_once_with("test-id", approved=True)
+        response = client.post("/ivr?action_id=test-id")
+        assert response.status_code == 200
+        assert "Action approved" in response.text
+        mock_orc.admin_handler._process_approval.assert_called_once_with("test-id", approved=True)

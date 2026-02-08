@@ -1,6 +1,6 @@
 """Tests for PermissionManager"""
 
-from core.permissions import PermissionManager, PermissionLevel
+from core.permissions import PermissionLevel, PermissionManager
 
 
 class TestPermissionManager:

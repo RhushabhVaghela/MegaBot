@@ -3,12 +3,13 @@ Tests for MegaBot Unified Gateway
 """
 
 import asyncio
-import pytest
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from adapters.unified_gateway import ConnectionType, ClientConnection, UnifiedGateway
+import pytest
+
+from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 # Ignore unawaited coroutine warnings for the health monitor loop in these tests
 pytestmark = pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -131,18 +132,20 @@ class TestUnifiedGatewayInitialization:
         gateway.cloudflare_tunnel_id = "test-tunnel"
         gateway.tailscale_auth_key = "test-key"
 
-        with patch.object(gateway, "_start_local_server", new_callable=AsyncMock) as mock_local:
-            with patch.object(gateway, "_start_cloudflare_tunnel", new_callable=AsyncMock) as mock_cloudflare:
-                with patch.object(gateway, "_start_tailscale_vpn", new_callable=AsyncMock) as mock_vpn:
-                    with patch.object(gateway, "_start_https_server", new_callable=AsyncMock) as mock_https:
-                        with patch("asyncio.create_task") as mock_create_task:
-                            await gateway.start()
+        with (
+            patch.object(gateway, "_start_local_server", new_callable=AsyncMock) as mock_local,
+            patch.object(gateway, "_start_cloudflare_tunnel", new_callable=AsyncMock) as mock_cloudflare,
+            patch.object(gateway, "_start_tailscale_vpn", new_callable=AsyncMock) as mock_vpn,
+            patch.object(gateway, "_start_https_server", new_callable=AsyncMock) as mock_https,
+            patch("asyncio.create_task") as mock_create_task,
+        ):
+            await gateway.start()
 
-                            mock_local.assert_called_once()
-                            mock_cloudflare.assert_called_once()
-                            mock_vpn.assert_called_once()
-                            mock_https.assert_called_once()
-                            mock_create_task.assert_called_once()
+            mock_local.assert_called_once()
+            mock_cloudflare.assert_called_once()
+            mock_vpn.assert_called_once()
+            mock_https.assert_called_once()
+            mock_create_task.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_connection_info_with_active_services(self, gateway_instance):
@@ -222,15 +225,17 @@ class TestUnifiedGatewayCoreOperations:
 
         # Mock subprocess — not strictly needed since VPN is not enabled,
         # but kept for safety in case the loop body changes.
-        with patch("subprocess.run"):
-            with patch.object(gateway, "_start_cloudflare_tunnel", new_callable=AsyncMock) as mock_restart:
-                # Mocking asyncio.sleep to break the infinite loop
-                with patch("asyncio.sleep", side_effect=[None, Exception("break")]):
-                    try:
-                        await gateway._health_monitor_loop()
-                    except Exception:
-                        pass
-                assert mock_restart.called
+        with (
+            patch("subprocess.run"),
+            patch.object(gateway, "_start_cloudflare_tunnel", new_callable=AsyncMock) as mock_restart,
+            # Mocking asyncio.sleep to break the infinite loop
+            patch("asyncio.sleep", side_effect=[None, Exception("break")]),
+        ):
+            try:
+                await gateway._health_monitor_loop()
+            except Exception:
+                pass
+            assert mock_restart.called
 
     @pytest.mark.asyncio
     async def test_unified_gateway_handle_websocket_types(self, gateway_instance):
@@ -438,21 +443,22 @@ class TestUnifiedGatewayCoreOperations:
         import sys
 
         # Clear the module from cache to avoid warning
-        modules_to_clear = [k for k in sys.modules.keys() if "unified_gateway" in k]
+        modules_to_clear = [k for k in sys.modules if "unified_gateway" in k]
         for mod in modules_to_clear:
             del sys.modules[mod]
 
-        with patch.object(UnifiedGateway, "start", new_callable=AsyncMock):
-            with patch.object(UnifiedGateway, "stop", new_callable=AsyncMock):
+        with (
+            patch.object(UnifiedGateway, "start", new_callable=AsyncMock),
+            patch.object(UnifiedGateway, "stop", new_callable=AsyncMock),
+        ):
 
-                def mock_run(coro):
-                    coro.close()
-                    return None
+            def mock_run(coro):
+                coro.close()
+                return None
 
-                with patch("asyncio.run", side_effect=mock_run):
-                    with patch("logging.basicConfig"):
-                        runpy.run_module("adapters.unified_gateway", run_name="__main__")
-                        assert True
+            with patch("asyncio.run", side_effect=mock_run), patch("logging.basicConfig"):
+                runpy.run_module("adapters.unified_gateway", run_name="__main__")
+                assert True
 
 
 class TestUnifiedGatewayBranches:
@@ -524,7 +530,7 @@ class TestUnifiedGatewayBranches:
             assert gateway._check_rate_limit(conn) is True
 
             # Exhaust the limit by making many requests at once
-            for i in range(1001):
+            for _i in range(1001):
                 gateway.rate_limits[ConnectionType.LOCAL.value]["test-client"].append(mock_now)
 
             # Should be blocked
@@ -541,9 +547,11 @@ class TestUnifiedGatewayBranches:
         mock_cf_proc = AsyncMock()
         mock_cf_proc.wait = AsyncMock(return_value=1)
 
-        with patch("subprocess.Popen", side_effect=OSError("No such file")):
-            with patch("asyncio.create_subprocess_exec", return_value=mock_cf_proc):
-                await gateway._start_cloudflare_tunnel()
+        with (
+            patch("subprocess.Popen", side_effect=OSError("No such file")),
+            patch("asyncio.create_subprocess_exec", return_value=mock_cf_proc),
+        ):
+            await gateway._start_cloudflare_tunnel()
 
         # VPN succeeds - need to set auth key for success
         gateway.tailscale_auth_key = "test-key"
@@ -719,8 +727,9 @@ class TestUnifiedGatewayBranches:
 
         with patch.dict("sys.modules", {"aiohttp": None}):
             # Force reimport to trigger ImportError
-            import adapters.unified_gateway as ug
             import importlib
+
+            import adapters.unified_gateway as ug
 
             importlib.reload(ug)
 
@@ -838,11 +847,13 @@ class TestUnifiedGatewayFullCoverage:
         gateway.ssl_cert_path = "/invalid/path.crt"
         gateway.ssl_key_path = "/invalid/path.key"
 
-        with patch.dict("sys.modules", {"aiohttp": MagicMock()}):
-            with patch("ssl.create_default_context", side_effect=OSError("SSL error")):
-                result = await gateway._start_https_server()
-                assert result is None
-                assert gateway.health_status[ConnectionType.DIRECT.value] is False
+        with (
+            patch.dict("sys.modules", {"aiohttp": MagicMock()}),
+            patch("ssl.create_default_context", side_effect=OSError("SSL error")),
+        ):
+            result = await gateway._start_https_server()
+            assert result is None
+            assert gateway.health_status[ConnectionType.DIRECT.value] is False
 
     @pytest.mark.asyncio
     async def test_start_https_server_aiohttp_import_error(self, gateway_instance):
@@ -861,10 +872,12 @@ class TestUnifiedGatewayFullCoverage:
         gateway = gateway_instance
         mock_request = MagicMock()
 
-        with patch.dict("sys.modules", {"aiohttp": None}):
-            with patch.object(gateway, "_manage_connection", new_callable=AsyncMock):
-                result = await gateway._handle_https_websocket(mock_request)
-                assert result is None
+        with (
+            patch.dict("sys.modules", {"aiohttp": None}),
+            patch.object(gateway, "_manage_connection", new_callable=AsyncMock),
+        ):
+            result = await gateway._handle_https_websocket(mock_request)
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_detect_connection_type_localhost_return(self, gateway_instance):
@@ -898,9 +911,11 @@ class TestUnifiedGatewayFullCoverage:
             mock_wsmsgtype.ERROR = "error"
             mock_wsmsgtype.TEXT = "text"
 
-            with patch.object(gateway, "_send_error", new_callable=AsyncMock):
-                with patch.object(gateway, "_process_message", new_callable=AsyncMock):
-                    await gateway._manage_connection(conn)
+            with (
+                patch.object(gateway, "_send_error", new_callable=AsyncMock),
+                patch.object(gateway, "_process_message", new_callable=AsyncMock),
+            ):
+                await gateway._manage_connection(conn)
 
     @pytest.mark.asyncio
     async def test_manage_connection_payload_processing_edge_cases(self, gateway_instance):
@@ -924,12 +939,14 @@ class TestUnifiedGatewayFullCoverage:
             connected_at=datetime.now(),
         )
 
-        with patch.object(gateway, "_check_rate_limit", return_value=True):
-            with patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process:
-                with patch("aiohttp.WSMsgType", create=True):
-                    await gateway._manage_connection(conn)
-                    # Should process multiple message types
-                    assert mock_process.call_count >= 2
+        with (
+            patch.object(gateway, "_check_rate_limit", return_value=True),
+            patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process,
+            patch("aiohttp.WSMsgType", create=True),
+        ):
+            await gateway._manage_connection(conn)
+            # Should process multiple message types
+            assert mock_process.call_count >= 2
 
     @pytest.mark.asyncio
     async def test_stop_method_websocket_close_exceptions(self, gateway_instance):
@@ -1017,10 +1034,12 @@ class TestUnifiedGatewayFullCoverage:
             connected_at=datetime.now(),
         )
 
-        with patch("json.loads", side_effect=Exception("Unexpected error")):
-            with patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_send_error:
-                await gateway._process_message(conn, '{"valid": "json"}')
-                mock_send_error.assert_called_with(conn, "Internal error")
+        with (
+            patch("json.loads", side_effect=Exception("Unexpected error")),
+            patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_send_error,
+        ):
+            await gateway._process_message(conn, '{"valid": "json"}')
+            mock_send_error.assert_called_with(conn, "Internal error")
 
     @pytest.mark.asyncio
     async def test_health_monitor_loop_start_cloudflare_exception(self, gateway_instance):
@@ -1030,12 +1049,14 @@ class TestUnifiedGatewayFullCoverage:
         gateway.cloudflare_process = MagicMock()
         gateway.cloudflare_process.poll.return_value = 1  # Process died
 
-        with patch.object(gateway, "_start_cloudflare_tunnel", side_effect=Exception("Restart failed")):
-            with patch("asyncio.sleep", side_effect=[None, Exception("Break loop")]):
-                try:
-                    await gateway._health_monitor_loop()
-                except Exception:
-                    pass  # Expected to break the loop
+        with (
+            patch.object(gateway, "_start_cloudflare_tunnel", side_effect=Exception("Restart failed")),
+            patch("asyncio.sleep", side_effect=[None, Exception("Break loop")]),
+        ):
+            try:
+                await gateway._health_monitor_loop()
+            except Exception:
+                pass  # Expected to break the loop
 
     @pytest.mark.asyncio
     async def test_rate_limit_timestamp_exception_handling(self, gateway_instance):
@@ -1154,11 +1175,13 @@ class TestUnifiedGatewayFullCoverage:
                 raise ImportError("No aiohttp")
             return original_import(name, *args, **kwargs)
 
-        with patch("builtins.__import__", side_effect=side_effect):
-            with patch.object(gateway, "_check_rate_limit", return_value=True):
-                with patch.object(gateway, "_process_message", new_callable=AsyncMock):
-                    await gateway._manage_connection(conn)
-                    assert True
+        with (
+            patch("builtins.__import__", side_effect=side_effect),
+            patch.object(gateway, "_check_rate_limit", return_value=True),
+            patch.object(gateway, "_process_message", new_callable=AsyncMock),
+        ):
+            await gateway._manage_connection(conn)
+            assert True
 
     @pytest.mark.asyncio
     async def test_manage_connection_payload_decode_exceptions(self, gateway_instance):
@@ -1179,11 +1202,13 @@ class TestUnifiedGatewayFullCoverage:
             connected_at=datetime.now(),
         )
 
-        with patch.object(gateway, "_check_rate_limit", return_value=True):
-            with patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process:
-                await gateway._manage_connection(conn)
-                # Should still call process_message even with decode errors
-                mock_process.assert_called()
+        with (
+            patch.object(gateway, "_check_rate_limit", return_value=True),
+            patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process,
+        ):
+            await gateway._manage_connection(conn)
+            # Should still call process_message even with decode errors
+            mock_process.assert_called()
 
     @pytest.mark.asyncio
     async def test_stop_method_async_websocket_close_exception(self, gateway_instance):
@@ -1261,12 +1286,14 @@ class TestUnifiedGatewayFullCoverage:
         mock_ver_proc = AsyncMock()
         mock_ver_proc.wait = AsyncMock(return_value=0)
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_ver_proc):
-            with patch("subprocess.Popen", return_value=mock_process):
-                result = await gateway._start_cloudflare_tunnel()
-                assert result is True
-                assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
-                assert gateway.cloudflare_process == mock_process
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_ver_proc),
+            patch("subprocess.Popen", return_value=mock_process),
+        ):
+            result = await gateway._start_cloudflare_tunnel()
+            assert result is True
+            assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
+            assert gateway.cloudflare_process == mock_process
 
     @pytest.mark.asyncio
     async def test_start_https_server_ssl_cert_success(self, gateway_instance):
@@ -1276,26 +1303,25 @@ class TestUnifiedGatewayFullCoverage:
         gateway.ssl_cert_path = "/valid/cert.crt"
         gateway.ssl_key_path = "/valid/key.key"
 
-        with patch("aiohttp.web.Application"):
-            with patch("aiohttp.web.AppRunner") as mock_runner:
-                mock_runner_instance = AsyncMock()
-                mock_runner.return_value = mock_runner_instance
-                mock_runner_instance.setup = AsyncMock()
+        with patch("aiohttp.web.Application"), patch("aiohttp.web.AppRunner") as mock_runner:
+            mock_runner_instance = AsyncMock()
+            mock_runner.return_value = mock_runner_instance
+            mock_runner_instance.setup = AsyncMock()
 
-                with patch("aiohttp.web.TCPSite") as mock_site:
-                    mock_site_instance = AsyncMock()
-                    mock_site.return_value = mock_site_instance
-                    mock_site_instance.start = AsyncMock()
+            with patch("aiohttp.web.TCPSite") as mock_site:
+                mock_site_instance = AsyncMock()
+                mock_site.return_value = mock_site_instance
+                mock_site_instance.start = AsyncMock()
 
-                    with patch("ssl.create_default_context") as mock_ssl:
-                        mock_context = MagicMock()
-                        mock_ssl.return_value = mock_context
-                        mock_context.load_cert_chain = MagicMock()
+                with patch("ssl.create_default_context") as mock_ssl:
+                    mock_context = MagicMock()
+                    mock_ssl.return_value = mock_context
+                    mock_context.load_cert_chain = MagicMock()
 
-                        result = await gateway._start_https_server()
-                        assert result == mock_runner_instance
-                        assert gateway.health_status[ConnectionType.DIRECT.value] is True
-                        mock_context.load_cert_chain.assert_called_once_with("/valid/cert.crt", "/valid/key.key")
+                    result = await gateway._start_https_server()
+                    assert result == mock_runner_instance
+                    assert gateway.health_status[ConnectionType.DIRECT.value] is True
+                    mock_context.load_cert_chain.assert_called_once_with("/valid/cert.crt", "/valid/key.key")
 
     @pytest.mark.asyncio
     async def test_start_https_server_success_path(self, gateway_instance):
@@ -1369,11 +1395,13 @@ class TestUnifiedGatewayFullCoverage:
             connected_at=datetime.now(),
         )
 
-        with patch.object(gateway, "_check_rate_limit", return_value=True):
-            with patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process:
-                await gateway._manage_connection(conn)
-                # Should call process_message even with decode errors
-                mock_process.assert_called_once()
+        with (
+            patch.object(gateway, "_check_rate_limit", return_value=True),
+            patch.object(gateway, "_process_message", new_callable=AsyncMock) as mock_process,
+        ):
+            await gateway._manage_connection(conn)
+            # Should call process_message even with decode errors
+            mock_process.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_stop_method_local_server_close_exception(self, gateway_instance):
@@ -1418,10 +1446,12 @@ class TestUnifiedGatewayFullCoverage:
 
         # Send bytes that will be converted to string
         test_bytes = b'{"test": "data"}'
-        with patch("json.loads", return_value={"test": "data"}):
-            with patch.object(gateway, "_forward_to_megabot", new_callable=AsyncMock) as mock_forward:
-                await gateway._process_message(conn, test_bytes)
-                mock_forward.assert_called_once()
+        with (
+            patch("json.loads", return_value={"test": "data"}),
+            patch.object(gateway, "_forward_to_megabot", new_callable=AsyncMock) as mock_forward,
+        ):
+            await gateway._process_message(conn, test_bytes)
+            mock_forward.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_process_message_raw_message_bytes_handling(self, gateway_instance):
@@ -1437,10 +1467,12 @@ class TestUnifiedGatewayFullCoverage:
         )
 
         # Send raw bytes directly (not through websocket processing)
-        with patch("json.loads", side_effect=Exception("Parse failed")):
-            with patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_send_error:
-                await gateway._process_message(conn, b"invalid json bytes")
-                mock_send_error.assert_called_with(conn, "Internal error")
+        with (
+            patch("json.loads", side_effect=Exception("Parse failed")),
+            patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_send_error,
+        ):
+            await gateway._process_message(conn, b"invalid json bytes")
+            mock_send_error.assert_called_with(conn, "Internal error")
 
     @pytest.mark.asyncio
     async def test_health_monitor_subprocess_run_exception(self, gateway_instance):
@@ -1448,12 +1480,14 @@ class TestUnifiedGatewayFullCoverage:
         gateway = gateway_instance
         gateway.enable_vpn = True
 
-        with patch("asyncio.create_subprocess_exec", side_effect=Exception("Subprocess failed")):
-            with patch("asyncio.sleep", side_effect=[None, Exception("Stop loop")]):
-                try:
-                    await gateway._health_monitor_loop()
-                except Exception:
-                    pass  # Expected to stop the loop
+        with (
+            patch("asyncio.create_subprocess_exec", side_effect=Exception("Subprocess failed")),
+            patch("asyncio.sleep", side_effect=[None, Exception("Stop loop")]),
+        ):
+            try:
+                await gateway._health_monitor_loop()
+            except Exception:
+                pass  # Expected to stop the loop
 
 
 if __name__ == "__main__":
@@ -1465,9 +1499,9 @@ if __name__ == "__main__":
 # These test core.network.gateway (distinct from adapters.unified_gateway above)
 # ---------------------------------------------------------------------------
 
-from core.network.gateway import UnifiedGateway as _CoreGateway
 from core.network.gateway import ClientConnection as _CoreClientConnection
 from core.network.gateway import ConnectionType as _CoreConnectionType
+from core.network.gateway import UnifiedGateway as _CoreGateway
 
 
 class TestGatewayAuthentication:
@@ -1837,10 +1871,12 @@ async def test_gateway_start_coro_close_raises():
 
     gw._health_monitor_loop = AsyncMock()
 
-    with patch.object(gw, "_start_local_server", new_callable=AsyncMock):
-        with patch("asyncio.create_task", return_value="not-task"):
-            with patch("asyncio.ensure_future", return_value="not-future"):
-                await gw.start()
+    with (
+        patch.object(gw, "_start_local_server", new_callable=AsyncMock),
+        patch("asyncio.create_task", return_value="not-task"),
+        patch("asyncio.ensure_future", return_value="not-future"),
+    ):
+        await gw.start()
 
     await asyncio.sleep(0.05)
 

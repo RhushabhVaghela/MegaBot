@@ -1,10 +1,12 @@
 """Tests for additional LLM providers (LM Studio, llama.cpp, vLLM)"""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+
 from core.llm_providers import (
-    LMStudioProvider,
     LlamaCppProvider,
+    LMStudioProvider,
     VLLMProvider,
     get_llm_provider,
 )

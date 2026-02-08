@@ -2,10 +2,11 @@
 Tests for PageIndexRAG
 """
 
-import pytest
-import tempfile
 import os
-from unittest.mock import MagicMock, AsyncMock, patch
+import tempfile
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from core.rag.pageindex import PageIndexRAG
 
@@ -307,11 +308,13 @@ async def test_build_index_cache_errors(page_index, temp_dir, caplog):
 
     # 2. Save cache error (lines 42-43)
     # Re-build to trigger save
-    with patch("os.path.exists", return_value=False):
-        with patch("builtins.open", side_effect=OSError("Save error")):
-            with caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"):
-                await page_index.build_index(force_rebuild=True)
-                assert any("RAG: Failed to save cache:" in r.message for r in caplog.records)
+    with (
+        patch("os.path.exists", return_value=False),
+        patch("builtins.open", side_effect=OSError("Save error")),
+        caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"),
+    ):
+        await page_index.build_index(force_rebuild=True)
+        assert any("RAG: Failed to save cache:" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio

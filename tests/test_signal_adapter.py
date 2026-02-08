@@ -2,22 +2,23 @@
 Tests for Signal Adapter
 """
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-import json
 import asyncio
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from adapters.messaging import MessageType
 from adapters.signal_adapter import (
     SignalAdapter,
-    SignalMessageType,
-    SignalGroupType,
-    SignalRecipient,
     SignalAttachment,
-    SignalMessage,
     SignalGroup,
+    SignalGroupType,
+    SignalMessage,
+    SignalMessageType,
     SignalQuote,
     SignalReaction,
+    SignalRecipient,
 )
 
 
@@ -702,9 +703,11 @@ class TestSignalAdapter:
         # Test failure case
         mock_process.returncode = 1
         mock_process.communicate = AsyncMock(return_value=(b"", b"error"))
-        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-            with pytest.raises(Exception, match="signal-cli daemon failed"):
-                await adapter._start_daemon()
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_process),
+            pytest.raises(Exception, match="signal-cli daemon failed"),
+        ):
+            await adapter._start_daemon()
 
     @pytest.mark.asyncio
     async def test_start_receive_process(self, adapter):

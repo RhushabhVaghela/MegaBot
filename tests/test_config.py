@@ -1,7 +1,9 @@
 import os
-import pytest
 from unittest.mock import patch
-from core.config import load_config, Config, SystemConfig, SecurityConfig
+
+import pytest
+
+from core.config import Config, SecurityConfig, SystemConfig, load_config
 
 
 def test_load_config(temp_config_file):
@@ -123,6 +125,7 @@ def test_load_api_credentials_exception(tmp_path, monkeypatch, caplog):
     cred_file.write_text("INVALID PYTHON")
 
     import logging
+
     from core.config import load_api_credentials
 
     with caplog.at_level(logging.INFO):
@@ -141,6 +144,7 @@ def test_load_api_credentials_file_error(tmp_path, monkeypatch, caplog):
     cred_file.chmod(0o000)
 
     import logging
+
     from core.config import load_api_credentials
 
     with caplog.at_level(logging.ERROR):
@@ -155,9 +159,9 @@ def test_load_api_credentials_file_error(tmp_path, monkeypatch, caplog):
 
 def test_security_config_validation(monkeypatch):
     """Test SecurityConfig validation when not in test mode (lines 71-82)"""
-    from core.config import SecurityConfig
-    import pytest
     from pydantic import ValidationError
+
+    from core.config import SecurityConfig
 
     # Remove PYTEST_CURRENT_TEST to trigger production validation
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
@@ -175,7 +179,7 @@ def test_security_config_validation(monkeypatch):
 
 def test_validate_environment_full(monkeypatch):
     """Test Config.validate_environment with various scenarios (lines 127, 129, 144, 154)"""
-    from core.config import Config, SystemConfig, AdapterConfig
+    from core.config import AdapterConfig, Config, SystemConfig
 
     monkeypatch.delenv("OPENCLAW_AUTH_TOKEN", raising=False)
 

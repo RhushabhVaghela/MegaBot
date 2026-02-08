@@ -1,7 +1,9 @@
 """Tests for ModuleDiscovery and Instrumentation"""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from core.discovery import ModuleDiscovery
 from core.instrumentation import track_telemetry
 
@@ -14,12 +16,14 @@ class TestModuleDiscovery:
 
     def test_scan_modules(self):
         discovery = ModuleDiscovery("/tmp")
-        with patch("os.path.exists", return_value=True):
-            with patch("os.listdir", return_value=["skill1", "skill2"]):
-                with patch("os.path.isdir", return_value=True):
-                    discovery.scan()
-                    assert "skill1" in discovery.capabilities
-                    assert "skill2" in discovery.capabilities
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.listdir", return_value=["skill1", "skill2"]),
+            patch("os.path.isdir", return_value=True),
+        ):
+            discovery.scan()
+            assert "skill1" in discovery.capabilities
+            assert "skill2" in discovery.capabilities
 
     def test_get_capability_path(self):
         discovery = ModuleDiscovery("/tmp")

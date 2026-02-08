@@ -3,11 +3,13 @@ Tests for SlackAdapter
 """
 
 import asyncio
-import pytest
 import builtins
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+
+import pytest
+
+from adapters.messaging import MessageType, PlatformMessage
 from adapters.slack_adapter import SlackAdapter, SlackMessage
-from adapters.messaging import PlatformMessage, MessageType
 
 
 class TestSlackAdapter:
@@ -456,6 +458,7 @@ class TestSlackAdapter:
         with patch.dict("sys.modules", {"slack_sdk": None}):
             # Force reimport to trigger fallback
             import importlib
+
             import adapters.slack_adapter
 
             importlib.reload(adapters.slack_adapter)
@@ -492,18 +495,20 @@ class TestSlackAdapter:
             "event": {"type": "message", "text": "test"},
         }
 
-        with patch.object(slack_adapter, "_handle_event") as mock_handle_event:
-            with patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class:
-                with patch.object(slack_adapter, "socket_client", create=True) as mock_socket_client:
-                    mock_response = MagicMock()
-                    mock_response_class.return_value = mock_response
-                    mock_socket_client.client.send_socket_mode_response = MagicMock()
+        with (
+            patch.object(slack_adapter, "_handle_event") as mock_handle_event,
+            patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class,
+            patch.object(slack_adapter, "socket_client", create=True) as mock_socket_client,
+        ):
+            mock_response = MagicMock()
+            mock_response_class.return_value = mock_response
+            mock_socket_client.client.send_socket_mode_response = MagicMock()
 
-                    await slack_adapter._handle_socket_request(mock_req)
+            await slack_adapter._handle_socket_request(mock_req)
 
-                    mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
-                    mock_response_class.assert_called_once_with(envelope_id="test_envelope_id")
-                    mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
+            mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
+            mock_response_class.assert_called_once_with(envelope_id="test_envelope_id")
+            mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
 
     @pytest.mark.asyncio
     async def test_handle_event_message(self, slack_adapter):
@@ -735,14 +740,16 @@ class TestSlackAdapter:
             "event": {"type": "message", "text": "test"},
         }
 
-        with patch.object(slack_adapter, "_handle_event", new_callable=AsyncMock) as mock_handle_event:
-            with patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class:
-                mock_response = MagicMock()
-                mock_response_class.return_value = mock_response
-                await slack_adapter._handle_socket_request(mock_req)
+        with (
+            patch.object(slack_adapter, "_handle_event", new_callable=AsyncMock) as mock_handle_event,
+            patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class,
+        ):
+            mock_response = MagicMock()
+            mock_response_class.return_value = mock_response
+            await slack_adapter._handle_socket_request(mock_req)
 
-                mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
-                mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
+            mock_handle_event.assert_called_once_with({"type": "message", "text": "test"})
+            mock_socket_client.client.send_socket_mode_response.assert_called_once_with(mock_response)
 
     @pytest.mark.asyncio
     async def test_handle_event_custom_handler_exception(self, slack_adapter):
@@ -871,6 +878,7 @@ class TestSlackAdapter:
         """Test the fallback mocks in slack_adapter for full coverage (lines 27, 30, 34)"""
         with patch.dict("sys.modules", {"slack_sdk": None}):
             import importlib
+
             import adapters.slack_adapter
 
             importlib.reload(adapters.slack_adapter)

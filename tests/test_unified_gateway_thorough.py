@@ -2,14 +2,15 @@
 Thorough tests for MegaBot Unified Gateway to achieve 100% coverage
 """
 
-import pytest
-import json
 import asyncio
+import json
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
-from aiohttp import web
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
+import pytest
+from aiohttp import web
+
 import adapters.unified_gateway as ug
 
 # Ensure ug has web if it was lost by another test
@@ -18,7 +19,7 @@ if not getattr(ug, "web", None):
 if not getattr(ug, "aiohttp", None):
     ug.aiohttp = aiohttp
 
-from adapters.unified_gateway import ConnectionType, ClientConnection, UnifiedGateway
+from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 
 @pytest.fixture
@@ -44,23 +45,27 @@ async def test_gateway_start_all_paths(gateway):
     mock_async_proc = AsyncMock()
     mock_async_proc.wait = AsyncMock(return_value=0)
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_async_proc):
-        with patch("subprocess.Popen") as mock_popen:
-            mock_popen_instance = MagicMock()
-            mock_popen_instance.poll.return_value = None  # Running
-            mock_popen.return_value = mock_popen_instance
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_async_proc),
+        patch("subprocess.Popen") as mock_popen,
+    ):
+        mock_popen_instance = MagicMock()
+        mock_popen_instance.poll.return_value = None  # Running
+        mock_popen.return_value = mock_popen_instance
 
-            # Mock loop to return immediately
-            with patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock):
-                with patch.object(gateway, "_start_https_server", new_callable=AsyncMock) as mock_https:
-                    with patch("websockets.serve", new_callable=AsyncMock) as mock_serve:
-                        # Set health status before test since we're mocking the methods
-                        gateway.health_status[ConnectionType.CLOUDFLARE.value] = True
+        # Mock loop to return immediately
+        with (
+            patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock),
+            patch.object(gateway, "_start_https_server", new_callable=AsyncMock) as mock_https,
+            patch("websockets.serve", new_callable=AsyncMock) as mock_serve,
+        ):
+            # Set health status before test since we're mocking the methods
+            gateway.health_status[ConnectionType.CLOUDFLARE.value] = True
 
-                        # Test successful paths
-                        await gateway.start()
-                        assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
-                        assert mock_https.called
+            # Test successful paths
+            await gateway.start()
+            assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
+            assert mock_https.called
 
 
 @pytest.mark.asyncio
@@ -227,7 +232,7 @@ async def test_gateway_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [k for k in sys.modules.keys() if k.startswith("adapters.unified_gateway")]
+    modules_to_clear = [k for k in sys.modules if k.startswith("adapters.unified_gateway")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
@@ -235,10 +240,9 @@ async def test_gateway_run_module():
         coro.close()
         return None
 
-    with patch.object(UnifiedGateway, "start", new_callable=AsyncMock):
-        with patch("asyncio.run", side_effect=mock_run):
-            runpy.run_module("adapters.unified_gateway", run_name="__main__")
-            assert True
+    with patch.object(UnifiedGateway, "start", new_callable=AsyncMock), patch("asyncio.run", side_effect=mock_run):
+        runpy.run_module("adapters.unified_gateway", run_name="__main__")
+        assert True
 
 
 @pytest.mark.asyncio
@@ -312,15 +316,17 @@ async def test_gateway_start_cloudflare_failure_during_wait(gateway):
     mock_ver_proc = AsyncMock()
     mock_ver_proc.wait = AsyncMock(return_value=0)
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_ver_proc):
-        with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.poll.return_value = 1  # Dead
-            mock_proc.communicate.return_value = (b"", b"tunnel error")
-            mock_popen.return_value = mock_proc
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_ver_proc),
+        patch("subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = 1  # Dead
+        mock_proc.communicate.return_value = (b"", b"tunnel error")
+        mock_popen.return_value = mock_proc
 
-            await gateway._start_cloudflare_tunnel()
-            assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is False
+        await gateway._start_cloudflare_tunnel()
+        assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is False
 
 
 @pytest.mark.asyncio
@@ -540,10 +546,12 @@ async def test_gateway_process_message_exceptions(gateway):
         mock_err.assert_called_with(conn, "Invalid JSON")
 
     # General Exception (line 407-408)
-    with patch("json.loads", side_effect=Exception("crash")):
-        with patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_err:
-            await gateway._process_message(conn, '{"k":"v"}')
-            mock_err.assert_called_with(conn, "Internal error")
+    with (
+        patch("json.loads", side_effect=Exception("crash")),
+        patch.object(gateway, "_send_error", new_callable=AsyncMock) as mock_err,
+    ):
+        await gateway._process_message(conn, '{"k":"v"}')
+        mock_err.assert_called_with(conn, "Internal error")
 
 
 @pytest.mark.asyncio
@@ -619,13 +627,15 @@ async def test_decode_exceptions_real_trigger(gateway):
     mock_ws.__aiter__.return_value = [mock_payload]
 
     conn = ClientConnection(mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now())
-    with patch.object(gateway, "_check_rate_limit", return_value=True):
+    with (
+        patch.object(gateway, "_check_rate_limit", return_value=True),
         # We need to ensure it thinks it's bytes
-        with patch(
+        patch(
             "core.network.gateway.isinstance",
             side_effect=lambda o, t: True if t == bytes and o == mock_payload else isinstance(o, t),
-        ):
-            await gateway._manage_connection(conn)
+        ),
+    ):
+        await gateway._manage_connection(conn)
 
 
 @pytest.mark.asyncio
@@ -639,12 +649,14 @@ async def test_health_monitor_healthy_state(gateway):
     mock_ts_proc = AsyncMock()
     mock_ts_proc.wait = AsyncMock(return_value=0)
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_ts_proc):
-        with patch("asyncio.sleep", side_effect=[None, Exception("break")]):
-            try:
-                await gateway._health_monitor_loop()
-            except Exception:
-                pass
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_ts_proc),
+        patch("asyncio.sleep", side_effect=[None, Exception("break")]),
+    ):
+        try:
+            await gateway._health_monitor_loop()
+        except Exception:
+            pass
 
     assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
 

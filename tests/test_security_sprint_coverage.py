@@ -10,10 +10,8 @@ Coverage tests for security sprint fixes:
 """
 
 import asyncio
-import json
 import os
 import stat as _stat
-import tempfile
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -255,9 +253,8 @@ async def test_health_monitor_sweeps_stale_rate_limits():
     async def one_iter_sleep(_):
         raise StopAsyncIteration("break loop")
 
-    with patch("asyncio.sleep", side_effect=one_iter_sleep):
-        with pytest.raises(StopAsyncIteration):
-            await gw._health_monitor_loop()
+    with patch("asyncio.sleep", side_effect=one_iter_sleep), pytest.raises(StopAsyncIteration):
+        await gw._health_monitor_loop()
 
     assert "stale_client" not in gw.rate_limits["local"]
     assert "active_client" in gw.rate_limits["local"]
@@ -271,7 +268,7 @@ async def test_health_monitor_sweeps_stale_rate_limits():
 @pytest.mark.asyncio
 async def test_authenticate_connection_timeout():
     """Auth timeout returns False."""
-    from core.network.gateway import UnifiedGateway, ClientConnection, ConnectionType
+    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -304,7 +301,7 @@ async def test_authenticate_connection_timeout():
 @pytest.mark.asyncio
 async def test_authenticate_connection_json_decode_error():
     """Non-JSON auth message returns False."""
-    from core.network.gateway import UnifiedGateway, ClientConnection, ConnectionType
+    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -337,7 +334,7 @@ async def test_authenticate_connection_json_decode_error():
 @pytest.mark.asyncio
 async def test_authenticate_connection_stop_async_iteration():
     """StopAsyncIteration on ws read returns False."""
-    from core.network.gateway import UnifiedGateway, ClientConnection, ConnectionType
+    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -374,7 +371,7 @@ async def test_authenticate_connection_stop_async_iteration():
 @pytest.mark.asyncio
 async def test_handle_client_auth_failure_cleans_rate_limits():
     """When auth fails, rate_limits for the client should be cleaned."""
-    from core.network.gateway import UnifiedGateway, ClientConnection, ConnectionType
+    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -417,8 +414,9 @@ async def test_handle_client_auth_failure_cleans_rate_limits():
 
 def test_ast_validator_blocks_dunder_attr():
     """AST validator blocks __class__ attribute access."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     code = "x.__class__"
     tree = ast.parse(code, mode="exec")
@@ -429,8 +427,9 @@ def test_ast_validator_blocks_dunder_attr():
 
 def test_ast_validator_blocks_unknown_dunder():
     """AST validator blocks unknown dunder attributes (belt-and-suspenders)."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     code = "x.__totally_custom__"
     tree = ast.parse(code, mode="exec")
@@ -441,8 +440,9 @@ def test_ast_validator_blocks_unknown_dunder():
 
 def test_ast_validator_blocks_eval_call():
     """AST validator blocks eval() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("eval('1+1')", mode="exec")
     err = _validate_ast(tree)
@@ -452,8 +452,9 @@ def test_ast_validator_blocks_eval_call():
 
 def test_ast_validator_blocks_exec_call():
     """AST validator blocks exec() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("exec('pass')", mode="exec")
     err = _validate_ast(tree)
@@ -463,8 +464,9 @@ def test_ast_validator_blocks_exec_call():
 
 def test_ast_validator_blocks_open_call():
     """AST validator blocks open() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("open('/etc/passwd')", mode="exec")
     err = _validate_ast(tree)
@@ -474,8 +476,9 @@ def test_ast_validator_blocks_open_call():
 
 def test_ast_validator_blocks_getattr_call():
     """AST validator blocks getattr() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("getattr(x, 'secret')", mode="exec")
     err = _validate_ast(tree)
@@ -485,8 +488,9 @@ def test_ast_validator_blocks_getattr_call():
 
 def test_ast_validator_blocks_os_module_call():
     """AST validator blocks os.system() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("os.system('ls')", mode="exec")
     err = _validate_ast(tree)
@@ -496,8 +500,9 @@ def test_ast_validator_blocks_os_module_call():
 
 def test_ast_validator_blocks_subprocess_module_call():
     """AST validator blocks subprocess.run() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("subprocess.run(['ls'])", mode="exec")
     err = _validate_ast(tree)
@@ -507,8 +512,9 @@ def test_ast_validator_blocks_subprocess_module_call():
 
 def test_ast_validator_blocks_import_from():
     """AST validator blocks 'from os import path'."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("from os import path", mode="exec")
     err = _validate_ast(tree)
@@ -518,8 +524,9 @@ def test_ast_validator_blocks_import_from():
 
 def test_ast_validator_blocks_dunder_globals_name():
     """AST validator blocks __globals__ as a Name node."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = __globals__", mode="exec")
     err = _validate_ast(tree)
@@ -529,8 +536,9 @@ def test_ast_validator_blocks_dunder_globals_name():
 
 def test_ast_validator_blocks_builtins_name():
     """AST validator blocks __builtins__ as a Name node."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = __builtins__", mode="exec")
     err = _validate_ast(tree)
@@ -540,8 +548,9 @@ def test_ast_validator_blocks_builtins_name():
 
 def test_ast_validator_allows_safe_code():
     """AST validator allows simple arithmetic and list operations."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = [1, 2, 3]\ny = sum(x)\nz = len(x)", mode="exec")
     err = _validate_ast(tree)
@@ -550,8 +559,9 @@ def test_ast_validator_allows_safe_code():
 
 def test_ast_validator_blocks_compile():
     """AST validator blocks compile() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("compile('x', 'f', 'exec')", mode="exec")
     err = _validate_ast(tree)
@@ -561,8 +571,9 @@ def test_ast_validator_blocks_compile():
 
 def test_ast_validator_blocks_type():
     """AST validator blocks type() calls."""
-    from features.dash_data.agent import _validate_ast
     import ast
+
+    from features.dash_data.agent import _validate_ast
 
     tree = ast.parse("type(x)", mode="exec")
     err = _validate_ast(tree)
@@ -578,7 +589,6 @@ def test_ast_validator_blocks_type():
 @pytest.mark.asyncio
 async def test_safe_ws_send_none_ws(orchestrator):
     """_safe_ws_send returns False for None websocket."""
-    from core.orchestrator import MegaBotOrchestrator
 
     orch = orchestrator
     result = await orch._safe_ws_send(None, {"type": "test"})

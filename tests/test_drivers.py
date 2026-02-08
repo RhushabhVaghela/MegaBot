@@ -2,10 +2,11 @@
 Tests for ComputerDriver
 """
 
-import pytest
 import base64
 import io
 from unittest.mock import MagicMock, patch
+
+import pytest
 from PIL import Image
 
 from core.drivers import ComputerDriver
@@ -256,10 +257,12 @@ class TestComputerDriver:
 
 @pytest.mark.asyncio
 async def test_drivers_mopup():
-    from core.drivers import ComputerDriver
-    from PIL import Image
     import base64
     import io
+
+    from PIL import Image
+
+    from core.drivers import ComputerDriver
 
     driver = ComputerDriver()
 

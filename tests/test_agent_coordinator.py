@@ -17,7 +17,6 @@ import pytest
 
 from core.agent_coordinator import AgentCoordinator, _audit
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -213,10 +212,12 @@ class TestSpawnSubAgentResolutionFallbacks:
         coord.orchestrator.clients = []
         coord.orchestrator.SubAgent = None
 
-        with patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False):
-            with patch("core.orchestrator.SubAgent", fake_cls, create=True):
-                result = await coord._spawn_sub_agent({"name": "fb_test", "role": "researcher", "task": "research"})
-                assert isinstance(result, str)
+        with (
+            patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
+            patch("core.orchestrator.SubAgent", fake_cls, create=True),
+        ):
+            result = await coord._spawn_sub_agent({"name": "fb_test", "role": "researcher", "task": "research"})
+            assert isinstance(result, str)
 
     @pytest.mark.asyncio
     async def test_all_fallbacks_fail_uses_module_level_subagent(self):
@@ -235,11 +236,13 @@ class TestSpawnSubAgentResolutionFallbacks:
 
         coord.orchestrator.SubAgent = None
 
-        with patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False):
-            with patch("core.orchestrator.SubAgent", None, create=True):
-                with patch("core.agent_coordinator.SubAgent", final_cls):
-                    result = await coord._spawn_sub_agent({"name": "final", "role": "dev", "task": "do stuff"})
-                    assert isinstance(result, str)
+        with (
+            patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
+            patch("core.orchestrator.SubAgent", None, create=True),
+            patch("core.agent_coordinator.SubAgent", final_cls),
+        ):
+            result = await coord._spawn_sub_agent({"name": "final", "role": "dev", "task": "do stuff"})
+            assert isinstance(result, str)
 
 
 # ===========================================================================
@@ -467,13 +470,15 @@ class TestSynthesisOuterException:
         coord.orchestrator.memory.memory_write = AsyncMock()
         coord.orchestrator.clients = []
 
-        with patch("core.agent_coordinator.SubAgent", fake_cls):
-            with patch(
+        with (
+            patch("core.agent_coordinator.SubAgent", fake_cls),
+            patch(
                 "core.agent_coordinator.re.search",
                 side_effect=RuntimeError("regex broken"),
-            ):
-                result = await coord._spawn_sub_agent({"name": "synth_fail", "role": "dev", "task": "do"})
-                assert "synthesis raw text" in result
+            ),
+        ):
+            result = await coord._spawn_sub_agent({"name": "synth_fail", "role": "dev", "task": "do"})
+            assert "synthesis raw text" in result
 
 
 # ===========================================================================
@@ -630,13 +635,15 @@ class TestReadFileFallbackTooLarge:
 
         try:
             os_error = OSError(errno.ENOENT, "No such file")
-            with patch("os.open", side_effect=os_error):
-                with patch("builtins.open", mock_open(read_data=large_data)):
-                    result = await coord._execute_tool_for_sub_agent(
-                        "reader",
-                        {"name": "read_file", "input": {"path": target}},
-                    )
-                    assert "too large" in result.lower()
+            with (
+                patch("os.open", side_effect=os_error),
+                patch("builtins.open", mock_open(read_data=large_data)),
+            ):
+                result = await coord._execute_tool_for_sub_agent(
+                    "reader",
+                    {"name": "read_file", "input": {"path": target}},
+                )
+                assert "too large" in result.lower()
         finally:
             import shutil
 
@@ -768,14 +775,16 @@ class TestReadFileFdCloseInException:
                     raise OSError("close failed")
                 real_os_close(fd)
 
-            with patch("os.open", side_effect=_tracking_open):
-                with patch("os.fstat", side_effect=_fstat_raises):
-                    with patch("os.close", side_effect=_close_raises):
-                        result = await coord._execute_tool_for_sub_agent(
-                            "reader",
-                            {"name": "read_file", "input": {"path": target}},
-                        )
-                        assert "error" in result.lower() or "denied" in result.lower()
+            with (
+                patch("os.open", side_effect=_tracking_open),
+                patch("os.fstat", side_effect=_fstat_raises),
+                patch("os.close", side_effect=_close_raises),
+            ):
+                result = await coord._execute_tool_for_sub_agent(
+                    "reader",
+                    {"name": "read_file", "input": {"path": target}},
+                )
+                assert "error" in result.lower() or "denied" in result.lower()
         finally:
             for fd in fd_opened:
                 try:
@@ -920,7 +929,7 @@ class TestWriteFileOuterException:
         target = os.path.join(workspace, "fail_write.txt")
 
         try:
-            with patch("os.fdopen", side_effect=IOError("disk full")):
+            with patch("os.fdopen", side_effect=OSError("disk full")):
                 result = await coord._execute_tool_for_sub_agent(
                     "writer",
                     {
@@ -953,17 +962,19 @@ class TestWriteFileOuterException:
                 os.close(fd)
                 return 999, path  # return a fake fd
 
-            with patch("tempfile.mkstemp", side_effect=_fake_mkstemp):
-                with patch("os.fdopen", side_effect=IOError("disk full")):
-                    with patch("os.unlink", side_effect=OSError("unlink failed")):
-                        result = await coord._execute_tool_for_sub_agent(
-                            "writer",
-                            {
-                                "name": "write_file",
-                                "input": {"path": target, "content": "data"},
-                            },
-                        )
-                        assert "error" in result.lower()
+            with (
+                patch("tempfile.mkstemp", side_effect=_fake_mkstemp),
+                patch("os.fdopen", side_effect=OSError("disk full")),
+                patch("os.unlink", side_effect=OSError("unlink failed")),
+            ):
+                result = await coord._execute_tool_for_sub_agent(
+                    "writer",
+                    {
+                        "name": "write_file",
+                        "input": {"path": target, "content": "data"},
+                    },
+                )
+                assert "error" in result.lower()
         finally:
             import shutil
 
@@ -1076,11 +1087,11 @@ class TestReadFileOSErrorFallback:
         orchestrator.permissions = MagicMock()
         orchestrator.permissions.is_authorized.return_value = True
 
-        with patch("os.open", side_effect=OSError(errno.ENOENT, "No such file")):
-            with patch("builtins.open", side_effect=Exception("no access")):
-                res = await coord._execute_tool_for_sub_agent(
-                    "a", {"name": "read_file", "input": {"path": str(target)}}
-                )
+        with (
+            patch("os.open", side_effect=OSError(errno.ENOENT, "No such file")),
+            patch("builtins.open", side_effect=Exception("no access")),
+        ):
+            res = await coord._execute_tool_for_sub_agent("a", {"name": "read_file", "input": {"path": str(target)}})
         assert "denied" in res.lower() or "error" in res.lower()
 
 
@@ -1707,13 +1718,15 @@ class TestSubAgentResolutionFallbacks:
 
         # globals() returns no SubAgent, orchestrator raises, AND
         # importing core.orchestrator raises — so it falls to the final SubAgent
-        with patch("core.agent_coordinator.globals", return_value={"SubAgent": None}):
-            with patch.dict("sys.modules", {"core.orchestrator": None}):
-                # When core.orchestrator is None in sys.modules, importing it raises TypeError
-                # The final fallback uses the module-level SubAgent import
-                with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
-                    res = await coord_proxied._spawn_sub_agent({"name": "test_agent2", "task": "test_task2"})
-                    assert isinstance(res, str)
+        with (
+            patch("core.agent_coordinator.globals", return_value={"SubAgent": None}),
+            patch.dict("sys.modules", {"core.orchestrator": None}),
+            patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
+        ):
+            # When core.orchestrator is None in sys.modules, importing it raises TypeError
+            # The final fallback uses the module-level SubAgent import
+            res = await coord_proxied._spawn_sub_agent({"name": "test_agent2", "task": "test_task2"})
+            assert isinstance(res, str)
 
 
 # ---------------------------------------------------------------------------
@@ -1886,24 +1899,26 @@ async def test_agent_coordinator_subagent_fallback_all_fail(orchestrator):
 
     mock_sub_agent_cls = MagicMock(return_value=mock_agent_instance)
 
-    with patch.dict("core.agent_coordinator.__builtins__", {}, clear=False):
-        with patch("core.agent_coordinator.SubAgent", mock_sub_agent_cls):
-            original_globals = globals
-            with patch("core.agent_coordinator.globals", return_value={"SubAgent": None}):
-                type(orchestrator).SubAgent = PropertyMock(side_effect=AttributeError("no SubAgent"))
+    with (
+        patch.dict("core.agent_coordinator.__builtins__", {}, clear=False),
+        patch("core.agent_coordinator.SubAgent", mock_sub_agent_cls),
+    ):
+        original_globals = globals
+        with patch("core.agent_coordinator.globals", return_value={"SubAgent": None}):
+            type(orchestrator).SubAgent = PropertyMock(side_effect=AttributeError("no SubAgent"))
+            try:
+                result = await coord._spawn_sub_agent(
+                    {
+                        "name": "test-fb",
+                        "role": "researcher",
+                        "task": "test task",
+                    }
+                )
+            finally:
                 try:
-                    result = await coord._spawn_sub_agent(
-                        {
-                            "name": "test-fb",
-                            "role": "researcher",
-                            "task": "test task",
-                        }
-                    )
-                finally:
-                    try:
-                        del type(orchestrator).SubAgent
-                    except (AttributeError, TypeError):
-                        pass
+                    del type(orchestrator).SubAgent
+                except (AttributeError, TypeError):
+                    pass
 
     assert isinstance(result, str)
 
@@ -1941,8 +1956,6 @@ async def test_agent_coordinator_path_validation_outer_except(orchestrator):
     orchestrator.sub_agents = {"test-agent": mock_agent}
     orchestrator.permissions = MagicMock()
     orchestrator.permissions.is_authorized = MagicMock(return_value=True)
-
-    from pathlib import Path as _Path
 
     with patch("core.agent_file_ops.Path", side_effect=RuntimeError("path weirdness")):
         result = await coord._execute_tool_for_sub_agent(

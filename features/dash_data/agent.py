@@ -2,9 +2,9 @@ import ast
 import csv
 import json
 import logging
-import signal
 import threading
-from typing import Any, Dict, List, Union
+from typing import Any
+
 from core.llm_providers import LLMProvider
 from core.resource_guard import LRUCache
 
@@ -100,23 +100,21 @@ def _validate_ast(tree: ast.AST) -> str | None:
             if isinstance(func, ast.Name) and func.id in _BLOCKED_CALL_NAMES:
                 return f"Blocked pattern '{func.id}(' detected in code."
             # Method call on module-like names: os.system(...), sys.exit(...)
-            if isinstance(func, ast.Attribute):
-                if isinstance(func.value, ast.Name):
-                    prefix = func.value.id
-                    if prefix in ("os", "sys", "subprocess", "importlib", "shutil"):
-                        return f"Blocked pattern '{prefix}.' detected in code."
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                prefix = func.value.id
+                if prefix in ("os", "sys", "subprocess", "importlib", "shutil"):
+                    return f"Blocked pattern '{prefix}.' detected in code."
 
         # Block Name nodes referencing dunder globals
-        if isinstance(node, ast.Name):
-            if node.id in (
-                "__import__",
-                "__builtins__",
-                "__globals__",
-                "__code__",
-                "__loader__",
-                "__spec__",
-            ):
-                return f"Blocked pattern '{node.id}' detected in code."
+        if isinstance(node, ast.Name) and node.id in (
+            "__import__",
+            "__builtins__",
+            "__globals__",
+            "__code__",
+            "__loader__",
+            "__spec__",
+        ):
+            return f"Blocked pattern '{node.id}' detected in code."
 
     return None
 
@@ -130,17 +128,17 @@ class DashDataAgent:
     def __init__(self, llm: LLMProvider, orchestrator: Any = None):
         self.llm = llm
         self.orchestrator = orchestrator
-        self.datasets: LRUCache[str, Union[List[Dict[str, Any]], Dict[str, Any]]] = LRUCache(maxsize=64)
+        self.datasets: LRUCache[str, list[dict[str, Any]] | dict[str, Any]] = LRUCache(maxsize=64)
 
     async def load_data(self, name: str, file_path: str) -> str:
         """Load a dataset into memory from a local file."""
         try:
             if file_path.endswith(".csv"):
-                with open(file_path, mode="r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     reader = csv.DictReader(f)
                     self.datasets[name] = list(reader)
             elif file_path.endswith(".json"):
-                with open(file_path, mode="r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     self.datasets[name] = json.load(f)
             else:
                 return f"Error: Unsupported file format for '{file_path}'. Use CSV or JSON."
@@ -321,7 +319,7 @@ class DashDataAgent:
         try:
             # Run exec() in a thread with a 5-second timeout to prevent
             # infinite loops or CPU-intensive code from blocking the server.
-            exec_error: List[Exception] = []
+            exec_error: list[Exception] = []
 
             def _run_sandboxed():
                 try:

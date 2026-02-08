@@ -1,7 +1,9 @@
-import pytest
 import os
 import tempfile
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from core.memory.mcp_server import MemoryServer
 
 
@@ -387,7 +389,7 @@ async def test_init_legacy_db_exception():
         patch("core.memory.mcp_server.KnowledgeMemoryManager"),
         patch("core.memory.mcp_server.MemoryBackupManager"),
         patch("sqlite3.connect", side_effect=Exception("DB Error")),
+        pytest.raises(Exception, match="DB Error"),
     ):
         # _run_migrations re-raises, so construction should fail
-        with pytest.raises(Exception, match="DB Error"):
-            MemoryServer("/tmp/failed_db.db")
+        MemoryServer("/tmp/failed_db.db")

@@ -3,9 +3,9 @@ Tests for Loki Mode
 """
 
 import subprocess
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from core.loki import LokiMode
 
@@ -309,12 +309,14 @@ class TestLokiMode:
 
         results = ["api_key = 'sk-12345'"]
 
-        with patch("adapters.security.tirith_guard.guard.validate", return_value=True):
-            with caplog.at_level(logging.DEBUG, logger="core.loki"):
-                result = await loki_mode._run_security_audit(results)
-                assert "Passed" in result
-                # Check for warning log
-                assert any("SECURITY WARNING: Potential secret leak detected" in r.message for r in caplog.records)
+        with (
+            patch("adapters.security.tirith_guard.guard.validate", return_value=True),
+            caplog.at_level(logging.DEBUG, logger="core.loki"),
+        ):
+            result = await loki_mode._run_security_audit(results)
+            assert "Passed" in result
+            # Check for warning log
+            assert any("SECURITY WARNING: Potential secret leak detected" in r.message for r in caplog.records)
 
 
 class TestDeployProduct:
@@ -332,10 +334,12 @@ class TestDeployProduct:
         mock_result.returncode = 0
         mock_result.stdout = "Deployed to staging"
 
-        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
-            with patch("os.path.isfile", return_value=True):
-                with patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result):
-                    result = await loki._deploy_product()
+        with (
+            patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}),
+            patch("os.path.isfile", return_value=True),
+            patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result),
+        ):
+            result = await loki._deploy_product()
 
         assert "succeeded" in result.lower()
         assert "Deployed to staging" in result
@@ -347,10 +351,12 @@ class TestDeployProduct:
         mock_result.returncode = 1
         mock_result.stderr = "Build failed"
 
-        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
-            with patch("os.path.isfile", return_value=True):
-                with patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result):
-                    result = await loki._deploy_product()
+        with (
+            patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}),
+            patch("os.path.isfile", return_value=True),
+            patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result),
+        ):
+            result = await loki._deploy_product()
 
         assert "failed" in result.lower()
         assert "exit 1" in result
@@ -359,14 +365,16 @@ class TestDeployProduct:
     @pytest.mark.asyncio
     async def test_deploy_script_timeout(self, loki):
         """Test deployment timeout after 300 seconds."""
-        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
-            with patch("os.path.isfile", return_value=True):
-                with patch(
-                    "asyncio.to_thread",
-                    new_callable=AsyncMock,
-                    side_effect=subprocess.TimeoutExpired(cmd="/tmp/deploy.sh", timeout=300),
-                ):
-                    result = await loki._deploy_product()
+        with (
+            patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}),
+            patch("os.path.isfile", return_value=True),
+            patch(
+                "asyncio.to_thread",
+                new_callable=AsyncMock,
+                side_effect=subprocess.TimeoutExpired(cmd="/tmp/deploy.sh", timeout=300),
+            ),
+        ):
+            result = await loki._deploy_product()
 
         assert "timed out" in result.lower()
         assert "300" in result
@@ -374,14 +382,16 @@ class TestDeployProduct:
     @pytest.mark.asyncio
     async def test_deploy_script_general_exception(self, loki):
         """Test deployment handles general exceptions."""
-        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}):
-            with patch("os.path.isfile", return_value=True):
-                with patch(
-                    "asyncio.to_thread",
-                    new_callable=AsyncMock,
-                    side_effect=OSError("Permission denied"),
-                ):
-                    result = await loki._deploy_product()
+        with (
+            patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/tmp/deploy.sh"}),
+            patch("os.path.isfile", return_value=True),
+            patch(
+                "asyncio.to_thread",
+                new_callable=AsyncMock,
+                side_effect=OSError("Permission denied"),
+            ),
+        ):
+            result = await loki._deploy_product()
 
         assert "error" in result.lower()
         assert "Permission denied" in result
@@ -401,8 +411,10 @@ class TestDeployProduct:
     @pytest.mark.asyncio
     async def test_deploy_script_not_a_file(self, loki):
         """Test deployment skipped when script path doesn't point to a file."""
-        with patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/nonexistent/deploy.sh"}):
-            with patch("os.path.isfile", return_value=False):
-                result = await loki._deploy_product()
+        with (
+            patch.dict("os.environ", {"MEGABOT_DEPLOY_SCRIPT": "/nonexistent/deploy.sh"}),
+            patch("os.path.isfile", return_value=False),
+        ):
+            result = await loki._deploy_product()
 
         assert "skipped" in result.lower()

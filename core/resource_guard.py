@@ -23,8 +23,8 @@ import logging
 import subprocess
 import time
 from collections import OrderedDict
+from collections.abc import ItemsView, KeysView, ValuesView
 from dataclasses import dataclass, field
-from collections.abc import KeysView, ValuesView, ItemsView
 from typing import Any, Generic, TypeVar
 
 import psutil

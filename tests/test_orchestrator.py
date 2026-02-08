@@ -19,14 +19,14 @@ import json
 import os
 import subprocess
 import sys
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from core.orchestrator import MegaBotOrchestrator, health, websocket_endpoint
+import pytest
+
 from core.interfaces import Message
-from core.orchestrator_components import MessageHandler, HealthMonitor, BackgroundTasks
-
+from core.orchestrator import MegaBotOrchestrator, health, websocket_endpoint
+from core.orchestrator_components import BackgroundTasks, HealthMonitor, MessageHandler
 
 # =====================================================================
 # Helpers (deduplicated from satellite files)
@@ -75,23 +75,25 @@ def orchestrator(mock_config):
     """Main orchestrator fixture — patches core adapters and provides fresh
     AsyncMock adapters for openclaw, memu, mcp, messaging, gateway.
     """
-    with patch("core.orchestrator.ModuleDiscovery"):
-        with patch("core.orchestrator.OpenClawAdapter"):
-            with patch("core.orchestrator.MemUAdapter"):
-                with patch("core.orchestrator.MCPManager"):
-                    orc = MegaBotOrchestrator(mock_config)
-                    # Use fresh mocks for all adapters
-                    orc.adapters = {
-                        "openclaw": AsyncMock(),
-                        "memu": AsyncMock(),
-                        "mcp": AsyncMock(),
-                        "messaging": AsyncMock(),
-                        "gateway": AsyncMock(),
-                    }
-                    orc.llm = AsyncMock()
-                    # Mock memory to avoid database operations
-                    orc.memory = AsyncMock()
-                    return orc
+    with (
+        patch("core.orchestrator.ModuleDiscovery"),
+        patch("core.orchestrator.OpenClawAdapter"),
+        patch("core.orchestrator.MemUAdapter"),
+        patch("core.orchestrator.MCPManager"),
+    ):
+        orc = MegaBotOrchestrator(mock_config)
+        # Use fresh mocks for all adapters
+        orc.adapters = {
+            "openclaw": AsyncMock(),
+            "memu": AsyncMock(),
+            "mcp": AsyncMock(),
+            "messaging": AsyncMock(),
+            "gateway": AsyncMock(),
+        }
+        orc.llm = AsyncMock()
+        # Mock memory to avoid database operations
+        orc.memory = AsyncMock()
+        return orc
 
 
 @pytest.fixture
@@ -99,7 +101,7 @@ def mock_config_coverage():
     """Fixture from test_orchestrator_coverage.py — uses AdapterConfig with
     host/port for openclaw and explicit paths dict.
     """
-    from core.config import Config, SystemConfig, SecurityConfig, AdapterConfig
+    from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
 
     return Config(
         system=SystemConfig(name="TestBot"),
@@ -362,15 +364,13 @@ async def test_orchestrator_start_mcp_failure(orchestrator):
 
 @pytest.mark.asyncio
 async def test_orchestrator_sync_loop_error(orchestrator):
-    with patch("os.path.expanduser", return_value="/tmp/mock_logs"):
-        with patch("os.path.exists", return_value=True):
-            orchestrator.adapters["memu"].ingest_openclaw_logs.side_effect = Exception("ingest err")
-            # Use SystemExit to break the while-True loop — it is not caught
-            # by the bare ``except Exception`` inside sync_loop.
-            with patch("asyncio.sleep", side_effect=SystemExit("stop")):
-                with pytest.raises(SystemExit):
-                    await orchestrator.sync_loop()
-            assert orchestrator.adapters["memu"].ingest_openclaw_logs.called
+    with patch("os.path.expanduser", return_value="/tmp/mock_logs"), patch("os.path.exists", return_value=True):
+        orchestrator.adapters["memu"].ingest_openclaw_logs.side_effect = Exception("ingest err")
+        # Use SystemExit to break the while-True loop — it is not caught
+        # by the bare ``except Exception`` inside sync_loop.
+        with patch("asyncio.sleep", side_effect=SystemExit("stop")), pytest.raises(SystemExit):
+            await orchestrator.sync_loop()
+        assert orchestrator.adapters["memu"].ingest_openclaw_logs.called
 
 
 @pytest.mark.asyncio
@@ -588,9 +588,8 @@ async def test_orchestrator_gateway_admin_command(orchestrator):
 @pytest.mark.asyncio
 async def test_orchestrator_credential_loading():
     """Test the dynamic loading of api-credentials.py"""
-    with patch("os.path.exists", return_value=True):
-        with patch("importlib.util.spec_from_file_location") as mock_spec:
-            assert True
+    with patch("os.path.exists", return_value=True), patch("importlib.util.spec_from_file_location") as mock_spec:
+        assert True
 
 
 @pytest.mark.asyncio
@@ -668,6 +667,7 @@ async def test_orchestrator_client_removal(orchestrator):
 async def test_orchestrator_api_credentials_loading():
     """Test API credentials loading via safe line-by-line parser (VULN-004 fix)."""
     import tempfile
+
     from core.config import load_api_credentials
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -675,12 +675,14 @@ async def test_orchestrator_api_credentials_loading():
         f.write('ANTHROPIC_API_KEY = "anthropic-key-456"\n')
         temp_path = f.name
     try:
-        with patch("core.config.os.path.exists", return_value=True):
-            with patch("core.config.os.path.join", return_value=temp_path):
-                with patch("core.config.os.getcwd", return_value="/tmp"):
-                    load_api_credentials()
-                    assert os.environ.get("OPENAI_API_KEY") == "test-key-123"
-                    assert os.environ.get("ANTHROPIC_API_KEY") == "anthropic-key-456"
+        with (
+            patch("core.config.os.path.exists", return_value=True),
+            patch("core.config.os.path.join", return_value=temp_path),
+            patch("core.config.os.getcwd", return_value="/tmp"),
+        ):
+            load_api_credentials()
+            assert os.environ.get("OPENAI_API_KEY") == "test-key-123"
+            assert os.environ.get("ANTHROPIC_API_KEY") == "anthropic-key-456"
     finally:
         os.unlink(temp_path)
         # Clean up environment
@@ -774,7 +776,7 @@ async def test_orchestrator_handle_client_json_error_robust(orchestrator):
 @pytest.mark.asyncio
 async def test_orchestrator_dispatch_unknown_provider(orchestrator):
     """Test get_llm_provider with unknown type defaults to ollama"""
-    from core.llm_providers import get_llm_provider, OllamaProvider
+    from core.llm_providers import OllamaProvider, get_llm_provider
 
     p = get_llm_provider({"provider": "unknown"})
     assert isinstance(p, OllamaProvider)
@@ -1175,10 +1177,12 @@ async def test_orchestrator_ivr_callback_direct():
     request.form.return_value = {"Digits": "1"}
     mock_orch = MagicMock()
     mock_orch.admin_handler = AsyncMock()
-    with patch("core.orchestrator.orchestrator", mock_orch):
-        with patch("core.app._validate_twilio_signature", return_value=True):
-            response = await ivr_callback(request, action_id="act123")
-            assert response.status_code == 200
+    with (
+        patch("core.orchestrator.orchestrator", mock_orch),
+        patch("core.app._validate_twilio_signature", return_value=True),
+    ):
+        response = await ivr_callback(request, action_id="act123")
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -1310,14 +1314,16 @@ async def test_heartbeat_loop(orchestrator):
     """Test heartbeat loop functionality and component restarts"""
     orchestrator.adapters = {"test": MagicMock(is_connected=False)}
 
-    with patch("asyncio.sleep", side_effect=[None, Exception("break")]):
-        with patch.object(orchestrator, "restart_component", new_callable=AsyncMock) as mock_restart:
-            try:
-                await orchestrator.heartbeat_loop()
-            except Exception:
-                pass
+    with (
+        patch("asyncio.sleep", side_effect=[None, Exception("break")]),
+        patch.object(orchestrator, "restart_component", new_callable=AsyncMock) as mock_restart,
+    ):
+        try:
+            await orchestrator.heartbeat_loop()
+        except Exception:
+            pass
 
-            assert mock_restart.called
+        assert mock_restart.called
 
 
 @pytest.mark.asyncio
@@ -1580,8 +1586,8 @@ async def test_safe_create_task_on_done_cancelled():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_discard_fails():
     """Lines 48-49: _orchestrator_tasks.discard raises → swallowed."""
-    from core.task_utils import safe_create_task as _safe_create_task
     import core.task_utils as task_utils_mod
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1606,7 +1612,7 @@ async def test_safe_create_task_on_done_discard_fails():
 @pytest.mark.asyncio
 async def test_lifespan_skip_startup():
     """Lines 154-166: MEGABOT_SKIP_STARTUP=1 skips orchestrator start/shutdown."""
-    from core.orchestrator import lifespan, app
+    from core.orchestrator import app, lifespan
 
     with patch.dict("os.environ", {"MEGABOT_SKIP_STARTUP": "1"}):
         async with lifespan(app):
@@ -1627,14 +1633,16 @@ async def test_init_audit_log_auto_enable(mock_config):
         env_copy.pop("GITHUB_ACTIONS", None)
         env_copy.pop("ENABLE_AUDIT_LOG", None)
         # Fake sys.argv to not contain "pytest"
-        with patch.dict("os.environ", env_copy, clear=True):
-            with patch.object(sys, "argv", ["megabot", "run"]):
-                with patch("core.orchestrator.attach_audit_file_handler") as mock_attach:
-                    try:
-                        orch = MegaBotOrchestrator(mock_config)
-                        mock_attach.assert_called_once()
-                    except Exception:
-                        pass
+        with (
+            patch.dict("os.environ", env_copy, clear=True),
+            patch.object(sys, "argv", ["megabot", "run"]),
+            patch("core.orchestrator.attach_audit_file_handler") as mock_attach,
+        ):
+            try:
+                orch = MegaBotOrchestrator(mock_config)
+                mock_attach.assert_called_once()
+            except Exception:
+                pass
 
 
 # --- start() _health_wrapper inner paths ---
@@ -1711,10 +1719,12 @@ async def test_start_create_task_returns_non_task_closes_coro(orchestrator):
     orchestrator.discovery.scan = MagicMock()
 
     # Patch create_task to return a non-Task value
-    with patch("asyncio.create_task", return_value="not-a-task"):
-        with patch("asyncio.ensure_future", side_effect=Exception("also fails")):
-            await orchestrator.start()
-            # Wrapper coro should be closed, no warning
+    with (
+        patch("asyncio.create_task", return_value="not-a-task"),
+        patch("asyncio.ensure_future", side_effect=Exception("also fails")),
+    ):
+        await orchestrator.start()
+        # Wrapper coro should be closed, no warning
 
 
 # --- _to_platform_message delegation ---
@@ -1739,7 +1749,7 @@ def test_check_policy_cmd_part_scope_match_allow(orchestrator):
             "shell.git status": None,
             "git status": None,
             "shell.git": True,
-        }.get(scope, None)
+        }.get(scope)
     )
 
     result = orchestrator._check_policy(
@@ -1758,7 +1768,7 @@ def test_check_policy_cmd_part_scope_match_deny(orchestrator):
             "shell.rm status": None,
             "rm status": None,
             "shell.rm": False,
-        }.get(scope, None)
+        }.get(scope)
     )
 
     result = orchestrator._check_policy(
@@ -2110,24 +2120,28 @@ async def test_process_approval_tirith_blocks_command(orchestrator):
 @pytest.mark.asyncio
 async def test_ivr_callback_no_orchestrator():
     """Lines 1743-1744: orchestrator is None → 'System error.' response."""
-    from core.orchestrator import app
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
 
-    with patch.dict("os.environ", {"MEGABOT_SKIP_STARTUP": "1"}):
-        with patch("core.orchestrator.orchestrator", None):
-            with patch("core.app._validate_twilio_signature", return_value=True):
-                transport = ASGITransport(app=app)
-                async with AsyncClient(transport=transport, base_url="http://test") as client:
-                    resp = await client.post("/ivr?action_id=test123", data={"Digits": "1"})
-                    assert resp.status_code == 200
-                    assert "System error" in resp.text
+    from core.orchestrator import app
+
+    with (
+        patch.dict("os.environ", {"MEGABOT_SKIP_STARTUP": "1"}),
+        patch("core.orchestrator.orchestrator", None),
+        patch("core.app._validate_twilio_signature", return_value=True),
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/ivr?action_id=test123", data={"Digits": "1"})
+            assert resp.status_code == 200
+            assert "System error" in resp.text
 
 
 @pytest.mark.asyncio
 async def test_ivr_callback_rejects_missing_signature():
     """VULN-012: /ivr rejects requests without valid Twilio signature (CSRF)."""
+    from httpx import ASGITransport, AsyncClient
+
     from core.orchestrator import app
-    from httpx import AsyncClient, ASGITransport
 
     with patch.dict(
         "os.environ",
@@ -2144,8 +2158,9 @@ async def test_ivr_callback_rejects_missing_signature():
 @pytest.mark.asyncio
 async def test_ivr_callback_rejects_no_auth_token():
     """VULN-012: /ivr rejects when TWILIO_AUTH_TOKEN is not set (fail-closed)."""
+    from httpx import ASGITransport, AsyncClient
+
     from core.orchestrator import app
-    from httpx import AsyncClient, ASGITransport
 
     with patch.dict(
         "os.environ",
@@ -2235,7 +2250,8 @@ async def test_safe_create_task_on_done_non_cancelled_exception():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_callback_error():
     """Lines 43-44: t.exception() itself raises a non-CancelledError."""
-    from core.task_utils import safe_create_task as _safe_create_task, _tracked_tasks as _orchestrator_tasks
+    from core.task_utils import _tracked_tasks as _orchestrator_tasks
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def simple_task():
         return "done"
@@ -2251,13 +2267,15 @@ async def test_safe_create_task_on_done_callback_error():
 @pytest.mark.asyncio
 async def test_init_audit_log_exception(mock_config):
     """Lines 237-239: exception in audit log setup -> pass (no crash)."""
-    with patch(
-        "core.orchestrator.attach_audit_file_handler",
-        side_effect=OSError("log fail"),
+    with (
+        patch(
+            "core.orchestrator.attach_audit_file_handler",
+            side_effect=OSError("log fail"),
+        ),
+        patch.dict("os.environ", {"MEGABOT_ENABLE_AUDIT_LOG": "1"}),
     ):
-        with patch.dict("os.environ", {"MEGABOT_ENABLE_AUDIT_LOG": "1"}):
-            orch = MegaBotOrchestrator(mock_config)
-            assert orch is not None
+        orch = MegaBotOrchestrator(mock_config)
+        assert orch is not None
 
 
 # --- run_autonomous_gateway_build memory injection (line 385) ---
@@ -2342,9 +2360,11 @@ async def test_start_coro_close_raises(orchestrator):
     mock_monitor.start_monitoring = AsyncMock()
     orchestrator.health_monitor = mock_monitor
 
-    with patch("asyncio.create_task", return_value="not-a-task"):
-        with patch("asyncio.ensure_future", return_value="also-not"):
-            await orchestrator.start()
+    with (
+        patch("asyncio.create_task", return_value="not-a-task"),
+        patch("asyncio.ensure_future", return_value="also-not"),
+    ):
+        await orchestrator.start()
 
     await orchestrator.shutdown()
 
@@ -2395,11 +2415,10 @@ async def test_escalation_dnd_active_wrap_around(orchestrator):
     action = {"id": "action-1"}
     orchestrator.admin_handler.approval_queue = [action]
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        with patch("core.approval_workflows.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=23)
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            await orchestrator._start_approval_escalation(action)
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+        mock_dt.now.return_value = MagicMock(hour=23)
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        await orchestrator._start_approval_escalation(action)
 
 
 @pytest.mark.asyncio
@@ -2412,11 +2431,10 @@ async def test_escalation_dnd_same_range(orchestrator):
     action = {"id": "action-2"}
     orchestrator.admin_handler.approval_queue = [action]
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        with patch("core.approval_workflows.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=10)  # inside 8-17
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            await orchestrator._start_approval_escalation(action)
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+        mock_dt.now.return_value = MagicMock(hour=10)  # inside 8-17
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        await orchestrator._start_approval_escalation(action)
 
 
 @pytest.mark.asyncio
@@ -2433,11 +2451,10 @@ async def test_escalation_calendar_dnd(orchestrator):
     mcp_mock.call_tool = AsyncMock(return_value=[{"summary": "BUSY - Important Meeting"}])
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": MagicMock()}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        with patch("core.approval_workflows.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            await orchestrator._start_approval_escalation(action)
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+        mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        await orchestrator._start_approval_escalation(action)
 
 
 @pytest.mark.asyncio
@@ -2460,11 +2477,10 @@ async def test_escalation_calendar_check_fails(orchestrator):
 
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": messaging_mock}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        with patch("core.approval_workflows.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            await orchestrator._start_approval_escalation(action)
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+        mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        await orchestrator._start_approval_escalation(action)
 
     voice_mock.make_call.assert_awaited_once()
 
@@ -2483,11 +2499,10 @@ async def test_escalation_no_admin_phone(orchestrator):
     mcp_mock.call_tool = AsyncMock(return_value=[])
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": MagicMock()}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        with patch("core.approval_workflows.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=15)
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            await orchestrator._start_approval_escalation(action)
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+        mock_dt.now.return_value = MagicMock(hour=15)
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        await orchestrator._start_approval_escalation(action)
 
 
 # --- _handle_computer_tool (lines 1149-1173) ---
@@ -2677,16 +2692,18 @@ async def test_health_monitor_all_paths(mock_orchestrator_components):
     assert health_data["memory"]["status"] == "down"
 
     # Monitoring loop
-    with patch.object(
-        monitor,
-        "get_system_health",
-        side_effect=[{"c": {"status": "down"}}, BreakLoop()],
+    with (
+        patch.object(
+            monitor,
+            "get_system_health",
+            side_effect=[{"c": {"status": "down"}}, BreakLoop()],
+        ),
+        patch("asyncio.sleep", side_effect=[None, BreakLoop()]),
     ):
-        with patch("asyncio.sleep", side_effect=[None, BreakLoop()]):
-            try:
-                await monitor.start_monitoring()
-            except BreakLoop:
-                pass
+        try:
+            await monitor.start_monitoring()
+        except BreakLoop:
+            pass
     assert mock_orchestrator_components.restart_component.called
 
 
@@ -2775,12 +2792,14 @@ async def test_health_monitor_extra_coverage(mock_orchestrator_components_extra)
     assert health_data["mcp"]["status"] == "down"
 
     # Monitoring loop error (line 225)
-    with patch.object(monitor, "get_system_health", side_effect=Exception("loop error")):
-        with patch("asyncio.sleep", side_effect=[BreakLoop()]):
-            try:
-                await monitor.start_monitoring()
-            except BreakLoop:
-                pass
+    with (
+        patch.object(monitor, "get_system_health", side_effect=Exception("loop error")),
+        patch("asyncio.sleep", side_effect=[BreakLoop()]),
+    ):
+        try:
+            await monitor.start_monitoring()
+        except BreakLoop:
+            pass
 
 
 @pytest.mark.asyncio
@@ -2788,13 +2807,15 @@ async def test_background_tasks_extra_coverage(mock_orchestrator_components_extr
     tasks = BackgroundTasks(mock_orchestrator_components_extra)
 
     # Start all tasks (lines 238-242)
-    with patch("core.orchestrator_components.safe_create_task") as mock_create:
-        with patch.object(tasks, "sync_loop", return_value=None):
-            with patch.object(tasks, "proactive_loop", return_value=None):
-                with patch.object(tasks, "pruning_loop", return_value=None):
-                    with patch.object(tasks, "backup_loop", return_value=None):
-                        await tasks.start_all_tasks()
-                        assert mock_create.called
+    with (
+        patch("core.orchestrator_components.safe_create_task") as mock_create,
+        patch.object(tasks, "sync_loop", return_value=None),
+        patch.object(tasks, "proactive_loop", return_value=None),
+        patch.object(tasks, "pruning_loop", return_value=None),
+        patch.object(tasks, "backup_loop", return_value=None),
+    ):
+        await tasks.start_all_tasks()
+        assert mock_create.called
 
     # Sync loop errors (lines 256-257, 265-266, 273-274, 278)
     mock_orchestrator_components_extra.user_identity = AsyncMock()
@@ -2846,23 +2867,24 @@ async def test_start_all_tasks_handles_scheduling_failures(mock_orchestrator_com
     c3 = _dummy()
     c4 = _dummy()
 
-    with patch("asyncio.create_task", side_effect=Exception("create_task patched")):
-        with patch("asyncio.ensure_future", side_effect=Exception("ensure_future patched")):
-            # Patch loop functions to return our prepared coroutine objects
-            with patch.object(tasks, "sync_loop", return_value=c1):
-                with patch.object(tasks, "proactive_loop", return_value=c2):
-                    with patch.object(tasks, "pruning_loop", return_value=c3):
-                        with patch.object(tasks, "backup_loop", return_value=c4):
-                            # Should not raise
-                            await tasks.start_all_tasks()
+    with (
+        patch("asyncio.create_task", side_effect=Exception("create_task patched")),
+        patch("asyncio.ensure_future", side_effect=Exception("ensure_future patched")),
+        patch.object(tasks, "sync_loop", return_value=c1),
+        patch.object(tasks, "proactive_loop", return_value=c2),
+        patch.object(tasks, "pruning_loop", return_value=c3),
+        patch.object(tasks, "backup_loop", return_value=c4),
+    ):
+        # Should not raise
+        await tasks.start_all_tasks()
 
-                            # Ensure any coroutine objects created for the test
-                            # are explicitly closed
-                            for _c in (c1, c2, c3, c4):
-                                try:
-                                    _c.close()
-                                except Exception:
-                                    pass
+        # Ensure any coroutine objects created for the test
+        # are explicitly closed
+        for _c in (c1, c2, c3, c4):
+            try:
+                _c.close()
+            except Exception:
+                pass
 
     assert True
 
@@ -2968,21 +2990,23 @@ class TestBackgroundTasksScheduling:
         fake_coro = _make_fake_coro()
         mock_task = MagicMock()
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch(
-                            "asyncio.create_task",
-                            side_effect=RuntimeError("no loop"),
-                        ):
-                            with patch(
-                                "asyncio.ensure_future",
-                                return_value=mock_task,
-                            ) as ef_mock:
-                                await tasks.start_all_tasks()
-                                ef_mock.assert_called_once_with(fake_coro)
-                                assert mock_task in tasks._tasks
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch(
+                "asyncio.create_task",
+                side_effect=RuntimeError("no loop"),
+            ),
+            patch(
+                "asyncio.ensure_future",
+                return_value=mock_task,
+            ) as ef_mock,
+        ):
+            await tasks.start_all_tasks()
+            ef_mock.assert_called_once_with(fake_coro)
+            assert mock_task in tasks._tasks
 
     @pytest.mark.asyncio
     async def test_safe_schedule_both_fail_closes_coro(self, mock_orch_components_gaps):
@@ -2991,19 +3015,21 @@ class TestBackgroundTasksScheduling:
 
         fake_coro = _make_fake_coro()
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch(
-                            "asyncio.create_task",
-                            side_effect=RuntimeError("boom"),
-                        ):
-                            with patch(
-                                "asyncio.ensure_future",
-                                side_effect=RuntimeError("boom2"),
-                            ):
-                                await tasks.start_all_tasks()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch(
+                "asyncio.create_task",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch(
+                "asyncio.ensure_future",
+                side_effect=RuntimeError("boom2"),
+            ),
+        ):
+            await tasks.start_all_tasks()
 
         assert fake_coro.close.call_count >= 1
         assert len(tasks._tasks) == 0
@@ -3013,12 +3039,14 @@ class TestBackgroundTasksScheduling:
         """When calling a loop function raises, start_all_tasks skips it."""
         tasks = BackgroundTasks(mock_orch_components_gaps)
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(side_effect=RuntimeError("coro boom"))):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        # Should not raise
-                        await tasks.start_all_tasks()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(side_effect=RuntimeError("coro boom"))),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+        ):
+            # Should not raise
+            await tasks.start_all_tasks()
 
         assert len(tasks._tasks) == 0
 
@@ -3027,13 +3055,15 @@ class TestBackgroundTasksScheduling:
         """When a loop function returns None, start_all_tasks skips scheduling."""
         tasks = BackgroundTasks(mock_orch_components_gaps)
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=None)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch("asyncio.create_task") as ct:
-                            await tasks.start_all_tasks()
-                            ct.assert_not_called()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch("asyncio.create_task") as ct,
+        ):
+            await tasks.start_all_tasks()
+            ct.assert_not_called()
 
         assert len(tasks._tasks) == 0
 
@@ -3044,19 +3074,21 @@ class TestBackgroundTasksScheduling:
 
         fake_coro = _make_fake_coro()
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch(
-                            "asyncio.create_task",
-                            side_effect=RuntimeError("no"),
-                        ):
-                            with patch(
-                                "asyncio.ensure_future",
-                                side_effect=RuntimeError("no"),
-                            ):
-                                await tasks.start_all_tasks()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch(
+                "asyncio.create_task",
+                side_effect=RuntimeError("no"),
+            ),
+            patch(
+                "asyncio.ensure_future",
+                side_effect=RuntimeError("no"),
+            ),
+        ):
+            await tasks.start_all_tasks()
 
         assert fake_coro.close.call_count >= 2
         assert len(tasks._tasks) == 0
@@ -3069,20 +3101,22 @@ class TestBackgroundTasksScheduling:
         fake_coro = MagicMock()
         fake_coro.close = MagicMock(side_effect=RuntimeError("close boom"))
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch(
-                            "asyncio.create_task",
-                            side_effect=RuntimeError("no"),
-                        ):
-                            with patch(
-                                "asyncio.ensure_future",
-                                side_effect=RuntimeError("no"),
-                            ):
-                                # Should not raise even though close() throws
-                                await tasks.start_all_tasks()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch(
+                "asyncio.create_task",
+                side_effect=RuntimeError("no"),
+            ),
+            patch(
+                "asyncio.ensure_future",
+                side_effect=RuntimeError("no"),
+            ),
+        ):
+            # Should not raise even though close() throws
+            await tasks.start_all_tasks()
 
         assert len(tasks._tasks) == 0
 
@@ -3101,19 +3135,21 @@ class TestBackgroundTasksScheduling:
         fake_coro = MagicMock()
         fake_coro.close = MagicMock(side_effect=close_sometimes)
 
-        with patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)):
-            with patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)):
-                with patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)):
-                    with patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)):
-                        with patch(
-                            "asyncio.create_task",
-                            side_effect=RuntimeError("no"),
-                        ):
-                            with patch(
-                                "asyncio.ensure_future",
-                                side_effect=RuntimeError("no"),
-                            ):
-                                await tasks.start_all_tasks()
+        with (
+            patch.object(tasks, "sync_loop", new=MagicMock(return_value=fake_coro)),
+            patch.object(tasks, "proactive_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "pruning_loop", new=MagicMock(return_value=None)),
+            patch.object(tasks, "backup_loop", new=MagicMock(return_value=None)),
+            patch(
+                "asyncio.create_task",
+                side_effect=RuntimeError("no"),
+            ),
+            patch(
+                "asyncio.ensure_future",
+                side_effect=RuntimeError("no"),
+            ),
+        ):
+            await tasks.start_all_tasks()
 
         assert len(tasks._tasks) == 0
 
@@ -3290,9 +3326,11 @@ async def test_start_coro_close_raises_with_sleep(orchestrator):
     mock_monitor.stop = MagicMock()
     orchestrator.health_monitor = mock_monitor
 
-    with patch("asyncio.create_task", return_value="not-a-task"):
-        with patch("asyncio.ensure_future", return_value="also-not"):
-            await orchestrator.start()
+    with (
+        patch("asyncio.create_task", return_value="not-a-task"),
+        patch("asyncio.ensure_future", return_value="also-not"),
+    ):
+        await orchestrator.start()
 
     await asyncio.sleep(0.05)
     await orchestrator.shutdown()

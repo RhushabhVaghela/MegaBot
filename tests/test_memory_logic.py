@@ -1,17 +1,18 @@
-import pytest
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
 
 # Mock pyautogui before importing anything that uses it
 import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 mock_pyautogui = MagicMock()
 sys.modules["pyautogui"] = mock_pyautogui
 mock_mouseinfo = MagicMock()
 sys.modules["mouseinfo"] = mock_mouseinfo
 
-from core.orchestrator import MegaBotOrchestrator
 from core.interfaces import Message
+from core.orchestrator import MegaBotOrchestrator
 
 
 @pytest.fixture
@@ -44,17 +45,19 @@ def mock_config():
 
 @pytest.fixture
 def orchestrator(mock_config):
-    with patch("core.orchestrator.ModuleDiscovery"):
-        with patch("core.orchestrator.OpenClawAdapter"):
-            with patch("core.orchestrator.MemUAdapter"):
-                with patch("core.orchestrator.MCPManager"):
-                    orc = MegaBotOrchestrator(mock_config)
-                    orc.adapters["openclaw"] = AsyncMock()
-                    orc.adapters["memu"] = AsyncMock()
-                    orc.adapters["mcp"] = AsyncMock()
-                    orc.llm = AsyncMock()
-                    orc.memory = AsyncMock()
-                    return orc
+    with (
+        patch("core.orchestrator.ModuleDiscovery"),
+        patch("core.orchestrator.OpenClawAdapter"),
+        patch("core.orchestrator.MemUAdapter"),
+        patch("core.orchestrator.MCPManager"),
+    ):
+        orc = MegaBotOrchestrator(mock_config)
+        orc.adapters["openclaw"] = AsyncMock()
+        orc.adapters["memu"] = AsyncMock()
+        orc.adapters["mcp"] = AsyncMock()
+        orc.llm = AsyncMock()
+        orc.memory = AsyncMock()
+        return orc
 
 
 @pytest.mark.asyncio
@@ -83,9 +86,7 @@ async def test_memory_learning_and_distillation(orchestrator):
             "next_steps": ["Patch /etc/config"],
         }
     )
-    distilled_memory = (
-        "DISTILLED: 1. No direct write to /etc/config. 2. Use Tirith Guard."
-    )
+    distilled_memory = "DISTILLED: 1. No direct write to /etc/config. 2. Use Tirith Guard."
 
     async def mock_gen(context=None, messages=None, **kwargs):
         ctx = str(context).lower()
@@ -108,9 +109,7 @@ async def test_memory_learning_and_distillation(orchestrator):
         mock_agent.run = AsyncMock(return_value=raw_result)
         mock_agent.generate_plan = AsyncMock(return_value=["Step 1"])
 
-        await orchestrator._spawn_sub_agent(
-            {"name": agent_name, "task": task, "role": "Senior Dev"}
-        )
+        await orchestrator._spawn_sub_agent({"name": agent_name, "task": task, "role": "Senior Dev"})
 
         # Verify memory write
         orchestrator.memory.memory_write.assert_called_once()

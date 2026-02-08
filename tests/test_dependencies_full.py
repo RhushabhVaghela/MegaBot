@@ -1,12 +1,13 @@
 """Tests for dependency injection system"""
 
 import pytest
+
 from core.dependencies import (
     DependencyContainer,
-    register_service,
-    resolve_service,
     dependency_scope,
     inject,
+    register_service,
+    resolve_service,
 )
 
 
@@ -136,7 +137,7 @@ def test_factory_with_singleton_property():
 
 def test_get_container():
     """Test get_container function (line 85)"""
-    from core.dependencies import get_container, DependencyContainer
+    from core.dependencies import DependencyContainer, get_container
 
     container = get_container()
     assert isinstance(container, DependencyContainer)
@@ -144,7 +145,7 @@ def test_get_container():
 
 def test_inject_optional_dependencies():
     """Test inject decorator with optional (unresolvable) dependencies (lines 107-108, 122-123)"""
-    from core.dependencies import inject, dependency_scope
+    from core.dependencies import dependency_scope, inject
 
     class Unresolvable:
         def __init__(self, arg):
@@ -173,10 +174,10 @@ def test_inject_optional_dependencies():
 def test_registration_helpers():
     """Test register_factory and register_singleton helper functions (lines 151, 156)"""
     from core.dependencies import (
+        dependency_scope,
         register_factory,
         register_singleton,
         resolve_service,
-        dependency_scope,
     )
 
     class FactoryService:

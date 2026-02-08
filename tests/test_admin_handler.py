@@ -1,7 +1,9 @@
 import os
 import tempfile
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from core.admin_handler import AdminHandler
 
 
@@ -781,28 +783,28 @@ async def test_atomic_write_uses_tempfile_and_replace(admin_handler, tmp_path):
     test_file = tmp_path / "atomic_test.txt"
     content = "atomic content"
 
-    with patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path):
-        with (
-            patch("core.admin_handler.tempfile.mkstemp", wraps=tempfile.mkstemp) as mock_mkstemp,
-            patch("core.admin_handler.os.replace", wraps=os.replace) as mock_replace,
-        ):
-            action = {
-                "type": "file_operation",
-                "payload": {
-                    "operation": "write",
-                    "path": str(test_file),
-                    "content": content,
-                },
-            }
-            result = await admin_handler._execute_approved_action(action)
-            assert "File written" in result
-            assert test_file.read_text() == content
-            mock_mkstemp.assert_called_once()
-            mock_replace.assert_called_once()
-            # The first arg to os.replace should be the temp path,
-            # the second should be the final destination
-            replace_args = mock_replace.call_args[0]
-            assert replace_args[1] == str(test_file)
+    with (
+        patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
+        patch("core.admin_handler.tempfile.mkstemp", wraps=tempfile.mkstemp) as mock_mkstemp,
+        patch("core.admin_handler.os.replace", wraps=os.replace) as mock_replace,
+    ):
+        action = {
+            "type": "file_operation",
+            "payload": {
+                "operation": "write",
+                "path": str(test_file),
+                "content": content,
+            },
+        }
+        result = await admin_handler._execute_approved_action(action)
+        assert "File written" in result
+        assert test_file.read_text() == content
+        mock_mkstemp.assert_called_once()
+        mock_replace.assert_called_once()
+        # The first arg to os.replace should be the temp path,
+        # the second should be the final destination
+        replace_args = mock_replace.call_args[0]
+        assert replace_args[1] == str(test_file)
 
 
 @pytest.mark.asyncio
@@ -810,29 +812,31 @@ async def test_atomic_write_cleans_up_temp_on_failure(admin_handler, tmp_path):
     """When os.fdopen().write() raises, the temp file is cleaned up via os.unlink."""
     test_file = tmp_path / "fail_test.txt"
 
-    with patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path):
+    with (
+        patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
         # Make os.fdopen return a context manager whose write() raises
-        with patch("core.admin_handler.os.fdopen") as mock_fdopen:
-            mock_f = MagicMock()
-            mock_f.__enter__ = MagicMock(return_value=mock_f)
-            mock_f.__exit__ = MagicMock(return_value=False)
-            mock_f.write.side_effect = IOError("disk full")
-            mock_fdopen.return_value = mock_f
+        patch("core.admin_handler.os.fdopen") as mock_fdopen,
+    ):
+        mock_f = MagicMock()
+        mock_f.__enter__ = MagicMock(return_value=mock_f)
+        mock_f.__exit__ = MagicMock(return_value=False)
+        mock_f.write.side_effect = OSError("disk full")
+        mock_fdopen.return_value = mock_f
 
-            with patch("core.admin_handler.os.unlink") as mock_unlink:
-                action = {
-                    "type": "file_operation",
-                    "payload": {
-                        "operation": "write",
-                        "path": str(test_file),
-                        "content": "will fail",
-                    },
-                }
-                # The exception propagates up to _execute_approved_action's
-                # outer try/except, which catches it and returns an error string
-                result = await admin_handler._execute_approved_action(action)
-                assert "disk full" in result or "execution failed" in result.lower()
-                mock_unlink.assert_called_once()
+        with patch("core.admin_handler.os.unlink") as mock_unlink:
+            action = {
+                "type": "file_operation",
+                "payload": {
+                    "operation": "write",
+                    "path": str(test_file),
+                    "content": "will fail",
+                },
+            }
+            # The exception propagates up to _execute_approved_action's
+            # outer try/except, which catches it and returns an error string
+            result = await admin_handler._execute_approved_action(action)
+            assert "disk full" in result or "execution failed" in result.lower()
+            mock_unlink.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -840,23 +844,25 @@ async def test_atomic_write_unlink_oserror_suppressed(admin_handler, tmp_path):
     """When cleanup os.unlink also fails, the OSError is silently suppressed."""
     test_file = tmp_path / "unlink_fail.txt"
 
-    with patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path):
-        with patch("core.admin_handler.os.fdopen") as mock_fdopen:
-            mock_f = MagicMock()
-            mock_f.__enter__ = MagicMock(return_value=mock_f)
-            mock_f.__exit__ = MagicMock(return_value=False)
-            mock_f.write.side_effect = IOError("disk full")
-            mock_fdopen.return_value = mock_f
+    with (
+        patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
+        patch("core.admin_handler.os.fdopen") as mock_fdopen,
+    ):
+        mock_f = MagicMock()
+        mock_f.__enter__ = MagicMock(return_value=mock_f)
+        mock_f.__exit__ = MagicMock(return_value=False)
+        mock_f.write.side_effect = OSError("disk full")
+        mock_fdopen.return_value = mock_f
 
-            with patch("core.admin_handler.os.unlink", side_effect=OSError("no perm")):
-                action = {
-                    "type": "file_operation",
-                    "payload": {
-                        "operation": "write",
-                        "path": str(test_file),
-                        "content": "will fail",
-                    },
-                }
-                # Should NOT raise — the OSError from unlink is suppressed
-                result = await admin_handler._execute_approved_action(action)
-                assert "disk full" in result or "execution failed" in result.lower()
+        with patch("core.admin_handler.os.unlink", side_effect=OSError("no perm")):
+            action = {
+                "type": "file_operation",
+                "payload": {
+                    "operation": "write",
+                    "path": str(test_file),
+                    "content": "will fail",
+                },
+            }
+            # Should NOT raise — the OSError from unlink is suppressed
+            result = await admin_handler._execute_approved_action(action)
+            assert "disk full" in result or "execution failed" in result.lower()

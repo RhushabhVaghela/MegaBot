@@ -1,7 +1,9 @@
 """Tests for SubAgent module"""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+
 from core.agents import SubAgent
 
 

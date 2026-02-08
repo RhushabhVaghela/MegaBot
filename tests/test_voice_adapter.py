@@ -2,9 +2,10 @@
 Tests for VoiceAdapter
 """
 
-import asyncio
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from adapters.voice_adapter import VoiceAdapter
 
 
@@ -179,6 +180,7 @@ class TestVoiceAdapter:
         # Patch twilio.rest to be None to trigger fallback during reload
         with patch.dict("sys.modules", {"twilio.rest": None}):
             import importlib
+
             import adapters.voice_adapter
 
             importlib.reload(adapters.voice_adapter)

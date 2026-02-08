@@ -6,12 +6,12 @@ test_whatsapp_coverage_final.py, test_whatsapp_final.py, test_whatsapp_boost.py
 """
 
 import io
-import os
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from adapters.messaging.whatsapp import WhatsAppAdapter
-from adapters.messaging.server import MessageType
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from adapters.messaging.server import MessageType
+from adapters.messaging.whatsapp import WhatsAppAdapter
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
@@ -613,25 +613,29 @@ class TestUploadMedia:
     async def test_upload_media_error_400(self, adapter):
         """_upload_media returns None on 400 response."""
         adapter.session.post.return_value = _mock_response(400, text_data="Error")
-        with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", MagicMock()):
-                with patch("aiohttp.FormData") as mock_form_data:
-                    mock_form = MagicMock()
-                    mock_form_data.return_value = mock_form
-                    res = await adapter._upload_media("file.png", MessageType.IMAGE)
-                    assert res is None
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", MagicMock()),
+            patch("aiohttp.FormData") as mock_form_data,
+        ):
+            mock_form = MagicMock()
+            mock_form_data.return_value = mock_form
+            res = await adapter._upload_media("file.png", MessageType.IMAGE)
+            assert res is None
 
     @pytest.mark.asyncio
     async def test_upload_media_success(self, adapter):
         """_upload_media returns media id on success."""
         adapter.session.post.return_value = _mock_response(200, json_data={"id": "up_id"})
-        with patch("os.path.exists", return_value=True):
-            with patch(
+        with (
+            patch("os.path.exists", return_value=True),
+            patch(
                 "builtins.open",
                 side_effect=lambda *args, **kwargs: io.BytesIO(b"abc"),
-            ):
-                res = await adapter._upload_media("file.png", MessageType.IMAGE)
-                assert res == "up_id"
+            ),
+        ):
+            res = await adapter._upload_media("file.png", MessageType.IMAGE)
+            assert res == "up_id"
 
     @pytest.mark.asyncio
     async def test_upload_media_success_and_fail_branches(self, adapter):
@@ -660,15 +664,17 @@ class TestUploadMedia:
     async def test_upload_media_fail_status(self, adapter):
         """_upload_media returns None on 400 with AsyncMock session."""
         adapter.session = AsyncMock()
-        with patch("os.path.exists", return_value=True):
-            with patch(
+        with (
+            patch("os.path.exists", return_value=True),
+            patch(
                 "builtins.open",
                 side_effect=lambda *args, **kwargs: io.BytesIO(b"abc"),
-            ):
-                adapter.session.post.return_value.__aenter__.return_value.status = 400
-                adapter.session.post.return_value.__aenter__.return_value.text = AsyncMock(return_value="fail")
-                res = await adapter._upload_media("p.png", MessageType.IMAGE)
-                assert res is None
+            ),
+        ):
+            adapter.session.post.return_value.__aenter__.return_value.status = 400
+            adapter.session.post.return_value.__aenter__.return_value.text = AsyncMock(return_value="fail")
+            res = await adapter._upload_media("p.png", MessageType.IMAGE)
+            assert res is None
 
 
 # ── OpenClaw Path Tests ───────────────────────────────────────────────
@@ -954,15 +960,14 @@ class TestWhatsAppCoverage:
         assert result is None
 
         # API failure
-        with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", MagicMock()):
-                mock_resp = MagicMock()
-                mock_resp.status = 400
-                mock_resp.text = AsyncMock(return_value="Error")
-                wa_adapter.session.post.return_value.__aenter__.return_value = mock_resp
+        with patch("os.path.exists", return_value=True), patch("builtins.open", MagicMock()):
+            mock_resp = MagicMock()
+            mock_resp.status = 400
+            mock_resp.text = AsyncMock(return_value="Error")
+            wa_adapter.session.post.return_value.__aenter__.return_value = mock_resp
 
-                result = await wa_adapter._upload_media("exists.jpg", MessageType.IMAGE)
-                assert result is None
+            result = await wa_adapter._upload_media("exists.jpg", MessageType.IMAGE)
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_whatsapp_webhook_various_types(self, wa_adapter):

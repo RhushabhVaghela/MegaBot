@@ -7,9 +7,10 @@ os.environ["MEGABOT_ENCRYPTION_SALT"] = "test-salt-minimum-16-chars"
 os.environ["MEGABOT_BACKUP_KEY"] = "test-backup-key-32-chars-long-string"
 os.environ["MEGABOT_WS_PASSWORD"] = "test-ws-password-for-ci"
 
+from unittest.mock import MagicMock
+
 import pytest
 import yaml
-from unittest.mock import MagicMock
 
 # Ensure the project root is on sys.path so `core` package is importable when
 # tests are executed from different working directories or isolation layers.
@@ -18,7 +19,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 # Import core config dataclasses used by fixtures
-from core.config import Config, SystemConfig, AdapterConfig, SecurityConfig
+from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
 
 # Global mocking for firebase_admin to prevent import errors in tests
 sys.modules["firebase_admin"] = MagicMock()

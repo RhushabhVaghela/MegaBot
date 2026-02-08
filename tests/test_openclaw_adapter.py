@@ -1,7 +1,9 @@
-import pytest
-import json
 import asyncio
+import json
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from adapters.openclaw_adapter import OpenClawAdapter
 from core.interfaces import Message
 
@@ -45,11 +47,10 @@ async def test_openclaw_adapter_execute_tool():
     # Mock result
     expected_res = {"type": "res", "id": "1", "result": "ok"}
 
-    with patch("uuid.uuid4", return_value="1"):
-        with patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait:
-            mock_wait.return_value = expected_res
-            result = await adapter.execute_tool("t", {})
-            assert result.get("result") == "ok"
+    with patch("uuid.uuid4", return_value="1"), patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait:
+        mock_wait.return_value = expected_res
+        result = await adapter.execute_tool("t", {})
+        assert result.get("result") == "ok"
 
 
 @pytest.mark.asyncio
@@ -81,7 +82,7 @@ async def test_openclaw_adapter_subscribe():
 async def test_openclaw_adapter_connect_failure():
     with patch("websockets.connect", side_effect=Exception("failed")):
         adapter = OpenClawAdapter("localhost", 18789)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="failed"):
             await adapter.connect()
 
 
@@ -212,12 +213,14 @@ async def test_openclaw_adapter_execute_tool_timeout():
     adapter = OpenClawAdapter("localhost", 18789)
     adapter.websocket = AsyncMock()
 
-    with patch("uuid.uuid4", return_value="timeout-test"):
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
-            result = await adapter.execute_tool("test_method", {"param": "value"})
-            assert result["error"] == "Request timed out"
-            assert result["type"] == "res"
-            assert result["id"] == "timeout-test"
+    with (
+        patch("uuid.uuid4", return_value="timeout-test"),
+        patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()),
+    ):
+        result = await adapter.execute_tool("test_method", {"param": "value"})
+        assert result["error"] == "Request timed out"
+        assert result["type"] == "res"
+        assert result["id"] == "timeout-test"
 
 
 @pytest.mark.asyncio

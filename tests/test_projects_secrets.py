@@ -1,6 +1,7 @@
 """Tests for projects and secrets modules"""
 
 import os
+
 from core.projects import ProjectManager
 from core.secrets import SecretManager
 
@@ -105,7 +106,6 @@ class TestSecretManager:
     def test_world_readable_directory_warning(self, tmp_path, caplog):
         """Test that a world-readable secrets dir triggers a warning."""
         import logging
-        import stat as stat_mod
 
         secrets_dir = tmp_path / "secrets"
         secrets_dir.mkdir()
@@ -133,8 +133,8 @@ class TestSecretManager:
     def test_permission_check_oserror(self, tmp_path, caplog):
         """Test that OSError during permission check logs a warning."""
         import logging
-        from unittest.mock import patch
         import os as _os
+        from unittest.mock import patch
 
         secrets_dir = tmp_path / "secrets"
         secrets_dir.mkdir()
@@ -154,9 +154,11 @@ class TestSecretManager:
                     raise OSError("Permission denied")
             return result_or_exc
 
-        with patch("core.secrets.os.stat", side_effect=stat_that_fails_on_second):
-            with caplog.at_level(logging.WARNING, logger="megabot.secrets"):
-                sm = SecretManager(secrets_dir=str(secrets_dir))
+        with (
+            patch("core.secrets.os.stat", side_effect=stat_that_fails_on_second),
+            caplog.at_level(logging.WARNING, logger="megabot.secrets"),
+        ):
+            sm = SecretManager(secrets_dir=str(secrets_dir))
 
         assert any("Could not check permissions" in r.message for r in caplog.records)
 

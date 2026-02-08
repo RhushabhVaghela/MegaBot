@@ -2,20 +2,21 @@
 Tests for LLM Providers
 """
 
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import aiohttp
 import pytest
-from unittest.mock import AsyncMock, patch, Mock, MagicMock
 
 from core.llm_providers import (
-    LLMProvider,
-    OpenAICompatibleProvider,
-    OpenAIProvider,
     AnthropicProvider,
     GeminiProvider,
-    OllamaProvider,
-    MistralProvider,
-    OpenRouterProvider,
     GitHubCopilotProvider,
+    LLMProvider,
+    MistralProvider,
+    OllamaProvider,
+    OpenAICompatibleProvider,
+    OpenAIProvider,
+    OpenRouterProvider,
     get_llm_provider,
 )
 
@@ -734,9 +735,9 @@ class TestLLMProviderCoverage:
 @pytest.mark.asyncio
 async def test_llm_providers_mopup():
     from core.llm_providers import (
-        OpenAIProvider,
-        OllamaProvider,
         GeminiProvider,
+        OllamaProvider,
+        OpenAIProvider,
     )
 
     # 1. OpenAI error response (use 400 to avoid retry delays)

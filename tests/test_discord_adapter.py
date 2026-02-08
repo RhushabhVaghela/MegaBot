@@ -2,12 +2,14 @@
 Tests for Discord Adapter
 """
 
-import logging
-import pytest
 import asyncio
 import importlib
+import logging
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
+
 import adapters.discord_adapter
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from adapters.messaging import MessageType
 
 
@@ -467,9 +469,8 @@ class TestDiscordAdapter:
         mock_message.author.id = 123456789  # Different from bot
 
         # Manually call the message handler logic
-        if mock_message.author != adapter.bot.user:
-            if mock_message.content.startswith(adapter.command_prefix):
-                await adapter._handle_command(mock_message)
+        if mock_message.author != adapter.bot.user and mock_message.content.startswith(adapter.command_prefix):
+            await adapter._handle_command(mock_message)
 
         assert command_called
         assert command_args == ["arg1", "arg2"]
@@ -496,9 +497,8 @@ class TestDiscordAdapter:
         mock_message.author.id = 123456789
 
         # Manually call the message handler logic
-        if mock_message.author != adapter.bot.user:
-            if not mock_message.content.startswith(adapter.command_prefix):
-                await adapter._handle_message(mock_message)
+        if mock_message.author != adapter.bot.user and not mock_message.content.startswith(adapter.command_prefix):
+            await adapter._handle_message(mock_message)
 
         assert message_handled
 
@@ -795,6 +795,7 @@ class TestDiscordAdapter:
         with patch.dict("sys.modules", {"discord": None}):
             # Force reimport to trigger fallback
             import importlib
+
             import adapters.discord_adapter
 
             importlib.reload(adapters.discord_adapter)

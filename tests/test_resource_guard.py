@@ -2,23 +2,22 @@
 
 import asyncio
 from collections import namedtuple
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from core.resource_guard import (
+    RAM_BUFFER_MB,
+    VRAM_BUFFER_MB,
     InsufficientResourcesError,
     LRUCache,
     ResourceGuard,
     ResourceSnapshot,
-    RAM_BUFFER_MB,
-    VRAM_BUFFER_MB,
     _apply_buffer_overrides,
     _query_vram,
     can_allocate,
     get_resource_status,
 )
-
 
 # ---------------------------------------------------------------------------
 # LRUCache
@@ -880,8 +879,8 @@ class TestApplyBufferOverrides:
 
         orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
         _apply_buffer_overrides(ram_buffer_mb=None, vram_buffer_mb=None)
-        assert rg.RAM_BUFFER_MB == orig_ram
-        assert rg.VRAM_BUFFER_MB == orig_vram
+        assert orig_ram == rg.RAM_BUFFER_MB
+        assert orig_vram == rg.VRAM_BUFFER_MB
 
 
 # ---------------------------------------------------------------------------
@@ -921,8 +920,8 @@ class TestResourceGuardCustomBuffers:
 
         orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
         guard = ResourceGuard()
-        assert rg.RAM_BUFFER_MB == orig_ram
-        assert rg.VRAM_BUFFER_MB == orig_vram
+        assert orig_ram == rg.RAM_BUFFER_MB
+        assert orig_vram == rg.VRAM_BUFFER_MB
 
 
 # ---------------------------------------------------------------------------
@@ -960,29 +959,33 @@ class TestResourceConfig:
         assert cfg.estimated_ram_per_agent_mb == 128
 
     def test_ram_buffer_min_validation(self):
-        from core.config import ResourceConfig
         from pydantic import ValidationError
+
+        from core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(ram_buffer_mb=100)  # below ge=256
 
     def test_check_interval_must_be_positive(self):
-        from core.config import ResourceConfig
         from pydantic import ValidationError
+
+        from core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(check_interval_seconds=0)  # gt=0 violated
 
     def test_estimated_ram_per_build_min(self):
-        from core.config import ResourceConfig
         from pydantic import ValidationError
+
+        from core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(estimated_ram_per_build_mb=32)  # below ge=64
 
     def test_estimated_ram_per_agent_min(self):
-        from core.config import ResourceConfig
         from pydantic import ValidationError
+
+        from core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(estimated_ram_per_agent_mb=16)  # below ge=32
@@ -1002,8 +1005,8 @@ class TestOrchestratorResourceConfigWiring:
 
         cfg = orchestrator.config.system.resources
         # The module globals should reflect the config values
-        assert rg.RAM_BUFFER_MB == cfg.ram_buffer_mb
-        assert rg.VRAM_BUFFER_MB == cfg.vram_buffer_mb
+        assert cfg.ram_buffer_mb == rg.RAM_BUFFER_MB
+        assert cfg.vram_buffer_mb == rg.VRAM_BUFFER_MB
         assert orchestrator.resource_guard._interval == cfg.check_interval_seconds
 
 
@@ -1068,9 +1071,11 @@ class TestLokiResourceChecks:
         from core.loki import LokiMode
 
         loki = LokiMode(orchestrator)
-        with patch("core.loki.can_allocate", side_effect=InsufficientResourcesError("blocked")):
-            with pytest.raises(InsufficientResourcesError):
-                await loki.activate("Build a feature")
+        with (
+            patch("core.loki.can_allocate", side_effect=InsufficientResourcesError("blocked")),
+            pytest.raises(InsufficientResourcesError),
+        ):
+            await loki.activate("Build a feature")
 
     @pytest.mark.asyncio
     async def test_activate_proceeds_when_ram_ok(self, orchestrator):
@@ -1157,12 +1162,14 @@ class TestBuildSessionResourceChecks:
         from core.interfaces import Message
 
         msg = Message(content="build it", sender="user")
-        with patch(
-            "core.build_session.can_allocate",
-            side_effect=InsufficientResourcesError("denied", requested_ram_mb=512),
+        with (
+            patch(
+                "core.build_session.can_allocate",
+                side_effect=InsufficientResourcesError("denied", requested_ram_mb=512),
+            ),
+            pytest.raises(InsufficientResourcesError),
         ):
-            with pytest.raises(InsufficientResourcesError):
-                await run_autonomous_gateway_build(orchestrator, msg, {})
+            await run_autonomous_gateway_build(orchestrator, msg, {})
 
     @pytest.mark.asyncio
     async def test_websocket_build_sends_error_on_insufficient_ram(self, orchestrator):

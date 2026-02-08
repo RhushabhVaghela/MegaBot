@@ -2,18 +2,19 @@
 Integration tests for all messaging adapters
 """
 
-import pytest
 import json
-from unittest.mock import MagicMock, AsyncMock, patch
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from adapters.messaging.telegram import TelegramAdapter
-from adapters.signal_adapter import SignalAdapter
 from adapters.push_notification_adapter import (
     PushNotificationAdapter,
     create_notification,
 )
-from adapters.unified_gateway import UnifiedGateway, ClientConnection, ConnectionType
-from datetime import datetime
+from adapters.signal_adapter import SignalAdapter
+from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 
 class TestMessagingIntegration:

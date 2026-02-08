@@ -2,28 +2,29 @@
 Tests for MegaBot's Native WebSocket Messaging Platform
 """
 
-import pytest
 import asyncio
-import json
 import base64
-import os
+import json
 import logging
+import os
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 import websockets
 from websockets.exceptions import ConnectionClosed
 
 from adapters.messaging import (
-    MessageType,
+    IMessageAdapter,
     MediaAttachment,
+    MegaBotMessagingServer,
+    MessageType,
+    PlatformAdapter,
     PlatformMessage,
     SecureWebSocket,
-    MegaBotMessagingServer,
-    PlatformAdapter,
+    SMSAdapter,
     TelegramAdapter,
     WhatsAppAdapter,
-    IMessageAdapter,
-    SMSAdapter,
 )
 
 
@@ -400,22 +401,24 @@ async def test_messaging_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [k for k in sys.modules.keys() if k.startswith("adapters.messaging")]
+    modules_to_clear = [k for k in sys.modules if k.startswith("adapters.messaging")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
-    with patch("adapters.messaging.server.websockets.serve", new_callable=AsyncMock):
-        with patch("asyncio.Future") as mock_fut:
-            mock_fut.return_value = asyncio.Future()
-            mock_fut.return_value.set_result(None)
+    with (
+        patch("adapters.messaging.server.websockets.serve", new_callable=AsyncMock),
+        patch("asyncio.Future") as mock_fut,
+    ):
+        mock_fut.return_value = asyncio.Future()
+        mock_fut.return_value.set_result(None)
 
-            def mock_run(coro):
-                coro.close()
-                return None
+        def mock_run(coro):
+            coro.close()
+            return None
 
-            with patch("asyncio.run", side_effect=mock_run):
-                runpy.run_module("adapters.messaging", run_name="__main__")
-                assert True
+        with patch("asyncio.run", side_effect=mock_run):
+            runpy.run_module("adapters.messaging", run_name="__main__")
+            assert True
 
 
 @pytest.mark.asyncio
@@ -541,10 +544,10 @@ async def test_messaging_server_send_message_error(messaging_server):
 @pytest.mark.asyncio
 async def test_messaging_main_entrypoint():
     """Test main function exists and can be called (for coverage)"""
-    from adapters.messaging import main
-
     # Just verify the function exists and returns a coroutine
     import inspect
+
+    from adapters.messaging import main
 
     assert inspect.iscoroutinefunction(main), "main should be an async function"
 
@@ -1144,8 +1147,8 @@ class TestWhatsAppAdapter:
         wa_adapter.session.post.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Create a temporary file
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             f.write(b"test image data")
@@ -1888,7 +1891,7 @@ class TestMainFunction:
         mock_server.start = AsyncMock()
 
         # Import the main function and create the handler manually
-        from adapters.messaging import main, PlatformMessage
+        from adapters.messaging import PlatformMessage, main
 
         # Call main to register the handler
         with patch("asyncio.run", side_effect=lambda coro: None):
@@ -1983,10 +1986,12 @@ class TestWhatsAppAdapterErrorHandling:
         wa_adapter._use_openclaw = False
         wa_adapter._openclaw = None
         wa_adapter.server.openclaw = None
-        with patch.object(wa_adapter, "_init_openclaw", return_value=False):
-            with patch.dict("sys.modules", {"aiohttp": None}):
-                result = await wa_adapter.initialize()
-                assert result is False
+        with (
+            patch.object(wa_adapter, "_init_openclaw", return_value=False),
+            patch.dict("sys.modules", {"aiohttp": None}),
+        ):
+            result = await wa_adapter.initialize()
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_initialize_session_creation_error(self, wa_adapter):
@@ -1994,10 +1999,12 @@ class TestWhatsAppAdapterErrorHandling:
         wa_adapter._use_openclaw = False
         wa_adapter._openclaw = None
         wa_adapter.server.openclaw = None
-        with patch.object(wa_adapter, "_init_openclaw", return_value=False):
-            with patch("aiohttp.ClientSession", side_effect=Exception("Session error")):
-                result = await wa_adapter.initialize()
-                assert result is False
+        with (
+            patch.object(wa_adapter, "_init_openclaw", return_value=False),
+            patch("aiohttp.ClientSession", side_effect=Exception("Session error")),
+        ):
+            result = await wa_adapter.initialize()
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_initialize_phone_check_success(self, wa_adapter):
@@ -2401,8 +2408,8 @@ class TestWhatsAppAdapterErrorHandling:
     async def test_upload_media_exception_handling(self, wa_adapter):
         """Test _upload_media exception handling"""
         # Create a temporary file
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             f.write(b"test image data")
@@ -2470,12 +2477,14 @@ class TestWhatsAppAdapterErrorHandling:
         mock_cm.__aexit__ = MagicMock(return_value=None)
         mock_session.get.return_value = mock_cm
 
-        with patch.object(wa_adapter, "_init_openclaw", return_value=False):
-            with patch("aiohttp.ClientSession", return_value=mock_session):
-                wa_adapter.phone_number_id = "12345"
-                wa_adapter.access_token = "token"
-                result = await wa_adapter.initialize()
-                assert result is False
+        with (
+            patch.object(wa_adapter, "_init_openclaw", return_value=False),
+            patch("aiohttp.ClientSession", return_value=mock_session),
+        ):
+            wa_adapter.phone_number_id = "12345"
+            wa_adapter.access_token = "token"
+            result = await wa_adapter.initialize()
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_send_with_retry_exception(self, wa_adapter):
@@ -2496,16 +2505,18 @@ class TestWhatsAppAdapterErrorHandling:
     async def test_main_function_exception(self):
         """Test main function exception handling"""
         # Mock MegaBotMessagingServer to raise exception
-        with patch(
-            "adapters.messaging.MegaBotMessagingServer",
-            side_effect=Exception("Server init error"),
+        with (
+            patch(
+                "adapters.messaging.MegaBotMessagingServer",
+                side_effect=Exception("Server init error"),
+            ),
+            patch("asyncio.run", side_effect=lambda coro: coro.close()),
         ):
-            with patch("asyncio.run", side_effect=lambda coro: coro.close()):
-                # This should not crash the import
-                from adapters.messaging import main
+            # This should not crash the import
+            from adapters.messaging import main
 
-                # main is a coroutine function, just verify it exists
-                assert callable(main)
+            # main is a coroutine function, just verify it exists
+            assert callable(main)
 
 
 class TestWhatsAppAdapterUtilityMethods:

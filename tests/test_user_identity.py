@@ -1,7 +1,9 @@
-import pytest
 import os
 import sqlite3
 import tempfile
+
+import pytest
+
 from core.memory.user_identity import UserIdentityManager
 
 

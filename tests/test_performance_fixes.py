@@ -5,12 +5,8 @@ parallel gather, and module-level imports.
 """
 
 import asyncio
-import os
-import sqlite3
-import threading
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -206,14 +202,16 @@ class TestParallelKeywordSearches:
     def orchestrator(self, mock_config):
         from core.orchestrator import MegaBotOrchestrator
 
-        with patch("core.orchestrator.ModuleDiscovery"):
-            with patch("core.orchestrator.OpenClawAdapter"):
-                with patch("core.orchestrator.MemUAdapter"):
-                    with patch("core.orchestrator.MCPManager"):
-                        orc = MegaBotOrchestrator(mock_config)
-                        orc.llm = AsyncMock()
-                        orc.memory = AsyncMock()
-                        return orc
+        with (
+            patch("core.orchestrator.ModuleDiscovery"),
+            patch("core.orchestrator.OpenClawAdapter"),
+            patch("core.orchestrator.MemUAdapter"),
+            patch("core.orchestrator.MCPManager"),
+        ):
+            orc = MegaBotOrchestrator(mock_config)
+            orc.llm = AsyncMock()
+            orc.memory = AsyncMock()
+            return orc
 
     @pytest.mark.asyncio
     async def test_gather_is_used_for_keyword_searches(self, orchestrator):
@@ -295,15 +293,17 @@ class TestGatewayAsyncSubprocess:
         mock_proc.wait = AsyncMock(side_effect=asyncio.TimeoutError)
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
-                result = await UnifiedGateway._start_tailscale_vpn(gw)
-                assert result is False
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("asyncio.wait_for", side_effect=asyncio.TimeoutError),
+        ):
+            result = await UnifiedGateway._start_tailscale_vpn(gw)
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_start_tailscale_vpn_no_key(self):
         """PERF-01: Without auth key, should return False immediately."""
-        from core.network.gateway import UnifiedGateway, ConnectionType
+        from core.network.gateway import ConnectionType, UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.tailscale_auth_key = None
@@ -329,15 +329,17 @@ class TestGatewayAsyncSubprocess:
         mock_popen = MagicMock()
         mock_popen.poll.return_value = None  # Process running
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-            with patch("subprocess.Popen", return_value=mock_popen):
-                result = await UnifiedGateway._start_cloudflare_tunnel(gw)
-                assert result is True
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("subprocess.Popen", return_value=mock_popen),
+        ):
+            result = await UnifiedGateway._start_cloudflare_tunnel(gw)
+            assert result is True
 
     @pytest.mark.asyncio
     async def test_start_cloudflare_no_tunnel_id(self):
         """PERF-02: Without tunnel ID, should return False immediately."""
-        from core.network.gateway import UnifiedGateway, ConnectionType
+        from core.network.gateway import UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.cloudflare_tunnel_id = None
@@ -357,21 +359,23 @@ class TestOrchestratorAsyncSubprocess:
     def orchestrator(self, mock_config):
         from core.orchestrator import MegaBotOrchestrator
 
-        with patch("core.orchestrator.ModuleDiscovery"):
-            with patch("core.orchestrator.OpenClawAdapter"):
-                with patch("core.orchestrator.MemUAdapter"):
-                    with patch("core.orchestrator.MCPManager"):
-                        orc = MegaBotOrchestrator(mock_config)
-                        orc.adapters = {
-                            "openclaw": AsyncMock(),
-                            "memu": AsyncMock(),
-                            "mcp": AsyncMock(),
-                            "messaging": AsyncMock(),
-                            "gateway": AsyncMock(),
-                        }
-                        orc.llm = AsyncMock()
-                        orc.memory = AsyncMock()
-                        return orc
+        with (
+            patch("core.orchestrator.ModuleDiscovery"),
+            patch("core.orchestrator.OpenClawAdapter"),
+            patch("core.orchestrator.MemUAdapter"),
+            patch("core.orchestrator.MCPManager"),
+        ):
+            orc = MegaBotOrchestrator(mock_config)
+            orc.adapters = {
+                "openclaw": AsyncMock(),
+                "memu": AsyncMock(),
+                "mcp": AsyncMock(),
+                "messaging": AsyncMock(),
+                "gateway": AsyncMock(),
+            }
+            orc.llm = AsyncMock()
+            orc.memory = AsyncMock()
+            return orc
 
     @pytest.mark.asyncio
     async def test_system_command_uses_admin_handler(self, orchestrator):
@@ -425,21 +429,23 @@ class TestOrchestratorShutdownCleanup:
     def orchestrator(self, mock_config):
         from core.orchestrator import MegaBotOrchestrator
 
-        with patch("core.orchestrator.ModuleDiscovery"):
-            with patch("core.orchestrator.OpenClawAdapter"):
-                with patch("core.orchestrator.MemUAdapter"):
-                    with patch("core.orchestrator.MCPManager"):
-                        orc = MegaBotOrchestrator(mock_config)
-                        orc.adapters = {
-                            "openclaw": AsyncMock(),
-                            "memu": AsyncMock(),
-                            "mcp": AsyncMock(),
-                            "messaging": AsyncMock(),
-                            "gateway": AsyncMock(),
-                        }
-                        orc.llm = AsyncMock()
-                        orc.memory = AsyncMock()
-                        return orc
+        with (
+            patch("core.orchestrator.ModuleDiscovery"),
+            patch("core.orchestrator.OpenClawAdapter"),
+            patch("core.orchestrator.MemUAdapter"),
+            patch("core.orchestrator.MCPManager"),
+        ):
+            orc = MegaBotOrchestrator(mock_config)
+            orc.adapters = {
+                "openclaw": AsyncMock(),
+                "memu": AsyncMock(),
+                "mcp": AsyncMock(),
+                "messaging": AsyncMock(),
+                "gateway": AsyncMock(),
+            }
+            orc.llm = AsyncMock()
+            orc.memory = AsyncMock()
+            return orc
 
     @pytest.mark.asyncio
     async def test_shutdown_closes_llm_provider(self, orchestrator):
@@ -492,30 +498,34 @@ class TestAsyncDiscoveryScan:
         """PERF-11: discovery.scan() should run in asyncio.to_thread."""
         from core.orchestrator import MegaBotOrchestrator
 
-        with patch("core.orchestrator.ModuleDiscovery") as mock_disc_cls:
-            with patch("core.orchestrator.OpenClawAdapter"):
-                with patch("core.orchestrator.MemUAdapter"):
-                    with patch("core.orchestrator.MCPManager"):
-                        orc = MegaBotOrchestrator(mock_config)
-                        orc.adapters = {
-                            "openclaw": AsyncMock(),
-                            "memu": AsyncMock(),
-                            "mcp": AsyncMock(),
-                            "messaging": AsyncMock(),
-                            "gateway": AsyncMock(),
-                        }
-                        orc.llm = AsyncMock()
-                        orc.memory = AsyncMock()
+        with (
+            patch("core.orchestrator.ModuleDiscovery") as mock_disc_cls,
+            patch("core.orchestrator.OpenClawAdapter"),
+            patch("core.orchestrator.MemUAdapter"),
+            patch("core.orchestrator.MCPManager"),
+        ):
+            orc = MegaBotOrchestrator(mock_config)
+            orc.adapters = {
+                "openclaw": AsyncMock(),
+                "memu": AsyncMock(),
+                "mcp": AsyncMock(),
+                "messaging": AsyncMock(),
+                "gateway": AsyncMock(),
+            }
+            orc.llm = AsyncMock()
+            orc.memory = AsyncMock()
 
-                        mock_scan = MagicMock()
-                        orc.discovery.scan = mock_scan
+            mock_scan = MagicMock()
+            orc.discovery.scan = mock_scan
 
-                        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
-                            # Patch safe_create_task to avoid actually starting tasks
-                            with patch("core.task_utils.safe_create_task"):
-                                await orc.start()
+            with (
+                patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
+                # Patch safe_create_task to avoid actually starting tasks
+                patch("core.task_utils.safe_create_task"),
+            ):
+                await orc.start()
 
-                            mock_to_thread.assert_called_once_with(mock_scan)
+            mock_to_thread.assert_called_once_with(mock_scan)
 
 
 # ---------------------------------------------------------------------------

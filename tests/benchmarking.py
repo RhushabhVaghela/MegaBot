@@ -5,13 +5,13 @@ Run with: PYTHONPATH=. python -m pytest tests/benchmarking.py -v -s
 
 import asyncio
 import time
-
-import pytest
 from unittest.mock import AsyncMock
 
-from core.orchestrator import MegaBotOrchestrator
-from core.config import Config, SystemConfig, AdapterConfig, SecurityConfig
+import pytest
+
+from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
 from core.interfaces import Message
+from core.orchestrator import MegaBotOrchestrator
 
 
 def _make_orchestrator() -> MegaBotOrchestrator:

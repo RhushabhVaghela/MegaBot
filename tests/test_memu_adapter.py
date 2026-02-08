@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from adapters.memu_adapter import MemUAdapter
 
 
@@ -57,16 +59,18 @@ async def test_memu_adapter_ingest_logs_not_found(mock_memory_service):
 @pytest.mark.asyncio
 async def test_memu_adapter_fallback_mock():
     """Test that the adapter falls back to a functional mock if memu is missing"""
-    with patch("adapters.memu_adapter.os.path.exists", return_value=False):
+    with (
+        patch("adapters.memu_adapter.os.path.exists", return_value=False),
         # Ensure imports fail
-        with patch.dict("sys.modules", {"memu.app": None}):
-            adapter = MemUAdapter("/nonexistent", "sqlite://")
+        patch.dict("sys.modules", {"memu.app": None}),
+    ):
+        adapter = MemUAdapter("/nonexistent", "sqlite://")
 
-            # Test storage in mock
-            await adapter.store("test.txt", "content")
-            res = await adapter.search("content")
-            assert len(res) == 1
-            assert res[0]["content"] == "content"
+        # Test storage in mock
+        await adapter.store("test.txt", "content")
+        res = await adapter.search("content")
+        assert len(res) == 1
+        assert res[0]["content"] == "content"
 
 
 @pytest.mark.asyncio
@@ -151,20 +155,19 @@ async def test_memu_adapter_import_error_handling():
     """Test import error handling in path search loop"""
     import sys
 
-    with patch("adapters.memu_adapter.os.path.exists", return_value=True):
-        with patch("sys.path", []):
-            # Remove memu.app from sys.modules if it exists
-            original_module = sys.modules.pop("memu.app", None)
-            try:
-                adapter = MemUAdapter("/tmp/test_memu", "sqlite:///:memory:")
-                # Should fall back to mock when import fails
-                assert adapter is not None
-                # Verify it's using the fallback
-                result = await adapter.retrieve("key")
-                assert result == {"items": []}
-            finally:
-                if original_module:
-                    sys.modules["memu.app"] = original_module
+    with patch("adapters.memu_adapter.os.path.exists", return_value=True), patch("sys.path", []):
+        # Remove memu.app from sys.modules if it exists
+        original_module = sys.modules.pop("memu.app", None)
+        try:
+            adapter = MemUAdapter("/tmp/test_memu", "sqlite:///:memory:")
+            # Should fall back to mock when import fails
+            assert adapter is not None
+            # Verify it's using the fallback
+            result = await adapter.retrieve("key")
+            assert result == {"items": []}
+        finally:
+            if original_module:
+                sys.modules["memu.app"] = original_module
 
 
 @pytest.mark.asyncio

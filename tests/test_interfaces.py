@@ -1,5 +1,6 @@
 from core.interfaces import Message, MessagingInterface
 
+
 def test_message_model():
     msg = Message(content="hello", sender="user", metadata={"time": "now"})
     assert msg.content == "hello"
