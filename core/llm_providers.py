@@ -85,7 +85,7 @@ class LLMProvider(ABC):
                 )
                 await asyncio.sleep(delay)
 
-            except (TimeoutError, aiohttp.ClientError) as exc:
+            except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                 last_exc = exc
                 if attempt == _MAX_RETRIES:
                     raise
@@ -196,7 +196,7 @@ class OpenAICompatibleProvider(LLMProvider):
                     return message
                 return message["content"]
             return f"{self.__class__.__name__} error: {resp.status} - {await resp.text()}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"{self.__class__.__name__} connection failed: {e}"
 
 
@@ -356,7 +356,7 @@ class OllamaProvider(LLMProvider):
                 res_data = await resp.json()
                 return res_data.get("response", "No response from LLM")
             return f"Ollama error: {resp.status}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"Ollama connection failed: {e}"
 
 
@@ -415,7 +415,7 @@ class AnthropicProvider(LLMProvider):
                     return res_data["content"]
                 return res_data["content"][0]["text"]
             return f"Anthropic error: {resp.status}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"Anthropic connection failed: {e}"
 
 
@@ -482,7 +482,7 @@ class GeminiProvider(LLMProvider):
                         return parts[0].get("text", "No text in response")
                 return "No candidates in Gemini response"
             return f"Gemini error: {resp.status}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"Gemini connection failed: {e}"
 
 
@@ -547,7 +547,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
                     return message
                 return message["content"]
             return f"OpenRouter error: {resp.status} - {await resp.text()}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"OpenRouter connection failed: {e}"
 
 
@@ -609,7 +609,7 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
                     return message
                 return message["content"]
             return f"GitHub Copilot error: {resp.status} - {await resp.text()}"
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError) as e:
             return f"GitHub Copilot connection failed: {e}"
 
 

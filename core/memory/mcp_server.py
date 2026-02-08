@@ -40,7 +40,7 @@ class MemoryServer:
         self.knowledge_memory = KnowledgeMemoryManager(db_path, executor=self._shared_executor)
         self.backup_manager = MemoryBackupManager(db_path)
 
-        logger.info(f"Memory database initialized at {self.db_path}")
+        logger.info("Memory database initialized at %s", self.db_path)
 
     # ------------------------------------------------------------------
     # Schema migration infrastructure
@@ -71,7 +71,7 @@ class MemoryServer:
 
             conn.commit()
         except Exception as e:
-            logger.error(f"Schema migration failed: {e}")
+            logger.error("Schema migration failed: %s", e)
             raise
         finally:
             conn.close()

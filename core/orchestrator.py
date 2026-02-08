@@ -132,7 +132,7 @@ class MegaBotOrchestrator:
             if enable_env or (not is_ci and not looks_like_pytest):
                 audit_path = self.config.paths.get("audit_log", "logs/audit.log")
                 attach_audit_file_handler(audit_path)
-        except Exception as e:
+        except (OSError, AttributeError, ValueError) as e:
             logger.debug("Failed to attach audit file handler: %s", e)
 
         # Register core services with DI container
@@ -354,7 +354,7 @@ class MegaBotOrchestrator:
 
             logger.info("Redaction-Verification: PASSED.")
             return True
-        except Exception as e:  # pragma: no cover
+        except (json.JSONDecodeError, KeyError, ValueError, RuntimeError, OSError) as e:  # pragma: no cover
             logger.error("Redaction-Verification: Error during check: %s", e)
             return False
 
@@ -426,7 +426,7 @@ class MegaBotOrchestrator:
                 return False
             await ws.send_json(payload)
             return True
-        except Exception:
+        except (ConnectionError, RuntimeError, OSError):
             return False
 
     async def _process_approval(self, action_id: str, approved: bool):
@@ -442,7 +442,7 @@ class MegaBotOrchestrator:
                         "queue": safe_queue,
                     }
                 )
-            except Exception as e:
+            except (ConnectionError, RuntimeError, OSError) as e:
                 logger.error("Failed to notify client of queue update: %s", e)
                 self.clients.discard(client)
 

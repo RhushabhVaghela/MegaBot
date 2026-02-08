@@ -243,7 +243,7 @@ class MegaBotMessagingServer:
                 continue
             try:
                 await self.clients[client_id].send(data)
-            except Exception as e:
+            except (ConnectionError, RuntimeError, OSError) as e:
                 logger.error("Failed to send to %s: %s", client_id, e)
                 if client_id in self.clients:
                     del self.clients[client_id]
@@ -251,7 +251,7 @@ class MegaBotMessagingServer:
     async def _handle_client(self, websocket: Any, path: str = ""):
         try:
             client_id = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
-        except Exception:
+        except (IndexError, AttributeError, TypeError):
             client_id = f"unknown-{id(websocket)}"
         self.clients[client_id] = websocket
         if self.on_connect:

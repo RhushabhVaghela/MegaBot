@@ -54,7 +54,7 @@ def load_api_credentials():
                     items = _LIST_ITEM_RE.findall(m.group(4))
                     os.environ[key] = ",".join(items)
         logger.info("Loaded API credentials from %s", cred_path)
-    except Exception as e:
+    except OSError as e:
         logger.error("Error loading %s: %s", cred_path, e, exc_info=True)
 
 

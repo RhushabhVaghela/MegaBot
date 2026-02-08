@@ -1,5 +1,6 @@
 import pytest
 import os
+import sqlite3
 import tempfile
 from core.memory.user_identity import UserIdentityManager
 
@@ -202,7 +203,7 @@ async def test_link_identity_error_handling(identity_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await identity_manager.link_identity("internal_123", "discord", "user_456")
         assert result is False
@@ -214,7 +215,7 @@ async def test_get_unified_id_error_handling(identity_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await identity_manager.get_unified_id("discord", "user_456")
         assert result == "user_456"  # Should return platform_id on error
@@ -226,7 +227,7 @@ async def test_get_platform_ids_error_handling(identity_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await identity_manager.get_platform_ids("internal_123")
         assert result == []
@@ -238,7 +239,7 @@ async def test_unlink_identity_error_handling(identity_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await identity_manager.unlink_identity("discord", "user_456")
         assert result is False
@@ -250,7 +251,7 @@ async def test_get_identity_stats_error_handling(identity_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await identity_manager.get_identity_stats()
         assert result == {"error": "DB Error"}

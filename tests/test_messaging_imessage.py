@@ -20,9 +20,7 @@ async def test_imessage_send_text_macos_success(imessage_adapter):
     mock_process.communicate.return_value = (b"", b"")
     mock_process.returncode = 0
 
-    with patch(
-        "asyncio.create_subprocess_exec", return_value=mock_process
-    ) as mock_exec:
+    with patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_exec:
         result = await imessage_adapter.send_text("+1234567890", "Test message")
 
         assert result is not None
@@ -59,9 +57,7 @@ async def test_imessage_send_text_exception(imessage_adapter):
     """Test iMessage sending with subprocess exception"""
     imessage_adapter.is_macos = True
 
-    with patch(
-        "asyncio.create_subprocess_exec", side_effect=Exception("Subprocess error")
-    ):
+    with patch("asyncio.create_subprocess_exec", side_effect=OSError("Subprocess error")):
         result = await imessage_adapter.send_text("+1234567890", "Test message")
         assert result is None
 

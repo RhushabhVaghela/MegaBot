@@ -881,7 +881,7 @@ class TestPushNotificationAdapterBranches:
         with patch("adapters.push_notification_adapter.os.path.exists", return_value=True):
             with patch(
                 "adapters.push_notification_adapter.credentials.Certificate",
-                side_effect=Exception("Credential error"),
+                side_effect=ValueError("Credential error"),
             ):
                 with patch("adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init:
                     with patch("builtins.print") as mock_print:
@@ -983,7 +983,7 @@ class TestPushNotificationAdapterBranches:
         adapter.apns_team_id = "test_team"
 
         with patch("builtins.open", mock_open(read_data="key_data")):
-            with patch("jwt.encode", side_effect=Exception("Encode error")):
+            with patch("jwt.encode", side_effect=ValueError("Encode error")):
                 result = await adapter._get_apns_jwt()
                 assert result == ""
 
@@ -996,14 +996,14 @@ class TestPushNotificationAdapterBranches:
         original_dict = adapter.notification_channels
         mock_dict = MagicMock()
         mock_dict.__contains__.return_value = True  # channel_id is "in" the dict
-        mock_dict.__delitem__.side_effect = Exception("Deletion error")
+        mock_dict.__delitem__.side_effect = KeyError("Deletion error")
         adapter.notification_channels = mock_dict
 
         try:
             with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
                 result = await adapter.delete_notification_channel("test")
                 assert result is False
-                assert any("Channel deletion failed: Deletion error" in r.message for r in caplog.records)
+                assert any("Channel deletion failed:" in r.message for r in caplog.records)
         finally:
             # Restore original dict
             adapter.notification_channels = original_dict
@@ -1041,7 +1041,7 @@ class TestPushNotificationAdapterBranches:
         # Mock the notification_channels dict to raise exception on assignment
         original_dict = adapter.notification_channels
         mock_dict = MagicMock()
-        mock_dict.__setitem__.side_effect = Exception("Creation error")
+        mock_dict.__setitem__.side_effect = TypeError("Creation error")
         adapter.notification_channels = mock_dict
 
         try:

@@ -303,7 +303,7 @@ class NotificationResult:
         canonical = False
         try:
             canonical = bool(getattr(response, "canonical_address_count", 0) > 0)
-        except Exception:
+        except (TypeError, AttributeError):
             canonical = False
         return cls(
             success=True,
@@ -421,7 +421,7 @@ class PushNotificationAdapter:
         if self.fcm_credential_path and os.path.exists(self.fcm_credential_path):
             try:
                 cred = credentials.Certificate(self.fcm_credential_path)
-            except Exception:
+            except (ValueError, OSError):
                 cred = None
 
             try:
@@ -442,7 +442,7 @@ class PushNotificationAdapter:
                         token = DeviceToken.from_dict(token_data)
                         self.device_tokens[token.token] = token
                 logger.info("Loaded %d device tokens", len(self.device_tokens))
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
             logger.error("Failed to load tokens: %s", e)
 
     def _save_tokens(self) -> None:
@@ -452,7 +452,7 @@ class PushNotificationAdapter:
             tokens_data = [token.to_dict() for token in self.device_tokens.values()]
             with open(self.token_storage_path, "w") as f:
                 json.dump(tokens_data, f)
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to save tokens: %s", e)
 
     def _create_default_channels(self) -> None:
@@ -1031,7 +1031,7 @@ class PushNotificationAdapter:
         try:
             with open(self.apns_key_path) as f:
                 private_key = f.read()
-        except Exception:
+        except OSError:
             return ""
 
         now = int(time.time())
@@ -1045,7 +1045,7 @@ class PushNotificationAdapter:
                 headers={"kid": self.apns_key_id},
             )
             return token
-        except Exception:
+        except (ValueError, TypeError):
             return ""
 
     async def create_notification_channel(self, channel: NotificationChannel) -> bool:
@@ -1061,7 +1061,7 @@ class PushNotificationAdapter:
         try:
             self.notification_channels[channel.id] = channel
             return True
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             logger.error("Channel creation failed: %s", e)
             return False
 
@@ -1079,7 +1079,7 @@ class PushNotificationAdapter:
             if channel_id in self.notification_channels:
                 del self.notification_channels[channel_id]
             return True
-        except Exception as e:
+        except KeyError as e:
             logger.error("Channel deletion failed: %s", e)
             return False
 

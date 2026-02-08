@@ -627,7 +627,7 @@ class WhatsAppAdapter(PlatformAdapter):
                     self.group_chats[group_id]["participants"].append(phone)
                 return True
             return False
-        except Exception:
+        except (KeyError, TypeError):
             return False
 
     async def get_message_status(self, msg_id: str) -> dict | None:
@@ -706,7 +706,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 message_type=getattr(MessageType, msg_type.upper(), MessageType.TEXT),
                 metadata={"raw": msg_data},
             )
-        except Exception as e:
+        except (KeyError, IndexError, ValueError, TypeError) as e:
             logger.error("handle_webhook error: %s", e)
             return None
 

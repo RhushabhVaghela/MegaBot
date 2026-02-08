@@ -386,6 +386,7 @@ async def test_handle_client_auth_failure_cleans_rate_limits():
     )
 
     ws = MagicMock()
+    ws.send = AsyncMock()
     aiter_mock = MagicMock()
     anext_mock = AsyncMock(return_value='{"type": "auth", "token": "wrong"}')
     aiter_mock.__anext__ = anext_mock

@@ -22,9 +22,7 @@ class TestSubAgent:
         sub_agent = SubAgent("TestBot", "Senior Dev", "Fix bugs", mock_orchestrator)
 
         # Mock LLM response with a numbered list
-        mock_orchestrator.llm.generate.return_value = (
-            "1. Read file\n2. Fix bug\n3. Run tests"
-        )
+        mock_orchestrator.llm.generate.return_value = "1. Read file\n2. Fix bug\n3. Run tests"
 
         plan = await sub_agent.generate_plan()
 
@@ -73,9 +71,7 @@ class TestSubAgent:
     @pytest.mark.asyncio
     async def test_run_max_steps(self, mock_orchestrator):
         """Test sub-agent reaching max steps"""
-        sub_agent = SubAgent(
-            "TestBot", "Senior Dev", "Never ending task", mock_orchestrator
-        )
+        sub_agent = SubAgent("TestBot", "Senior Dev", "Never ending task", mock_orchestrator)
         sub_agent.plan = ["Step 1"]
         sub_agent.max_steps = 2
 
@@ -99,7 +95,7 @@ class TestSubAgent:
         sub_agent = SubAgent("TestBot", "Senior Dev", "Error task", mock_orchestrator)
         sub_agent.plan = ["Step 1"]
 
-        mock_orchestrator.llm.generate.side_effect = Exception("LLM error")
+        mock_orchestrator.llm.generate.side_effect = RuntimeError("LLM error")
 
         result = await sub_agent.run()
 

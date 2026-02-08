@@ -6,6 +6,7 @@ Handles administrative commands and system management.
 import logging
 import os
 import shlex
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -273,8 +274,6 @@ class AdminHandler:
 
         try:
             if action_type == "system_command":
-                import subprocess
-
                 command = payload.get("params", {}).get("command", "")
                 if not command:
                     return "No command provided"
@@ -464,7 +463,7 @@ class AdminHandler:
                 else:
                     logger.warning("Unknown action type: %s", action_type)
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, ConnectionError, KeyError) as e:
             error_msg = f"Action execution failed: {e}"
             logger.error("Action execution failed: %s", e, exc_info=True)
 
@@ -499,5 +498,5 @@ class AdminHandler:
 
             # 3. Make the call
             await self.orchestrator.adapters["messaging"].voice_adapter.make_call(phone, script)
-        except Exception:
+        except (OSError, ValueError, KeyError, RuntimeError, ConnectionError):
             logger.error("Voice briefing failed", exc_info=True)

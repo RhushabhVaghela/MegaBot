@@ -77,7 +77,7 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
                     ):
                         logger.info("Escalation: Dynamic DND active via Calendar ('%s'). Skipping call.", summary)
                         return
-        except Exception as e:
+        except (KeyError, ValueError, RuntimeError, OSError) as e:
             logger.warning("Escalation: Calendar check failed (expected if not configured): %s", e)
 
         admin_phone = getattr(orchestrator.config.system, "admin_phone", None)

@@ -1,5 +1,6 @@
 import pytest
 import os
+import sqlite3
 import tempfile
 import asyncio
 from core.memory.chat_memory import ChatMemoryManager
@@ -254,7 +255,7 @@ async def test_write_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await chat_manager.write("error_chat", "platform", "role", "content")
         assert result is False
@@ -266,7 +267,7 @@ async def test_read_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         history = await chat_manager.read("error_chat")
         assert history == []
@@ -278,7 +279,7 @@ async def test_forget_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         result = await chat_manager.forget("error_chat")
         assert result is False
@@ -290,7 +291,7 @@ async def test_get_all_chat_ids_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
         chat_ids = await chat_manager.get_all_chat_ids()
         assert chat_ids == []
 
@@ -301,7 +302,7 @@ async def test_get_chat_stats_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
         stats = await chat_manager.get_chat_stats("chat123")
         assert "error" in stats
         assert "DB Error" in stats["error"]
@@ -338,7 +339,7 @@ async def test_get_aggregate_stats_error_handling(chat_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
         stats = await chat_manager.get_aggregate_stats()
         assert "error" in stats
         assert "DB Error" in stats["error"]

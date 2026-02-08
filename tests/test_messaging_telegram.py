@@ -1,3 +1,4 @@
+import aiohttp
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from adapters.messaging.telegram import TelegramAdapter
@@ -307,7 +308,7 @@ class TestTelegramAdapter:
     async def test_get_me_exception(self, telegram_adapter):
         """Test get_me method with exception"""
         with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
-            mock_req.side_effect = Exception("Network error")
+            mock_req.side_effect = aiohttp.ClientError("Network error")
             result = await telegram_adapter.get_me()
 
             assert result is None
@@ -326,7 +327,7 @@ class TestTelegramAdapter:
     async def test_get_updates_exception(self, telegram_adapter):
         """Test get_updates method with exception"""
         with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
-            mock_req.side_effect = Exception("Network error")
+            mock_req.side_effect = aiohttp.ClientError("Network error")
             result = await telegram_adapter.get_updates()
 
             assert result == []
@@ -345,7 +346,7 @@ class TestTelegramAdapter:
     async def test_delete_webhook_exception(self, telegram_adapter):
         """Test delete_webhook method with exception"""
         with patch.object(telegram_adapter, "_make_request", new_callable=AsyncMock) as mock_req:
-            mock_req.side_effect = Exception("Network error")
+            mock_req.side_effect = aiohttp.ClientError("Network error")
             result = await telegram_adapter.delete_webhook()
 
             assert result is False
@@ -502,7 +503,7 @@ class TestTelegramUploadMedia:
 
         # Make post() raise an exception
         mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("Network error"))
+        mock_cm.__aenter__ = AsyncMock(side_effect=aiohttp.ClientError("Network error"))
         mock_cm.__aexit__ = AsyncMock(return_value=None)
         mock_session.post.return_value = mock_cm
 

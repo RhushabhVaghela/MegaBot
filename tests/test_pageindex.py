@@ -235,7 +235,7 @@ Fourth line
     async def test_reasoned_navigation_with_llm_error(self, page_index):
         """Test reasoned navigation with LLM error"""
         page_index.llm = AsyncMock()
-        page_index.llm.generate.side_effect = Exception("LLM error")
+        page_index.llm.generate.side_effect = RuntimeError("LLM error")
         page_index.index = {"files": {}, "folders": {}}
 
         result = await page_index._reasoned_navigation("query")
@@ -282,7 +282,7 @@ Fourth line
     @pytest.mark.asyncio
     async def test_get_file_context_read_error(self, page_index):
         """Test file context with read error"""
-        with patch("builtins.open", side_effect=Exception("read error")):
+        with patch("builtins.open", side_effect=OSError("read error")):
             result = await page_index.get_file_context("src/main.py")
             assert "Error reading file" in result
 
@@ -308,7 +308,7 @@ async def test_build_index_cache_errors(page_index, temp_dir, caplog):
     # 2. Save cache error (lines 42-43)
     # Re-build to trigger save
     with patch("os.path.exists", return_value=False):
-        with patch("builtins.open", side_effect=Exception("Save error")):
+        with patch("builtins.open", side_effect=OSError("Save error")):
             with caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"):
                 await page_index.build_index(force_rebuild=True)
                 assert any("RAG: Failed to save cache:" in r.message for r in caplog.records)
@@ -322,7 +322,7 @@ async def test_walk_and_index_read_error(page_index, temp_dir):
     with open(unreadable_file, "w") as f:
         f.write("content")
 
-    with patch("builtins.open", side_effect=Exception("Read error")):
+    with patch("builtins.open", side_effect=OSError("Read error")):
         page_index.index = {"files": {}, "folders": {}}
         page_index._walk_and_index(temp_dir, page_index.index)
         # Should continue and not crash, and file should not be in index

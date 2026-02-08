@@ -190,7 +190,7 @@ async def test_messaging_server_handle_client_edge_cases(messaging_server):
     # Client without remote_address (trigger Exception)
     mock_ws_no_addr = AsyncMock()
     # Using a property mock to trigger exception on access
-    type(mock_ws_no_addr).remote_address = property(lambda x: (_ for _ in ()).throw(Exception("no addr")))
+    type(mock_ws_no_addr).remote_address = property(lambda x: (_ for _ in ()).throw(AttributeError("no addr")))
     mock_ws_no_addr.__aiter__.return_value = []
     await server._handle_client(mock_ws_no_addr)
 
@@ -203,7 +203,7 @@ async def test_messaging_server_broadcast_logic(messaging_server):
     server = messaging_server
     mock1 = AsyncMock()
     mock2 = AsyncMock()
-    mock2.send.side_effect = Exception("dead")
+    mock2.send.side_effect = ConnectionError("dead")
 
     server.clients = {"c1": mock1, "c2": mock2}
     msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
@@ -526,7 +526,7 @@ async def test_messaging_server_sms_platform_connect(messaging_server):
 async def test_messaging_server_send_message_error(messaging_server):
     """Test error handling in send_message broadcasting"""
     mock_ws = AsyncMock()
-    mock_ws.send.side_effect = Exception("Broadcast failure")
+    mock_ws.send.side_effect = ConnectionError("Broadcast failure")
     messaging_server.clients = {"bad_client": mock_ws}
 
     from adapters.messaging import PlatformMessage
@@ -554,7 +554,7 @@ async def test_messaging_server_broadcast_error_handling(messaging_server):
     """Test broadcast handling errors for individual clients"""
     mock_ws1 = AsyncMock()
     mock_ws2 = AsyncMock()
-    mock_ws2.send.side_effect = Exception("Broadcast failure")
+    mock_ws2.send.side_effect = ConnectionError("Broadcast failure")
 
     messaging_server.clients = {"good": mock_ws1, "bad": mock_ws2}
 
@@ -572,7 +572,7 @@ async def test_messaging_server_broadcast_error_handling(messaging_server):
 async def test_messaging_server_send_to_specific_client_error(messaging_server):
     """Test sending to a specific client that throws an error"""
     mock_ws = AsyncMock()
-    mock_ws.send = AsyncMock(side_effect=Exception("Connection lost"))
+    mock_ws.send = AsyncMock(side_effect=ConnectionError("Connection lost"))
 
     messaging_server.clients = {"client1": mock_ws}
 
@@ -1826,7 +1826,7 @@ class TestMegaBotMessagingServer:
         )
 
         mock_client = AsyncMock()
-        mock_client.send = AsyncMock(side_effect=Exception("Send failed"))
+        mock_client.send = AsyncMock(side_effect=ConnectionError("Send failed"))
         server.clients = {"client1": mock_client}
 
         with caplog.at_level(logging.ERROR, logger="adapters.messaging.server"):

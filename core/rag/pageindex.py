@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -28,7 +29,7 @@ class PageIndexRAG:
                 with open(self.index_path) as f:
                     self.index = json.load(f)
                 return
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, ValueError) as e:
                 logger.warning("RAG: Failed to load cache: %s", e)
 
         logger.info("RAG: Building structural index for %s...", self.root_dir)
@@ -41,7 +42,7 @@ class PageIndexRAG:
             with open(self.index_path, "w") as f:
                 json.dump(self.index, f)
             logger.info("RAG: Index cached to %s", self.index_path)
-        except Exception as e:
+        except (OSError, TypeError) as e:
             logger.warning("RAG: Failed to save cache: %s", e)
 
     def _walk_and_index(self, root_dir, current_index):
@@ -69,7 +70,7 @@ class PageIndexRAG:
                             "headers": self._extract_symbols(content, file),
                             "summary": self._generate_quick_summary(content),
                         }
-                    except Exception:
+                    except OSError:
                         continue
         # Since os.walk already visits everything, we don't need to manually recurse here
         # but the way I structured build_index previously was a bit different.
@@ -157,7 +158,7 @@ class PageIndexRAG:
                 detailed_results.append(f"--- {p} ---\n{content}")
 
             return "\n\n".join(detailed_results)
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError, asyncio.TimeoutError) as e:
             return f"Reasoning RAG failed: {e}. Falling back to keywords.\n" + self._keyword_navigation(query)
 
     def _get_collapsed_index(self, max_depth=2) -> dict:
@@ -185,5 +186,5 @@ class PageIndexRAG:
                 # Read first 100 lines for context
                 lines = f.readlines()
                 return "".join(lines[:100])
-        except Exception as e:
+        except OSError as e:
             return f"Error reading file: {e}"

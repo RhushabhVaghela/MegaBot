@@ -68,7 +68,7 @@ class TelegramAdapter(PlatformAdapter):
                     desc = result.get("description", "Unknown error")
                     logger.error("[Telegram] API error %d: %s", resp.status, desc)
                     return None
-            except (TimeoutError, aiohttp.ClientError) as exc:
+            except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                 last_error = exc
                 delay = RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
@@ -108,7 +108,7 @@ class TelegramAdapter(PlatformAdapter):
                     return result.get("result")
                 logger.error("[Telegram] Upload error: %s", result.get("description"))
                 return None
-        except Exception as exc:
+        except (aiohttp.ClientError, OSError) as exc:
             logger.error("[Telegram] Upload failed: %s", exc)
             return None
         finally:
@@ -271,19 +271,19 @@ class TelegramAdapter(PlatformAdapter):
     async def get_me(self):
         try:
             return await self._make_request("getMe")
-        except Exception:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return None
 
     async def get_updates(self, **kwargs):
         try:
             return await self._make_request("getUpdates", kwargs) or []
-        except Exception:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return []
 
     async def delete_webhook(self):
         try:
             return bool(await self._make_request("deleteWebhook"))
-        except Exception:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return False
 
     async def handle_webhook(self, data: dict) -> PlatformMessage | None:

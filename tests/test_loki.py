@@ -205,6 +205,7 @@ class TestLokiMode:
 
         # Mock all the methods
         with (
+            patch("core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
@@ -235,6 +236,7 @@ class TestLokiMode:
         prd_text = "Build app"
 
         with (
+            patch("core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
@@ -265,6 +267,7 @@ class TestLokiMode:
         """Test activate with memory conflict resolving to evolution (line 74)"""
         prd_text = "Build app"
         with (
+            patch("core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,

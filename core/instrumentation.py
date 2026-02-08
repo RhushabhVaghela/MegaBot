@@ -54,9 +54,7 @@ def track_telemetry(func):
                 if choices and isinstance(choices, list) and len(choices) > 0:
                     first_choice = choices[0]
                     if "response_token_ids" in first_choice:
-                        metadata["response_token_ids"] = first_choice[
-                            "response_token_ids"
-                        ]
+                        metadata["response_token_ids"] = first_choice["response_token_ids"]
                     elif "token_ids" in first_choice:
                         metadata["response_token_ids"] = first_choice["token_ids"]
 
@@ -65,13 +63,16 @@ def track_telemetry(func):
                 # We can't easily get tokens here without more parsing or separate usage fields
                 pass
 
-            logger.info(f"[TELEMETRY] {json.dumps(metadata)}")
+            logger.info("[TELEMETRY] %s", json.dumps(metadata))
             return result
 
         except Exception as e:
             latency = time.perf_counter() - start_time
             logger.error(
-                f"[TELEMETRY_ERROR] Provider: {self.__class__.__name__}, Error: {str(e)}, Latency: {round(latency, 4)}s"
+                "[TELEMETRY_ERROR] Provider: %s, Error: %s, Latency: %ss",
+                self.__class__.__name__,
+                e,
+                round(latency, 4),
             )
             raise e
 

@@ -92,7 +92,7 @@ class AgentCoordinator:
             try:
                 if name in self.orchestrator.sub_agents:
                     del self.orchestrator.sub_agents[name]
-            except Exception as e:
+            except (KeyError, TypeError) as e:
                 logger.debug("Failed to remove unvalidated sub-agent %s during pre-flight block: %s", name, e)
             logger.warning(
                 "Pre-flight validation blocked sub-agent %s: %s",
@@ -111,10 +111,10 @@ class AgentCoordinator:
                 # Set attributes directly into instance dict to avoid typing complaints
                 agent.__dict__["_coordinator_managed"] = True
                 agent.__dict__["_active"] = True
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 logger.debug("Failed to set coordinator attributes on agent %s: %s", name, e)
             self.orchestrator.sub_agents[name] = agent
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             logger.warning("Failed to register sub-agent %s in orchestrator: %s", name, e)
 
         # 2. Execution
@@ -154,7 +154,7 @@ class AgentCoordinator:
                     synthesis_data = json.loads(json_match.group(0))
                     lesson = synthesis_data.get("learned_lesson", lesson)
                     summary = synthesis_data.get("summary", summary)
-                except Exception:
+                except (json.JSONDecodeError, KeyError, ValueError):
                     # Fallback: regex search for learned_lesson field
                     pass
             else:
@@ -182,7 +182,7 @@ class AgentCoordinator:
                             "source": name,
                         }
                     )
-            except Exception as e:
+            except (ConnectionError, RuntimeError, OSError) as e:
                 logger.debug("Failed to notify clients about memory update for %s: %s", name, e)
 
             return summary

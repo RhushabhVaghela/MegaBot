@@ -295,7 +295,7 @@ class SlackAdapter(PlatformAdapter):
             response = await asyncio.to_thread(self.client.users_info, {"user": user_id})
             if response.get("ok"):
                 return response["user"]["name"]
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.warning("[Slack] Failed to look up username for %s: %s", user_id, e)
         return f"slack_user_{user_id}"
 
@@ -330,7 +330,7 @@ class SlackAdapter(PlatformAdapter):
             logger.error("[Slack] Send failed: %s", response.get("error"))
             return None
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Send text error: %s", e)
             return None
 
@@ -373,7 +373,7 @@ class SlackAdapter(PlatformAdapter):
 
             return None
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Send media error: %s", e)
             return None
 
@@ -419,7 +419,7 @@ class SlackAdapter(PlatformAdapter):
 
             logger.warning("[Slack] No downloadable file found for %s", message_id)
             return None
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Download media error: %s", e)
             return None
 
@@ -447,7 +447,7 @@ class SlackAdapter(PlatformAdapter):
             )
             return response.get("ok", False)
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Add reaction error: %s", e)
             return False
 
@@ -470,7 +470,7 @@ class SlackAdapter(PlatformAdapter):
             )
             return response.get("ok", False)
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Remove reaction error: %s", e)
             return False
 
@@ -492,7 +492,7 @@ class SlackAdapter(PlatformAdapter):
             )
             return response.get("ok", False)
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Delete message error: %s", e)
             return False
 
@@ -515,7 +515,7 @@ class SlackAdapter(PlatformAdapter):
 
             return None
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Get channel info error: %s", e)
             return None
 
@@ -537,7 +537,7 @@ class SlackAdapter(PlatformAdapter):
 
             return None
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Slack] Get user info error: %s", e)
             return None
 

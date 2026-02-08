@@ -346,7 +346,7 @@ class UnifiedGateway:
                 returncode = -1
             self.health_status[ConnectionType.VPN.value] = returncode == 0
             return self.health_status[ConnectionType.VPN.value]
-        except Exception as exc:  # pragma: no cover - safety
+        except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover - safety
             self.logger.error("Tailscale start failed: %s", exc)
             self.health_status[ConnectionType.VPN.value] = False
             return False
@@ -388,7 +388,7 @@ class UnifiedGateway:
                 return True
             self.health_status[ConnectionType.CLOUDFLARE.value] = False
             return False
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             self.logger.error("Cloudflare start failed: %s", exc)
             self.health_status[ConnectionType.CLOUDFLARE.value] = False
             return False
@@ -405,7 +405,7 @@ class UnifiedGateway:
             if self.ssl_cert_path and self.ssl_key_path:
                 ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
                 ssl_context.load_cert_chain(self.ssl_cert_path, self.ssl_key_path)
-        except Exception:
+        except (OSError, ssl.SSLError, ValueError):
             self.health_status[ConnectionType.DIRECT.value] = False
             return None
 
@@ -497,7 +497,7 @@ class UnifiedGateway:
                     self.clients.pop(conn.client_id, None)
                     self._cleanup_rate_limits(conn.client_id)
                     return
-            except Exception:
+            except (asyncio.TimeoutError, ConnectionError, RuntimeError):
                 await self._send_error(conn, "Authentication timeout")
                 self.clients.pop(conn.client_id, None)
                 self._cleanup_rate_limits(conn.client_id)
@@ -594,12 +594,12 @@ class UnifiedGateway:
             if hasattr(ws, "send"):
                 try:
                     await ws.send(ack)
-                except Exception as e:
+                except (ConnectionError, RuntimeError, OSError) as e:
                     self.logger.debug("Failed to send auth ack via ws.send: %s", e)
             elif hasattr(ws, "send_str"):
                 try:
                     await ws.send_str(ack)
-                except Exception as e:
+                except (ConnectionError, RuntimeError, OSError) as e:
                     self.logger.debug("Failed to send auth ack via ws.send_str: %s", e)
             return True
         return False
@@ -638,12 +638,12 @@ class UnifiedGateway:
             try:
                 await ws.send(payload)
                 return
-            except Exception as e:
+            except (ConnectionError, RuntimeError, OSError) as e:
                 self.logger.debug("Failed to send error via ws.send: %s", e)
         if hasattr(ws, "send_str"):
             try:
                 await ws.send_str(payload)
-            except Exception as e:
+            except (ConnectionError, RuntimeError, OSError) as e:
                 self.logger.debug("Failed to send error via ws.send_str: %s", e)
 
     async def _start_local_server(self):
@@ -678,7 +678,7 @@ class UnifiedGateway:
             elif hasattr(conn.websocket, "send_str"):
                 await conn.websocket.send_str(payload)
             return True
-        except Exception as e:
+        except (ConnectionError, RuntimeError, OSError) as e:
             self.logger.error("Failed to send to gateway client %s: %s", client_id, e)
             return False
 
@@ -690,7 +690,7 @@ class UnifiedGateway:
                     self.logger.warning("Cloudflare tunnel dead or not started. Reconnecting...")
                     try:
                         await self._start_cloudflare_tunnel()
-                    except Exception as e:
+                    except (OSError, subprocess.SubprocessError) as e:
                         self.logger.error("Cloudflare reconnection failed: %s", e)
                 else:
                     self.health_status[ConnectionType.CLOUDFLARE.value] = True
@@ -712,7 +712,7 @@ class UnifiedGateway:
                         self.health_status[ConnectionType.VPN.value] = False
                     else:
                         self.health_status[ConnectionType.VPN.value] = True
-                except Exception:
+                except (OSError, subprocess.SubprocessError):
                     self.health_status[ConnectionType.VPN.value] = False
 
             # Sweep rate-limit entries for clients that are no longer connected

@@ -430,7 +430,7 @@ class TestValidationExceptionPaths:
         coord.orchestrator.clients = []
 
         exploding_dict = MagicMock(spec=dict)
-        exploding_dict.__setitem__ = MagicMock(side_effect=RuntimeError("no space"))
+        exploding_dict.__setitem__ = MagicMock(side_effect=TypeError("no space"))
         coord.orchestrator.sub_agents = exploding_dict
 
         with patch("core.agent_coordinator.SubAgent", fake_cls):

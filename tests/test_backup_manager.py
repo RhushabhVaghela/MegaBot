@@ -44,9 +44,7 @@ def backup_manager(temp_db):
 async def test_init(backup_manager, temp_db):
     """Test MemoryBackupManager initialization."""
     assert backup_manager.db_path == temp_db
-    assert backup_manager.backup_dir == os.path.join(
-        os.path.dirname(temp_db), "backups"
-    )
+    assert backup_manager.backup_dir == os.path.join(os.path.dirname(temp_db), "backups")
     assert os.path.exists(backup_manager.backup_dir)
 
 
@@ -99,7 +97,7 @@ async def test_create_backup_encryption_error(backup_manager):
 
     with patch("core.memory.backup_manager.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
-        mock_fernet_instance.encrypt.side_effect = Exception("Encryption failed")
+        mock_fernet_instance.encrypt.side_effect = ValueError("Encryption failed")
         mock_fernet.return_value = mock_fernet_instance
 
         result = await backup_manager.create_backup(test_key)
@@ -232,7 +230,7 @@ async def test_list_backups_with_files(backup_manager):
 @pytest.mark.asyncio
 async def test_list_backups_error(backup_manager):
     """Test listing backups with error."""
-    with patch("os.listdir", side_effect=Exception("List error")):
+    with patch("os.listdir", side_effect=OSError("List error")):
         backups = await backup_manager.list_backups()
         assert backups == []
 
@@ -284,7 +282,7 @@ async def test_cleanup_old_backups(backup_manager):
 @pytest.mark.asyncio
 async def test_cleanup_old_backups_error(backup_manager):
     """Test cleanup with error."""
-    with patch("os.listdir", side_effect=Exception("Cleanup error")):
+    with patch("os.listdir", side_effect=OSError("Cleanup error")):
         removed_count = await backup_manager.cleanup_old_backups()
         assert removed_count == 0
 
@@ -334,9 +332,7 @@ async def test_get_backup_stats_with_backups(backup_manager):
 @pytest.mark.asyncio
 async def test_get_backup_stats_error(backup_manager):
     """Test getting stats with error."""
-    with patch.object(
-        backup_manager, "list_backups", side_effect=Exception("Stats error")
-    ):
+    with patch.object(backup_manager, "list_backups", side_effect=OSError("Stats error")):
         stats = await backup_manager.get_backup_stats()
         assert "error" in stats
 
@@ -345,9 +341,7 @@ async def test_get_backup_stats_error(backup_manager):
 async def test_restore_backup_general_exception(backup_manager):
     """Test restore_backup with general exception (lines 104-106)"""
     # Mock Fernet constructor to raise exception
-    with patch(
-        "core.memory.backup_manager.Fernet", side_effect=Exception("General Error")
-    ):
+    with patch("core.memory.backup_manager.Fernet", side_effect=ValueError("General Error")):
         result = await backup_manager.restore_backup("test.enc", "key")
         assert "Error: Restore failed: General Error" in result
 

@@ -62,7 +62,7 @@ class TestMegaBotMessagingServer:
     async def test_send_message_handles_disconnect(self, server):
         """Test that disconnected clients are removed"""
         mock_ws1 = AsyncMock()
-        mock_ws1.send.side_effect = Exception("Disconnected")
+        mock_ws1.send.side_effect = ConnectionError("Disconnected")
 
         server.clients = {"client1": mock_ws1}
 
@@ -522,7 +522,7 @@ async def test_server_send_message_target_and_error():
     await server.send_message(msg, target_client="c2")
     assert mock_client.send.called
     mock_client.send.reset_mock()
-    mock_client.send.side_effect = Exception("Send failed")
+    mock_client.send.side_effect = ConnectionError("Send failed")
     await server.send_message(msg, target_client="c1")
     assert "c1" not in server.clients
 
@@ -560,7 +560,7 @@ async def test_server_handle_client_edge_cases():
     """Test _handle_client with unknown address fallback."""
     server = MegaBotMessagingServer(enable_encryption=True)
     mock_ws = AsyncMock()
-    type(mock_ws).remote_address = property(lambda x: Exception("No address"))
+    mock_ws.remote_address = None  # Triggers TypeError on subscript, caught as fallback
     mock_ws.__aiter__.return_value = ["msg"]
     server.on_connect = AsyncMock()
     client_id_found = None

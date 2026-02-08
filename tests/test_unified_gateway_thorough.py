@@ -52,21 +52,14 @@ async def test_gateway_start_all_paths(gateway):
 
             # Mock loop to return immediately
             with patch.object(gateway, "_health_monitor_loop", new_callable=AsyncMock):
-                with patch.object(
-                    gateway, "_start_https_server", new_callable=AsyncMock
-                ) as mock_https:
-                    with patch(
-                        "websockets.serve", new_callable=AsyncMock
-                    ) as mock_serve:
+                with patch.object(gateway, "_start_https_server", new_callable=AsyncMock) as mock_https:
+                    with patch("websockets.serve", new_callable=AsyncMock) as mock_serve:
                         # Set health status before test since we're mocking the methods
                         gateway.health_status[ConnectionType.CLOUDFLARE.value] = True
 
                         # Test successful paths
                         await gateway.start()
-                        assert (
-                            gateway.health_status[ConnectionType.CLOUDFLARE.value]
-                            is True
-                        )
+                        assert gateway.health_status[ConnectionType.CLOUDFLARE.value] is True
                         assert mock_https.called
 
 
@@ -137,9 +130,7 @@ async def test_gateway_health_monitor_restart(gateway):
             restart_called = True
             gateway.health_status[ConnectionType.CLOUDFLARE.value] = True
 
-        with patch.object(
-            gateway, "_start_cloudflare_tunnel", side_effect=mock_restart_impl
-        ):
+        with patch.object(gateway, "_start_cloudflare_tunnel", side_effect=mock_restart_impl):
             # Run one iteration
             with patch("asyncio.sleep", side_effect=[None, Exception("stop")]):
                 try:
@@ -236,9 +227,7 @@ async def test_gateway_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [
-        k for k in sys.modules.keys() if k.startswith("adapters.unified_gateway")
-    ]
+    modules_to_clear = [k for k in sys.modules.keys() if k.startswith("adapters.unified_gateway")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
@@ -255,7 +244,7 @@ async def test_gateway_run_module():
 @pytest.mark.asyncio
 async def test_start_https_server_failure_handled(gateway):
     """Test HTTPS server failure handling"""
-    with patch("ssl.create_default_context", side_effect=Exception("ssl error")):
+    with patch("ssl.create_default_context", side_effect=OSError("ssl error")):
         await gateway._start_https_server()
         assert gateway.health_status[ConnectionType.DIRECT.value] is False
 
@@ -289,9 +278,7 @@ async def test_malicious_command_interception_metadata(gateway):
     """Test that messages from gateway include the critical security metadata for the orchestrator"""
     mock_ws = AsyncMock()
     # Mocking the iterator to send a malicious command string
-    malicious_payload = json.dumps(
-        {"type": "shell.execute", "params": {"command": "rm -rf /"}}
-    )
+    malicious_payload = json.dumps({"type": "shell.execute", "params": {"command": "rm -rf /"}})
     mock_ws.__aiter__.return_value = [malicious_payload]
 
     # Initialize rate limits for CLOUDFLARE connection
@@ -347,9 +334,7 @@ async def test_handle_websocket_forced_type(gateway):
     # Initialize rate limits
     gateway.rate_limits[ConnectionType.VPN.value] = {}
 
-    with patch.object(
-        gateway, "_manage_connection", new_callable=AsyncMock
-    ) as mock_manage:
+    with patch.object(gateway, "_manage_connection", new_callable=AsyncMock) as mock_manage:
         await gateway._handle_websocket(mock_ws, "", forced_type=ConnectionType.VPN)
 
         # Check if manage was called with VPN type
@@ -533,7 +518,7 @@ async def test_gateway_send_message_full(gateway):
     mock_ws_aio.send_str.assert_called_once()
 
     # 4. Exception path (lines 460-462)
-    mock_ws.send.side_effect = Exception("Send failed")
+    mock_ws.send.side_effect = ConnectionError("Send failed")
     result = await gateway.send_message("c1", {"msg": "hello"})
     assert result is False
 
@@ -564,19 +549,17 @@ async def test_gateway_process_message_exceptions(gateway):
 @pytest.mark.asyncio
 async def test_send_error_exception_handling(gateway):
     """Test _send_error exception handling (lines 421-422, 426-427)"""
-    mock_ws = MagicMock()
+    mock_ws = AsyncMock()
     # Case 1: ws.send raises exception
-    mock_ws.send = AsyncMock(side_effect=Exception("send error"))
-    conn = ClientConnection(
-        mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now()
-    )
+    mock_ws.send = AsyncMock(side_effect=ConnectionError("send error"))
+    conn = ClientConnection(mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now())
 
     await gateway._send_error(conn, "msg")
     # Should not raise
 
-    # Case 2: ws.send_str raises exception
+    # Case 2: ws.send_str raises exception (remove send so code falls through)
     del mock_ws.send
-    mock_ws.send_str = AsyncMock(side_effect=Exception("send_str error"))
+    mock_ws.send_str = AsyncMock(side_effect=ConnectionError("send_str error"))
     await gateway._send_error(conn, "msg")
     # Should not raise
 
@@ -604,9 +587,7 @@ async def test_manage_connection_sync_close(gateway):
     mock_ws.close = MagicMock()  # Sync
     mock_ws.__aiter__.return_value = []
 
-    conn = ClientConnection(
-        mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now()
-    )
+    conn = ClientConnection(mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now())
     await gateway._manage_connection(conn)
     mock_ws.close.assert_called_once()
 
@@ -618,9 +599,7 @@ async def test_decode_exceptions_coverage(gateway):
     # Payload that fails decode
     mock_ws.__aiter__.return_value = [b"\xff"]
 
-    conn = ClientConnection(
-        mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now()
-    )
+    conn = ClientConnection(mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now())
 
     with patch.object(gateway, "_check_rate_limit", return_value=True):
         # This covers 370-371
@@ -639,16 +618,12 @@ async def test_decode_exceptions_real_trigger(gateway):
     mock_payload.decode.side_effect = Exception("Decode failed")
     mock_ws.__aiter__.return_value = [mock_payload]
 
-    conn = ClientConnection(
-        mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now()
-    )
+    conn = ClientConnection(mock_ws, ConnectionType.LOCAL, "c1", "1.1.1.1", datetime.now())
     with patch.object(gateway, "_check_rate_limit", return_value=True):
         # We need to ensure it thinks it's bytes
         with patch(
             "core.network.gateway.isinstance",
-            side_effect=lambda o, t: (
-                True if t == bytes and o == mock_payload else isinstance(o, t)
-            ),
+            side_effect=lambda o, t: True if t == bytes and o == mock_payload else isinstance(o, t),
         ):
             await gateway._manage_connection(conn)
 
@@ -703,7 +678,7 @@ async def test_health_monitor_healthy_state(gateway):
     mock_ws_aio.send_str.assert_called_once()
 
     # 4. Exception path (lines 459-461)
-    mock_ws.send.side_effect = Exception("Send failed")
+    mock_ws.send.side_effect = ConnectionError("Send failed")
     result = await gateway.send_message("c1", {"msg": "hello"})
     assert result is False
 

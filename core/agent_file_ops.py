@@ -75,7 +75,7 @@ def validate_path(orchestrator: "MegaBotOrchestrator", p: str) -> tuple[bool, st
 
         try:
             cand_resolved = candidate.resolve()
-        except Exception:
+        except OSError:
             return False, "Path resolution error"
 
         # Deny symlinks explicitly (fast path).
@@ -84,7 +84,7 @@ def validate_path(orchestrator: "MegaBotOrchestrator", p: str) -> tuple[bool, st
 
         try:
             cand_resolved.relative_to(workspace)
-        except Exception:
+        except ValueError:
             return False, "Path outside workspace"
 
         return True, str(cand_resolved)
@@ -195,7 +195,7 @@ async def read_file(
                     size=size,
                 )
                 return f"Security Error: read_file denied: file too large ({size} bytes)"
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.warning(
                 "Failed to enforce size limit on read_file: agent=%s path=%s err=%s", agent_name, resolved, e
             )

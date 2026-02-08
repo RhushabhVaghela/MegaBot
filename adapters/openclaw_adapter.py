@@ -77,7 +77,7 @@ class OpenClawAdapter(MessagingInterface):
                 elif self.on_event:
                     # Otherwise, it's a notification or unexpected event
                     await self.on_event(data)
-        except Exception as e:
+        except (json.JSONDecodeError, ConnectionError, RuntimeError, OSError) as e:
             logger.error("OpenClaw connection closed: %s", e)
 
     async def execute_tool(self, method: str, params: dict) -> Any:

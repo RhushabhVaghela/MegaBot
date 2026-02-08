@@ -17,6 +17,7 @@ import asyncio
 import io
 import json
 import os
+import subprocess
 import sys
 import pytest
 from datetime import datetime
@@ -418,7 +419,8 @@ async def test_orchestrator_gateway_message(orchestrator):
         "sender_name": "remote-user",
         "_meta": {"client_id": "cf-1"},
     }
-    await orchestrator.on_gateway_message(data)
+    with patch("core.build_session.can_allocate", return_value=True):
+        await orchestrator.on_gateway_message(data)
     assert orchestrator.memory.chat_write.called
 
     # Non-build mode
@@ -463,7 +465,8 @@ async def test_orchestrator_run_autonomous_gateway_build(orchestrator):
     """Test autonomous build triggered from gateway"""
     msg = Message(content="build app", sender="gateway-user")
     original_data = {"_meta": {"client_id": "cf-1"}}
-    await orchestrator.run_autonomous_gateway_build(msg, original_data)
+    with patch("core.build_session.can_allocate", return_value=True):
+        await orchestrator.run_autonomous_gateway_build(msg, original_data)
     assert orchestrator.adapters["openclaw"].send_message.called
     assert orchestrator.adapters["gateway"].send_message.called
 
@@ -637,7 +640,7 @@ async def test_orchestrator_handle_client_non_build(orchestrator):
 async def test_orchestrator_on_openclaw_event_error_relay(orchestrator):
     """Test error handling when relaying to UI clients"""
     mock_client = AsyncMock()
-    mock_client.send_json.side_effect = Exception("conn lost")
+    mock_client.send_json.side_effect = ConnectionError("conn lost")
     orchestrator.clients.add(mock_client)
     await orchestrator.on_openclaw_event({"type": "event"})
     assert mock_client not in orchestrator.clients
@@ -656,7 +659,7 @@ async def test_orchestrator_run_autonomous_build_full(orchestrator):
 @pytest.mark.asyncio
 async def test_orchestrator_client_removal(orchestrator):
     mock_ws = AsyncMock()
-    mock_ws.receive_text.side_effect = Exception("done")
+    mock_ws.receive_text.side_effect = ConnectionError("done")
     await orchestrator.handle_client(mock_ws)
     assert mock_ws not in orchestrator.clients
 
@@ -783,7 +786,8 @@ async def test_orchestrator_run_autonomous_build_step_error(orchestrator):
     mock_ws = AsyncMock()
     msg = Message(content="build", sender="u")
     orchestrator.llm.generate.side_effect = Exception("llm error")
-    await orchestrator.run_autonomous_build(msg, mock_ws)
+    with patch("core.build_session.can_allocate", return_value=True):
+        await orchestrator.run_autonomous_build(msg, mock_ws)
     assert mock_ws.send_json.called
     # Check if error status was sent
     calls = [c[0][0] for c in mock_ws.send_json.call_args_list]
@@ -820,7 +824,7 @@ async def test_orchestrator_openclaw_connect_greeting(orchestrator):
 async def test_orchestrator_approval_queue_update_error(orchestrator):
     """Test error handling when updating approval queue"""
     mock_client = AsyncMock()
-    mock_client.send_json.side_effect = Exception("Client disconnected")
+    mock_client.send_json.side_effect = ConnectionError("Client disconnected")
     orchestrator.clients.add(mock_client)
     orchestrator.admin_handler.approval_queue.append(
         {
@@ -916,7 +920,7 @@ async def test_orchestrator_process_approval_subprocess_exceptions(orchestrator)
     orchestrator.admin_handler.approval_queue.append(action)
     with patch(
         "subprocess.run",
-        side_effect=Exception("Subprocess failed"),
+        side_effect=subprocess.SubprocessError("Subprocess failed"),
     ):
         await orchestrator._process_approval("test-action-123", approved=True)
     # The queue should be cleared regardless of execution failure
@@ -1403,7 +1407,10 @@ async def test_spawn_sub_agent_validation_fail(orchestrator):
     mock_agent = MagicMock()
     mock_agent.generate_plan = AsyncMock(return_value=["format"])
     mock_agent.run = AsyncMock(return_value="executed")
-    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+    with (
+        patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
+        patch("core.agent_coordinator.can_allocate", return_value=True),
+    ):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "blocked by pre-flight check" in result
 
@@ -1421,7 +1428,10 @@ async def test_spawn_sub_agent_synthesis_fallback(orchestrator):
     mock_agent = MagicMock()
     mock_agent.generate_plan = AsyncMock()
     mock_agent.run = AsyncMock(return_value="raw result")
-    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+    with (
+        patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
+        patch("core.agent_coordinator.can_allocate", return_value=True),
+    ):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "CRITICAL: Always backup" in result
 
@@ -2243,7 +2253,7 @@ async def test_init_audit_log_exception(mock_config):
     """Lines 237-239: exception in audit log setup -> pass (no crash)."""
     with patch(
         "core.orchestrator.attach_audit_file_handler",
-        side_effect=RuntimeError("log fail"),
+        side_effect=OSError("log fail"),
     ):
         with patch.dict("os.environ", {"MEGABOT_ENABLE_AUDIT_LOG": "1"}):
             orch = MegaBotOrchestrator(mock_config)
@@ -2273,7 +2283,10 @@ async def test_gateway_build_memory_injection(orchestrator):
     msg = Message(content="build something", sender="user", platform="gateway")
     original_data = {"_meta": {"client_id": "test-client", "connection_type": "local"}}
 
-    with patch("core.build_session.get_relevant_lessons", new_callable=AsyncMock, return_value="LESSON: do X"):
+    with (
+        patch("core.build_session.get_relevant_lessons", new_callable=AsyncMock, return_value="LESSON: do X"),
+        patch("core.build_session.can_allocate", return_value=True),
+    ):
         await orchestrator.run_autonomous_gateway_build(msg, original_data)
     assert msg.content.startswith("LESSON: do X")
 

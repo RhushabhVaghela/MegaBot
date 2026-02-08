@@ -369,7 +369,7 @@ class DiscordAdapter(PlatformAdapter):
 
             return await channel.send(**kwargs)
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Send message error: %s", e)
             return None
 
@@ -471,7 +471,7 @@ class DiscordAdapter(PlatformAdapter):
                 else await guild.create_voice_channel(**kwargs)
             )
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Create channel error: %s", e)
             return None
 
@@ -498,7 +498,7 @@ class DiscordAdapter(PlatformAdapter):
 
             return info
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error("[Discord] Get channel info error: %s", e)
             return None
 
@@ -519,7 +519,7 @@ class DiscordAdapter(PlatformAdapter):
                 "icon_url": guild.icon.url if guild.icon else None,
             }
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error("[Discord] Get guild info error: %s", e)
             return None
 
@@ -544,7 +544,7 @@ class DiscordAdapter(PlatformAdapter):
             await message.add_reaction(emoji)
             return True
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Add reaction error: %s", e)
             return False
 
@@ -580,7 +580,7 @@ class DiscordAdapter(PlatformAdapter):
                 await message.remove_reaction(emoji, self.bot.user)
             return True
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Remove reaction error: %s", e)
             return False
 
@@ -604,7 +604,7 @@ class DiscordAdapter(PlatformAdapter):
             await message.delete()
             return True
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Delete message error: %s", e)
             return False
 
@@ -640,7 +640,7 @@ class DiscordAdapter(PlatformAdapter):
             await message.edit(**kwargs)
             return True
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Edit message error: %s", e)
             return False
 
@@ -658,7 +658,7 @@ class DiscordAdapter(PlatformAdapter):
                 "created_at": user.created_at.isoformat(),
             }
 
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Get user info error: %s", e)
             return None
 
@@ -685,7 +685,7 @@ class DiscordAdapter(PlatformAdapter):
             if message:
                 return await self._to_platform_message(message)
             return None
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Send text error: %s", e)
             return None
 
@@ -704,7 +704,7 @@ class DiscordAdapter(PlatformAdapter):
             if message:
                 return await self._to_platform_message(message)
             return None
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Send media error: %s", e)
             return None
 
@@ -736,7 +736,7 @@ class DiscordAdapter(PlatformAdapter):
                     return save_path
             logger.warning("[Discord] Message %s not found in any channel", message_id)
             return None
-        except Exception as e:
+        except (ConnectionError, OSError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error("[Discord] Download media error: %s", e)
             return None
 

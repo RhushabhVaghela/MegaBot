@@ -65,10 +65,10 @@ class UserIdentityManager:
                 platform,
                 platform_id,
             )
-            logger.info(f"Linked {platform}:{platform_id} to internal ID: {internal_id}")
+            logger.info("Linked %s:%s to internal ID: %s", platform, platform_id, internal_id)
             return True
-        except Exception as e:
-            logger.error(f"Error linking identity: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error linking identity: %s", e)
             return False
 
     def _sync_link_identity(self, internal_id: str, platform: str, platform_id: str):
@@ -85,8 +85,8 @@ class UserIdentityManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_unified_id, platform, platform_id)
-        except Exception as e:
-            logger.error(f"Error retrieving unified ID: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error retrieving unified ID: %s", e)
             return platform_id
 
     def _sync_get_unified_id(self, platform: str, platform_id: str) -> str:
@@ -104,8 +104,8 @@ class UserIdentityManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_platform_ids, internal_id)
-        except Exception as e:
-            logger.error(f"Error retrieving platform IDs for {internal_id}: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error retrieving platform IDs for %s: %s", internal_id, e)
             return []
 
     def _sync_get_platform_ids(self, internal_id: str) -> list:
@@ -122,8 +122,8 @@ class UserIdentityManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_unlink_identity, platform, platform_id)
-        except Exception as e:
-            logger.error(f"Error unlinking identity: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error unlinking identity: %s", e)
             return False
 
     def _sync_unlink_identity(self, platform: str, platform_id: str) -> bool:
@@ -141,8 +141,8 @@ class UserIdentityManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_identity_stats)
-        except Exception as e:
-            logger.error(f"Error getting identity stats: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error getting identity stats: %s", e)
             return {"error": str(e)}
 
     def _sync_get_identity_stats(self) -> dict:

@@ -35,7 +35,7 @@ class MessageRouter:
                     if isinstance(att.get("type"), str):
                         att["type"] = MessageType(att["type"]).value
                     platform_attachments.append(MediaAttachment.from_dict(att))
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.error("Error converting attachment: %s", e)
 
         return PlatformMessage(
@@ -94,7 +94,15 @@ class MessageRouter:
                         else:
                             # No sensitive regions detected in first pass
                             pass
-                    except Exception as e:
+                    except (
+                        json.JSONDecodeError,
+                        KeyError,
+                        ValueError,
+                        TypeError,
+                        RuntimeError,
+                        ConnectionError,
+                        OSError,
+                    ) as e:
                         logger.error("Redaction failed: %s", e)
 
         # Vision Policy Enforcement: Require approval for outbound images

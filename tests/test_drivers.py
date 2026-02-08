@@ -142,7 +142,7 @@ class TestComputerDriver:
         """Test error handling in execute"""
         with patch.object(driver, "_get_pyautogui") as mock_get_pg:
             mock_pg = MagicMock()
-            mock_pg.moveTo.side_effect = Exception("Mock error")
+            mock_pg.moveTo.side_effect = RuntimeError("Mock error")
             mock_get_pg.return_value = mock_pg
 
             result = await driver.execute("mouse_move", coordinate=[100, 200])

@@ -25,6 +25,14 @@ async def test_mcp_adapter_execute():
 @pytest.mark.asyncio
 async def test_mcp_adapter_start():
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_process = MagicMock()
+        mock_process.stdin.write = MagicMock()
+        mock_process.stdin.drain = AsyncMock()
+        mock_process.stdout.readline = AsyncMock(
+            return_value=json.dumps({"jsonrpc": "2.0", "result": {"tools": []}}).encode() + b"\n"
+        )
+        mock_exec.return_value = mock_process
+
         adapter = MCPAdapter({"name": "test", "command": "npx"})
         await adapter.start()
         assert mock_exec.called

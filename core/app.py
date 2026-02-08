@@ -197,7 +197,7 @@ async def health():
 
     try:
         component_health = await orch.get_system_health()
-    except Exception as exc:
+    except (OSError, ValueError, RuntimeError, ConnectionError) as exc:
         return JSONResponse(
             status_code=503,
             content={"status": "error", "detail": str(exc)},

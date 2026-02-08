@@ -127,7 +127,7 @@ def _query_vram() -> dict[str, float] | None:
         line = result.stdout.strip().splitlines()[0]
         total, used, free = (float(v.strip()) for v in line.split(","))
         return {"total": total, "used": used, "free": free}
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return None
 
 

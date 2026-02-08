@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket  # type: ignore
+from starlette.websockets import WebSocketDisconnect  # type: ignore
 
 from core.interfaces import Message
 from core.task_utils import safe_create_task as _safe_create_task
@@ -84,7 +85,7 @@ async def handle_client(orchestrator: "MegaBotOrchestrator", websocket: WebSocke
                 action_id = msg_data.get("action_id")
                 await orchestrator._process_approval(action_id, approved=False)
 
-    except Exception as e:
+    except (WebSocketDisconnect, json.JSONDecodeError, KeyError, ValueError, ConnectionError) as e:
         logger.error("WebSocket error: %s", e)
     finally:
         orchestrator.clients.discard(websocket)

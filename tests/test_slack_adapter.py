@@ -557,7 +557,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_get_username_failure(self, slack_adapter, mock_client):
         """Test username retrieval failure"""
-        mock_client.users_info.side_effect = Exception("API Error")
+        mock_client.users_info.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter._get_username("U123")
 
@@ -611,7 +611,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_send_text_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in send_text"""
-        mock_client.chat_postMessage.side_effect = Exception("API Error")
+        mock_client.chat_postMessage.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.send_text("C1234567890", "Hello World")
 
@@ -620,7 +620,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_send_media_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in send_media"""
-        mock_client.files_upload_v2.side_effect = Exception("Upload Error")
+        mock_client.files_upload_v2.side_effect = OSError("Upload Error")
 
         result = await slack_adapter.send_media("C1234567890", "/path/to/image.jpg")
 
@@ -649,7 +649,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_add_reaction_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in add_reaction"""
-        mock_client.reactions_add.side_effect = Exception("API Error")
+        mock_client.reactions_add.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.add_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
@@ -658,7 +658,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_remove_reaction_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in remove_reaction"""
-        mock_client.reactions_remove.side_effect = Exception("API Error")
+        mock_client.reactions_remove.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.remove_reaction("C1234567890", "1234567890.123456", "thumbsup")
 
@@ -667,7 +667,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_delete_message_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in delete_message"""
-        mock_client.chat_delete.side_effect = Exception("API Error")
+        mock_client.chat_delete.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.delete_message("C1234567890", "1234567890.123456")
 
@@ -676,7 +676,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_get_channel_info_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in get_channel_info"""
-        mock_client.conversations_info.side_effect = Exception("API Error")
+        mock_client.conversations_info.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.get_channel_info("C1234567890")
 
@@ -685,7 +685,7 @@ class TestSlackAdapter:
     @pytest.mark.asyncio
     async def test_get_user_info_exception_handling(self, slack_adapter, mock_client):
         """Test exception handling in get_user_info"""
-        mock_client.users_info.side_effect = Exception("API Error")
+        mock_client.users_info.side_effect = ConnectionError("API Error")
 
         result = await slack_adapter.get_user_info("U1234567890")
 

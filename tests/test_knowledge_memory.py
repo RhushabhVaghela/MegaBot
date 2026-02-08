@@ -1,5 +1,6 @@
 import pytest
 import os
+import sqlite3
 import tempfile
 from core.memory.knowledge_memory import KnowledgeMemoryManager
 
@@ -312,7 +313,7 @@ async def test_error_handlings_full(knowledge_manager):
     import unittest.mock
 
     with unittest.mock.patch("sqlite3.connect") as mock_connect:
-        mock_connect.side_effect = Exception("DB Error")
+        mock_connect.side_effect = sqlite3.OperationalError("DB Error")
 
         # write error (63-65)
         res = await knowledge_manager.write("k", "t", "c")

@@ -104,7 +104,7 @@ class IMessageAdapter(PlatformAdapter):
 
             logger.info("[iMessage] Sent message to %s (%d chars)", chat_id, len(text))
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.error("[iMessage] Send failed: %s", e)
             return None
 

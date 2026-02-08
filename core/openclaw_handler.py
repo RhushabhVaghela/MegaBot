@@ -127,7 +127,7 @@ async def on_openclaw_event(orchestrator: "MegaBotOrchestrator", data: dict) -> 
     for client in list(orchestrator.clients):
         try:
             await client.send_json({"type": "openclaw_event", "payload": data})
-        except Exception:
+        except (ConnectionError, RuntimeError, OSError):
             orchestrator.clients.discard(client)
 
     if data.get("method") == "chat.message":

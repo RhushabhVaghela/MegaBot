@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class SubAgent:
                     messages.append({"role": "assistant", "content": response})  # type: ignore
                     messages.append({"role": "user", "content": results})  # type: ignore
 
-            except Exception as e:
+            except (OSError, ValueError, KeyError, RuntimeError, asyncio.TimeoutError) as e:
                 return f"Sub-agent error: {str(e)}"
 
         return "Sub-agent reached max steps without final answer."

@@ -76,8 +76,8 @@ class ChatMemoryManager:
                 metadata_json,
             )
             return True
-        except Exception as e:
-            logger.error(f"Error writing chat history: {e}")
+        except (sqlite3.Error, TypeError) as e:
+            logger.error("Error writing chat history: %s", e)
             return False
 
     def _sync_write(self, chat_id: str, platform: str, role: str, content: str, metadata_json: str):
@@ -107,8 +107,8 @@ class ChatMemoryManager:
                 }
                 for r in reversed(rows)
             ]
-        except Exception as e:
-            logger.error(f"Error reading chat history for {chat_id}: {e}")
+        except (sqlite3.Error, json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error("Error reading chat history for %s: %s", chat_id, e)
             return []
 
     def _sync_read(self, chat_id: str, limit: int):
@@ -134,8 +134,8 @@ class ChatMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_forget, chat_id, max_history)
-        except Exception as e:
-            logger.error(f"Error cleaning chat history for {chat_id}: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error cleaning chat history for %s: %s", chat_id, e)
             return False
 
     def _sync_forget(self, chat_id: str, max_history: int) -> bool:
@@ -154,7 +154,7 @@ class ChatMemoryManager:
 
         if count > max_history:
             to_delete = count - max_history
-            logger.info(f"Cleaning up {to_delete} old messages for {chat_id}")
+            logger.info("Cleaning up %d old messages for %s", to_delete, chat_id)
             conn.execute(
                 """
                 DELETE FROM chat_history
@@ -177,8 +177,8 @@ class ChatMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_all_chat_ids)
-        except Exception as e:
-            logger.error(f"Error getting chat IDs: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error getting chat IDs: %s", e)
             return []
 
     def _sync_get_all_chat_ids(self) -> list[str]:
@@ -192,8 +192,8 @@ class ChatMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_chat_stats, chat_id)
-        except Exception as e:
-            logger.error(f"Error getting chat stats for {chat_id}: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error getting chat stats for %s: %s", chat_id, e)
             return {"error": str(e)}
 
     def _sync_get_chat_stats(self, chat_id: str) -> dict[str, Any]:
@@ -216,8 +216,8 @@ class ChatMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_aggregate_stats)
-        except Exception as e:
-            logger.error(f"Error getting aggregate chat stats: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error getting aggregate chat stats: %s", e)
             return {"error": str(e)}
 
     def _sync_get_aggregate_stats(self) -> dict[str, Any]:

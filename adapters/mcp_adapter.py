@@ -33,7 +33,7 @@ class MCPAdapter(ToolInterface):
             if res and "result" in res:
                 self.tools = res["result"].get("tools", [])
                 logger.info("Server '%s' provided %d tools.", self.name, len(self.tools))
-        except Exception as e:
+        except (json.JSONDecodeError, KeyError, OSError, asyncio.TimeoutError, AttributeError) as e:
             logger.error("Failed to fetch tools for %s: %s", self.name, e)
 
     async def execute(self, **kwargs) -> Any:

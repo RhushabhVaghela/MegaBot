@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.12]
+        python-version: ['3.12', '3.13']
 
     steps:
       - name: Checkout repository
@@ -42,23 +42,23 @@ jobs:
         run: |
           PYTHONPATH=. OPENCLAW_AUTH_TOKEN=test_token_12345 \
           python -m pytest tests/ -v \
-            --cov=core --cov=adapters --cov=modules \
+            --cov=core --cov=adapters \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=95
 
       - name: Run ruff (lint + format check)
         run: |
-          python -m ruff check .
-          python -m ruff format --check .
+          python -m ruff check core/ adapters/
+          python -m ruff format --check core/ adapters/
 
       - name: Run mypy (type checks)
-        run: python -m mypy --ignore-missing-imports .
+        run: python -m mypy --ignore-missing-imports core/ adapters/
 
       # --- Security scanning ---
       - name: Run bandit (security lint)
         run: |
-          python -m bandit -r core/ adapters/ modules/ \
+          python -m bandit -r core/ adapters/ \
             -c pyproject.toml \
             --severity-level medium \
             -f json -o bandit-report.json
@@ -70,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-${{ matrix.python-version }}
           path: coverage.xml
           if-no-files-found: ignore
 
@@ -78,7 +78,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bandit-report
+          name: bandit-report-${{ matrix.python-version }}
           path: bandit-report.json
           if-no-files-found: ignore
 

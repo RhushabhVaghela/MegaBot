@@ -5,7 +5,7 @@ import sqlite3
 import zlib
 from datetime import datetime
 
-from cryptography.fernet import Fernet  # type: ignore
+from cryptography.fernet import Fernet, InvalidToken  # type: ignore
 
 logger = logging.getLogger("megabot.memory.backup")
 
@@ -62,7 +62,7 @@ class MemoryBackupManager:
 
             logger.info("Database backup created: %s", backup_file)
             return f"Backup created successfully: {os.path.basename(backup_file)}"
-        except Exception as e:
+        except (sqlite3.Error, OSError, zlib.error, ValueError, InvalidToken) as e:
             logger.error("Backup failed: %s", e)
             return f"Error: Backup failed: {e}"
         finally:
@@ -103,7 +103,7 @@ class MemoryBackupManager:
                     conn.execute("SELECT COUNT(*) FROM memories").fetchone()
                     conn.execute("SELECT COUNT(*) FROM chat_history").fetchone()
                     conn.execute("SELECT COUNT(*) FROM user_identities").fetchone()
-            except Exception as e:
+            except sqlite3.Error as e:
                 os.remove(temp_db)
                 return f"Error: Restored database is corrupted: {e}"
 
@@ -136,7 +136,7 @@ class MemoryBackupManager:
 
             logger.info("Database restored from backup: %s", backup_file)
             return f"Database restored successfully from {backup_file}. Previous database backed up as .bak"
-        except Exception as e:
+        except (sqlite3.Error, OSError, zlib.error, ValueError, InvalidToken) as e:
             logger.error("Restore failed: %s", e)
             return f"Error: Restore failed: {e}"
         finally:
@@ -165,7 +165,7 @@ class MemoryBackupManager:
                         }
                     )
             return sorted(files, key=lambda x: x["created"], reverse=True)
-        except Exception as e:
+        except OSError as e:
             logger.error("Error listing backups: %s", e)
             return []
 
@@ -184,7 +184,7 @@ class MemoryBackupManager:
                         logger.info("Removed old backup: %s", filename)
 
             return removed_count
-        except Exception as e:
+        except OSError as e:
             logger.error("Error cleaning up old backups: %s", e)
             return 0
 
@@ -227,6 +227,6 @@ class MemoryBackupManager:
                 "oldest": backups[-1]["created"] if backups else None,
                 "newest": backups[0]["created"] if backups else None,
             }
-        except Exception as e:
+        except (OSError, KeyError, TypeError) as e:
             logger.error("Error getting backup stats: %s", e)
             return {"error": str(e)}

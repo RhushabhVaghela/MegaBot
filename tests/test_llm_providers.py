@@ -2,6 +2,7 @@
 Tests for LLM Providers
 """
 
+import aiohttp
 import pytest
 from unittest.mock import AsyncMock, patch, Mock, MagicMock
 
@@ -125,7 +126,7 @@ class TestOpenAICompatibleProvider:
         provider = OpenAICompatibleProvider("gpt-4", "test_key", "https://api.test.com")
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session_class.side_effect = Exception("Connection failed")
+            mock_session_class.side_effect = aiohttp.ClientError("Connection failed")
 
             result = await provider.generate(prompt="test")
             assert "connection failed" in result
@@ -428,7 +429,7 @@ async def test_ollama_provider_errors():
     with patch(
         "aiohttp.ClientSession.post",
         new_callable=AsyncMock,
-        side_effect=Exception("Connection failed"),
+        side_effect=aiohttp.ClientError("Connection failed"),
     ):
         result = await provider.generate(prompt="test")
         assert "Ollama connection failed: Connection failed" in result
@@ -451,7 +452,7 @@ async def test_anthropic_provider_error_and_exception():
     with patch(
         "aiohttp.ClientSession.post",
         new_callable=AsyncMock,
-        side_effect=Exception("Timeout"),
+        side_effect=aiohttp.ClientError("Timeout"),
     ):
         result = await provider.generate(prompt="test")
         assert "Anthropic connection failed: Timeout" in result
@@ -498,7 +499,7 @@ async def test_gemini_provider_extended():
     with patch(
         "aiohttp.ClientSession.post",
         new_callable=AsyncMock,
-        side_effect=Exception("API Error"),
+        side_effect=aiohttp.ClientError("API Error"),
     ):
         result = await provider.generate(prompt="test")
         assert "Gemini connection failed: API Error" in result
@@ -541,7 +542,7 @@ async def test_openrouter_provider():
     with patch(
         "aiohttp.ClientSession.post",
         new_callable=AsyncMock,
-        side_effect=Exception("Fail"),
+        side_effect=aiohttp.ClientError("Fail"),
     ):
         result = await provider.generate(prompt="test")
         assert "OpenRouter connection failed: Fail" in result
@@ -584,7 +585,7 @@ async def test_github_copilot_provider():
     with patch(
         "aiohttp.ClientSession.post",
         new_callable=AsyncMock,
-        side_effect=Exception("Fail"),
+        side_effect=aiohttp.ClientError("Fail"),
     ):
         result = await provider.generate(prompt="test")
         assert "GitHub Copilot connection failed: Fail" in result
@@ -691,7 +692,7 @@ class TestLLMProviderCoverage:
         with patch(
             "aiohttp.ClientSession.post",
             new_callable=AsyncMock,
-            side_effect=Exception("Conn fail"),
+            side_effect=aiohttp.ClientError("Conn fail"),
         ):
             assert "connection failed" in await p.generate("hi")
 
@@ -712,7 +713,7 @@ class TestLLMProviderCoverage:
         with patch(
             "aiohttp.ClientSession.post",
             new_callable=AsyncMock,
-            side_effect=Exception("Fail"),
+            side_effect=aiohttp.ClientError("Fail"),
         ):
             assert "connection failed" in await p.generate("hi")
 

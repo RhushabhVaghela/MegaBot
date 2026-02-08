@@ -408,7 +408,7 @@ async def test_trigger_voice_briefing_no_history(admin_handler, mock_orchestrato
 @pytest.mark.asyncio
 async def test_trigger_voice_briefing_exception(admin_handler, mock_orchestrator):
     """Test _trigger_voice_briefing handles exceptions."""
-    mock_orchestrator.memory.chat_read.side_effect = Exception("Database error")
+    mock_orchestrator.memory.chat_read.side_effect = OSError("Database error")
     await admin_handler._trigger_voice_briefing("+1234567890", "chat123", "platform")
     # Should not raise exception, just log it
 
@@ -484,7 +484,7 @@ async def test_execute_approved_action_exception_with_websocket(admin_handler):
         "description": "Exploding command",
     }
 
-    with patch("subprocess.run", side_effect=Exception("Explosion")):
+    with patch("subprocess.run", side_effect=OSError("Explosion")):
         result = await admin_handler._execute_approved_action(action)
         assert "Explosion" in result
         mock_ws.send_json.assert_called_once()
@@ -761,8 +761,10 @@ class TestAdminHandlerCoverage:
     @pytest.mark.asyncio
     async def test_execute_approved_action_error(self, orchestrator):
         handler = AdminHandler(orchestrator)
-        # Force exception
-        action = {"type": "mcp_tool", "payload": None}
+        # Force OSError via MCP tool call
+        action = {"type": "mcp_tool", "payload": {"server": "s", "tool": "t"}}
+        orchestrator.adapters = {"mcp": AsyncMock()}
+        orchestrator.adapters["mcp"].call_tool = AsyncMock(side_effect=OSError("MCP fail"))
         result = await handler._execute_approved_action(action)
         assert result is not None
         assert "execution failed" in str(result)

@@ -878,7 +878,7 @@ class TestDiscordAdapter:
         """Test create_channel exception handling"""
         adapter.bot = mock_bot
         mock_guild = Mock()
-        mock_guild.create_text_channel = AsyncMock(side_effect=Exception("Create failed"))
+        mock_guild.create_text_channel = AsyncMock(side_effect=ConnectionError("Create failed"))
         mock_bot.get_guild.return_value = mock_guild
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1416,7 +1416,7 @@ class TestDiscordAdapter:
         """Test send_message exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
-        mock_channel.send = AsyncMock(side_effect=Exception("Send failed"))
+        mock_channel.send = AsyncMock(side_effect=ConnectionError("Send failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1511,7 +1511,7 @@ class TestDiscordAdapter:
     async def test_get_channel_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_channel_info exception handling"""
         adapter.bot = mock_bot
-        mock_bot.get_channel.side_effect = Exception("Channel fetch failed")
+        mock_bot.get_channel.side_effect = ValueError("Channel fetch failed")
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_channel_info("123456")
@@ -1552,7 +1552,7 @@ class TestDiscordAdapter:
     async def test_get_guild_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_guild_info exception handling"""
         adapter.bot = mock_bot
-        mock_bot.get_guild.side_effect = Exception("Guild fetch failed")
+        mock_bot.get_guild.side_effect = ValueError("Guild fetch failed")
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_guild_info("123456")
@@ -1577,7 +1577,7 @@ class TestDiscordAdapter:
         mock_channel = Mock()
         mock_message = Mock()
         mock_channel.fetch_message = AsyncMock(return_value=mock_message)
-        mock_message.add_reaction = AsyncMock(side_effect=Exception("Add reaction failed"))
+        mock_message.add_reaction = AsyncMock(side_effect=ConnectionError("Add reaction failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1603,7 +1603,7 @@ class TestDiscordAdapter:
         mock_channel = Mock()
         mock_message = Mock()
         mock_channel.fetch_message = AsyncMock(return_value=mock_message)
-        mock_message.remove_reaction = AsyncMock(side_effect=Exception("Remove reaction failed"))
+        mock_message.remove_reaction = AsyncMock(side_effect=ConnectionError("Remove reaction failed"))
         mock_bot.get_channel.return_value = mock_channel
         adapter.bot.user = Mock()
 
@@ -1630,7 +1630,7 @@ class TestDiscordAdapter:
         mock_channel = Mock()
         mock_message = Mock()
         mock_channel.fetch_message = AsyncMock(return_value=mock_message)
-        mock_message.delete = AsyncMock(side_effect=Exception("Delete message failed"))
+        mock_message.delete = AsyncMock(side_effect=ConnectionError("Delete message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1670,7 +1670,7 @@ class TestDiscordAdapter:
         mock_channel = Mock()
         mock_message = Mock()
         mock_channel.fetch_message = AsyncMock(return_value=mock_message)
-        mock_message.edit = AsyncMock(side_effect=Exception("Edit message failed"))
+        mock_message.edit = AsyncMock(side_effect=ConnectionError("Edit message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1683,7 +1683,7 @@ class TestDiscordAdapter:
     async def test_get_user_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_user_info exception handling"""
         adapter.bot = mock_bot
-        mock_bot.fetch_user = AsyncMock(side_effect=Exception("User fetch failed"))
+        mock_bot.fetch_user = AsyncMock(side_effect=ConnectionError("User fetch failed"))
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_user_info("123456")
@@ -1704,7 +1704,7 @@ class TestDiscordAdapter:
 
         # Mock channel and make send() raise an exception
         mock_channel = AsyncMock()
-        mock_channel.send.side_effect = Exception("'NoneType' object has no attribute 'send'")
+        mock_channel.send.side_effect = ConnectionError("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1721,7 +1721,7 @@ class TestDiscordAdapter:
 
         # Mock channel and make send() raise an exception
         mock_channel = AsyncMock()
-        mock_channel.send.side_effect = Exception("'NoneType' object has no attribute 'send'")
+        mock_channel.send.side_effect = ConnectionError("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1849,7 +1849,7 @@ class TestDiscordAdapter:
         """Test send_text exception handling and print (additional coverage)"""
         adapter.bot = mock_bot
         mock_channel = Mock()
-        mock_channel.send = AsyncMock(side_effect=Exception("Send text failed"))
+        mock_channel.send = AsyncMock(side_effect=ConnectionError("Send text failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1863,7 +1863,7 @@ class TestDiscordAdapter:
         """Test send_media exception handling and print (additional coverage)"""
         adapter.bot = mock_bot
         mock_channel = Mock()
-        mock_channel.send = AsyncMock(side_effect=Exception("Send media failed"))
+        mock_channel.send = AsyncMock(side_effect=ConnectionError("Send media failed"))
         mock_bot.get_channel.return_value = mock_channel
 
         with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
@@ -1963,7 +1963,7 @@ class TestDiscordAdapter:
 async def test_discord_adapter_gaps():
     server = MagicMock()
     adapter = DiscordAdapter("discord", server, token="token")
-    with patch.object(adapter, "send_message", AsyncMock(side_effect=Exception("failed"))):
+    with patch.object(adapter, "send_message", AsyncMock(side_effect=ConnectionError("failed"))):
         assert await adapter.send_text("123", "hello") is None
         assert await adapter.send_media("123", "path") is None
     # Discord download_media exception
@@ -2059,10 +2059,10 @@ class TestDownloadMedia:
     async def test_download_media_outer_exception(self, adapter):
         """Test download_media returns None on outer exception"""
         adapter.bot = MagicMock()
-        adapter.bot.guilds = property(lambda s: (_ for _ in ()).throw(RuntimeError("boom")))
+        adapter.bot.guilds = property(lambda s: (_ for _ in ()).throw(OSError("boom")))
 
         # Force guilds iteration to raise
-        type(adapter.bot).guilds = property(lambda self: (_ for _ in ()).throw(RuntimeError("boom")))
+        type(adapter.bot).guilds = property(lambda self: (_ for _ in ()).throw(OSError("boom")))
 
         result = await adapter.download_media("123", "/tmp/save.png")
 

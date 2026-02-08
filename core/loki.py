@@ -263,7 +263,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             match = re.search(r"\[.*\]", res, re.DOTALL)
             if match:
                 return json.loads(match.group(0))
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError) as e:
             logger.warning("Failed to parse JSON from PRD decomposition response: %s", e)
         return [
             {
@@ -364,7 +364,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
                 return f"Deployment failed (exit {result.returncode}):\n{result.stderr}"
             except subprocess.TimeoutExpired:
                 return "Deployment timed out after 300 seconds."
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as e:
                 return f"Deployment error: {e}"
 
         logger.warning(

@@ -81,7 +81,7 @@ class ComputerDriver:
                 return self.blur_regions(text, regions)
 
             return f"Action {action} not implemented or missing parameters"
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             return f"Error executing {action}: {e}"
 
     async def analyze_image(self, image_data: str) -> str:
@@ -103,7 +103,7 @@ class ComputerDriver:
             width, height = img.size
             mode = img.mode
             fmt = img.format or "unknown"
-        except Exception as e:
+        except (ValueError, OSError) as e:
             return _json.dumps({"error": f"Failed to decode image: {e}", "bounding_boxes": []})
 
         logger.warning("[ComputerDriver] analyze_image: vision model not configured, returning image metadata only.")

@@ -82,8 +82,8 @@ class KnowledgeMemoryManager:
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(self._executor, self._sync_write, key, type, content, tags_json)
             return result
-        except Exception as e:
-            logger.error(f"Error writing memory: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error writing memory: %s", e)
             return f"Error writing memory: {e}"
 
     def _sync_write(self, key: str, type: str, content: str, tags_json: str) -> str:
@@ -104,8 +104,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_read, key)
-        except Exception as e:
-            logger.error(f"Error reading memory '{key}': {e}")
+        except (sqlite3.Error, json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error("Error reading memory '%s': %s", key, e)
             return None
 
     def _sync_read(self, key: str) -> dict[str, Any] | None:
@@ -136,8 +136,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_search, query, type, tags, limit, order_by)
-        except Exception as e:
-            logger.error(f"Error searching memories: {e}")
+        except (sqlite3.Error, json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error("Error searching memories: %s", e)
             return []
 
     def _sync_search(
@@ -200,8 +200,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_delete, key)
-        except Exception as e:
-            logger.error(f"Error deleting memory '{key}': {e}")
+        except sqlite3.Error as e:
+            logger.error("Error deleting memory '%s': %s", key, e)
             return False
 
     def _sync_delete(self, key: str) -> bool:
@@ -217,8 +217,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_update_tags, key, tags_json)
-        except Exception as e:
-            logger.error(f"Error updating tags for memory '{key}': {e}")
+        except sqlite3.Error as e:
+            logger.error("Error updating tags for memory '%s': %s", key, e)
             return False
 
     def _sync_update_tags(self, key: str, tags_json: str) -> bool:
@@ -236,8 +236,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_get_stats)
-        except Exception as e:
-            logger.error(f"Error getting memory stats: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error getting memory stats: %s", e)
             return {"error": str(e)}
 
     def _sync_get_stats(self) -> dict[str, Any]:
@@ -259,8 +259,8 @@ class KnowledgeMemoryManager:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._executor, self._sync_cleanup_old_memories, days_old)
-        except Exception as e:
-            logger.error(f"Error cleaning up old memories: {e}")
+        except sqlite3.Error as e:
+            logger.error("Error cleaning up old memories: %s", e)
             return 0
 
     def _sync_cleanup_old_memories(self, days_old: int) -> int:

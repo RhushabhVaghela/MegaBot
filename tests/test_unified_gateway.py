@@ -839,7 +839,7 @@ class TestUnifiedGatewayFullCoverage:
         gateway.ssl_key_path = "/invalid/path.key"
 
         with patch.dict("sys.modules", {"aiohttp": MagicMock()}):
-            with patch("ssl.create_default_context", side_effect=Exception("SSL error")):
+            with patch("ssl.create_default_context", side_effect=OSError("SSL error")):
                 result = await gateway._start_https_server()
                 assert result is None
                 assert gateway.health_status[ConnectionType.DIRECT.value] is False
@@ -1919,8 +1919,8 @@ async def test_gateway_coverage_gaps():
         await gateway._process_message(conn, mock_bytes)  # type: ignore
 
     # 2. Test send/send_str exceptions in _send_error (lines 360-361, 365-366)
-    mock_ws.send.side_effect = Exception("Send failed")
-    mock_ws.send_str.side_effect = Exception("Send_str failed")
+    mock_ws.send.side_effect = ConnectionError("Send failed")
+    mock_ws.send_str.side_effect = ConnectionError("Send_str failed")
     await gateway._send_error(conn, "test error")
 
 
