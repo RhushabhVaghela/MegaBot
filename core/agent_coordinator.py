@@ -8,6 +8,7 @@ import logging
 
 from core.agent_file_ops import _audit
 import core.agent_file_ops as _file_ops
+from core.resource_guard import can_allocate
 
 logger = logging.getLogger("megabot.agent_coordinator")
 
@@ -36,6 +37,15 @@ class AgentCoordinator:
         name = str(tool_input.get("name", "unknown"))
         task = str(tool_input.get("task", "unknown"))
         role = str(tool_input.get("role", "Assistant"))
+
+        # Pre-flight resource check — deny if RAM headroom is insufficient.
+        try:
+            ram_needed = int(self.orchestrator.config.system.resources.estimated_ram_per_agent_mb)
+        except (AttributeError, TypeError, ValueError):
+            ram_needed = 256
+        if not can_allocate(ram_mb=ram_needed):
+            logger.warning("Sub-agent %s blocked: insufficient RAM (%d MB needed)", name, ram_needed)
+            return f"Sub-agent {name} blocked: insufficient RAM ({ram_needed} MB needed). Try again later."
 
         # Create the agent but DO NOT register it globally until validation
         # succeeds. Prefer any SubAgent class provided by the orchestrator

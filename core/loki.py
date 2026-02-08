@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from typing import List, Dict
 from core.agents import SubAgent
+from core.resource_guard import can_allocate, InsufficientResourcesError
 from core.task_utils import safe_create_task
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,14 @@ class LokiMode:
         """Start the Loki Mode pipeline"""
         self.is_active = True
         logger.info("LOKI MODE ACTIVATED")
+
+        # Pre-flight resource check — Loki Mode is a heavy pipeline.
+        try:
+            ram_needed = int(self.orchestrator.config.system.resources.estimated_ram_per_build_mb)
+        except (AttributeError, TypeError, ValueError):
+            ram_needed = 512
+        can_allocate(ram_mb=ram_needed, raise_on_failure=True)
+
         start_time = datetime.now()
 
         await self._relay_status("🔥 Loki Mode Activated. Starting pipeline...")
@@ -267,6 +276,29 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
     async def _execute_parallel_tasks(self, tasks: List[Dict], memory_context: str = ""):
         """Run sub-agents in parallel"""
         from core.agents import SubAgent
+
+        # Pre-flight resource check — N agents in parallel is memory-heavy.
+        try:
+            per_agent_mb = int(self.orchestrator.config.system.resources.estimated_ram_per_agent_mb)
+        except (AttributeError, TypeError, ValueError):
+            per_agent_mb = 256
+        total_ram_needed = per_agent_mb * len(tasks)
+        if not can_allocate(ram_mb=total_ram_needed):
+            logger.warning(
+                "Loki parallel tasks throttled: %d tasks × %d MB = %d MB needed but insufficient RAM",
+                len(tasks),
+                per_agent_mb,
+                total_ram_needed,
+            )
+            # Fall back to sequential execution to reduce peak memory usage
+            results = []
+            for t in tasks:
+                task_desc = t["task_description"]
+                if memory_context:
+                    task_desc = f"IMPORTANT CONTEXT/LESSONS:\n{memory_context}\n\nTASK:\n{task_desc}"
+                agent = SubAgent(t["name"], t["role"], task_desc, self.orchestrator)
+                results.append(await agent.run())
+            return results
 
         coroutines = []
         for t in tasks:

@@ -191,7 +191,23 @@ class MegaBotOrchestrator:
         self.sub_agents = {}
         self.last_active_chat = None
         self.loki = LokiMode(self)
-        self.resource_guard = ResourceGuard()
+        try:
+            _rg_interval = float(self.config.system.resources.check_interval_seconds)
+        except (AttributeError, TypeError, ValueError):
+            _rg_interval = 30.0
+        try:
+            _rg_ram_buf = int(self.config.system.resources.ram_buffer_mb)
+        except (AttributeError, TypeError, ValueError):
+            _rg_ram_buf = 3 * 1024
+        try:
+            _rg_vram_buf = int(self.config.system.resources.vram_buffer_mb)
+        except (AttributeError, TypeError, ValueError):
+            _rg_vram_buf = 2 * 1024
+        self.resource_guard = ResourceGuard(
+            interval=_rg_interval,
+            ram_buffer_mb=_rg_ram_buf,
+            vram_buffer_mb=_rg_vram_buf,
+        )
         self.clients = set()
         self.agent_coordinator = AgentCoordinator(self)
 

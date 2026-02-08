@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 from fastapi import WebSocket  # type: ignore
 
 from core.interfaces import Message
+from core.resource_guard import can_allocate, InsufficientResourcesError
 from core.task_utils import safe_create_task as _safe_create_task
 
 if TYPE_CHECKING:
@@ -106,7 +107,17 @@ async def run_autonomous_gateway_build(
         orchestrator: The MegaBotOrchestrator instance.
         message: The user message triggering the build.
         original_data: The raw gateway message data (contains _meta with client info).
+
+    Raises:
+        InsufficientResourcesError: If RAM headroom is too low to start the build.
     """
+    # Pre-flight resource check
+    try:
+        ram_needed = int(orchestrator.config.system.resources.estimated_ram_per_build_mb)
+    except (AttributeError, TypeError, ValueError):
+        ram_needed = 512
+    can_allocate(ram_mb=ram_needed, raise_on_failure=True)
+
     # Proactive Memory Injection
     lessons = await get_relevant_lessons(orchestrator, message.content)
     if lessons:
@@ -144,7 +155,24 @@ async def run_autonomous_build(
         orchestrator: The MegaBotOrchestrator instance.
         message: The user message triggering the build.
         websocket: The WebSocket connection to relay status updates to.
+
+    Raises:
+        InsufficientResourcesError: If RAM headroom is too low to start the build.
     """
+    # Pre-flight resource check
+    try:
+        ram_needed = int(orchestrator.config.system.resources.estimated_ram_per_build_mb)
+    except (AttributeError, TypeError, ValueError):
+        ram_needed = 512
+    if not can_allocate(ram_mb=ram_needed):
+        await websocket.send_json(
+            {
+                "type": "error",
+                "content": f"Build blocked: insufficient RAM ({ram_needed} MB needed). Try again later.",
+            }
+        )
+        return
+
     await websocket.send_json({"type": "status", "content": "MegaBot is starting autonomous session..."})
 
     await websocket.send_json({"type": "status", "content": "Searching memory for relevant skills..."})

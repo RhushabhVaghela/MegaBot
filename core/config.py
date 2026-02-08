@@ -124,6 +124,28 @@ class AdapterConfig(BaseModel):
     encryption_key: str = ""  # For WebSocket encryption
 
 
+class ResourceConfig(BaseModel):
+    """Memory-protection buffer configuration.
+
+    Defaults match the original hardcoded safety minimums (3 GB RAM, 2 GB VRAM).
+    Override in ``mega-config.yaml`` under ``system.resources`` for environments
+    with different hardware profiles (e.g. CI runners with 8 GB RAM).
+
+    ``check_interval_seconds`` controls how often the background
+    ``ResourceGuard`` loop samples RAM/VRAM.
+
+    ``estimated_ram_per_build_mb`` / ``estimated_ram_per_agent_mb`` are
+    the conservative estimates used by ``can_allocate()`` pre-flight checks
+    before spawning builds or sub-agents.
+    """
+
+    ram_buffer_mb: int = Field(default=3 * 1024, ge=256, description="RAM headroom reserved for OS (MB)")
+    vram_buffer_mb: int = Field(default=2 * 1024, ge=0, description="VRAM headroom reserved for GPU driver (MB)")
+    check_interval_seconds: float = Field(default=30.0, gt=0, description="Background check interval (seconds)")
+    estimated_ram_per_build_mb: int = Field(default=512, ge=64, description="Estimated RAM per autonomous build (MB)")
+    estimated_ram_per_agent_mb: int = Field(default=256, ge=32, description="Estimated RAM per sub-agent (MB)")
+
+
 class SystemConfig(BaseModel):
     name: str = "MegaBot"
     local_only: bool = True
@@ -136,6 +158,7 @@ class SystemConfig(BaseModel):
     admin_phone: Optional[str] = None
     dnd_start: int = 22  # 10 PM
     dnd_end: int = 7  # 7 AM
+    resources: ResourceConfig = Field(default_factory=ResourceConfig)
 
 
 class Config(BaseModel):

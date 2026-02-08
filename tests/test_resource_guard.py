@@ -7,11 +7,13 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 
 from core.resource_guard import (
+    InsufficientResourcesError,
     LRUCache,
     ResourceGuard,
     ResourceSnapshot,
     RAM_BUFFER_MB,
     VRAM_BUFFER_MB,
+    _apply_buffer_overrides,
     _query_vram,
     can_allocate,
     get_resource_status,
@@ -744,3 +746,438 @@ class TestResourceGuardIntegration:
             health = await orchestrator.get_system_health()
             assert health["resources"]["status"] == "error"
             assert "boom" in health["resources"]["error"]
+
+
+# ---------------------------------------------------------------------------
+# InsufficientResourcesError
+# ---------------------------------------------------------------------------
+
+
+class TestInsufficientResourcesError:
+    """Tests for the InsufficientResourcesError exception."""
+
+    def test_basic_creation(self):
+        err = InsufficientResourcesError("denied")
+        assert str(err) == "denied"
+        assert err.requested_ram_mb == 0
+        assert err.available_ram_mb == 0
+        assert err.requested_vram_mb == 0
+        assert err.available_vram_mb is None
+
+    def test_with_ram_attributes(self):
+        err = InsufficientResourcesError(
+            "RAM denied",
+            requested_ram_mb=512,
+            available_ram_mb=100,
+        )
+        assert err.requested_ram_mb == 512
+        assert err.available_ram_mb == 100
+        assert isinstance(err, RuntimeError)
+
+    def test_with_vram_attributes(self):
+        err = InsufficientResourcesError(
+            "VRAM denied",
+            requested_vram_mb=2048,
+            available_vram_mb=500.0,
+        )
+        assert err.requested_vram_mb == 2048
+        assert err.available_vram_mb == 500.0
+
+    def test_is_catchable_as_runtime_error(self):
+        with pytest.raises(RuntimeError):
+            raise InsufficientResourcesError("blocked")
+
+
+# ---------------------------------------------------------------------------
+# can_allocate with raise_on_failure
+# ---------------------------------------------------------------------------
+
+
+class TestCanAllocateRaiseOnFailure:
+    """Tests for can_allocate(raise_on_failure=True) behaviour."""
+
+    @patch("core.resource_guard.get_resource_status")
+    def test_raises_on_ram_insufficient(self, mock_status):
+        mock_status.return_value = ResourceSnapshot(
+            ram_total_mb=32000,
+            ram_used_mb=29000,
+            ram_available_mb=3000,  # headroom = 0
+            ram_percent=90.0,
+        )
+        with pytest.raises(InsufficientResourcesError) as exc_info:
+            can_allocate(ram_mb=100, raise_on_failure=True)
+        assert exc_info.value.requested_ram_mb == 100
+
+    @patch("core.resource_guard.get_resource_status")
+    def test_raises_on_vram_insufficient(self, mock_status):
+        mock_status.return_value = ResourceSnapshot(
+            ram_total_mb=32000,
+            ram_used_mb=10000,
+            ram_available_mb=22000,
+            ram_percent=31.25,
+            vram_total_mb=16000,
+            vram_used_mb=14000,
+            vram_available_mb=2000,  # headroom = 0
+        )
+        with pytest.raises(InsufficientResourcesError) as exc_info:
+            can_allocate(vram_mb=100, raise_on_failure=True)
+        assert exc_info.value.requested_vram_mb == 100
+
+    @patch("core.resource_guard.get_resource_status")
+    def test_no_raise_when_sufficient(self, mock_status):
+        mock_status.return_value = ResourceSnapshot(
+            ram_total_mb=32000,
+            ram_used_mb=10000,
+            ram_available_mb=22000,
+            ram_percent=31.25,
+        )
+        # Should NOT raise — returns True
+        assert can_allocate(ram_mb=1000, raise_on_failure=True) is True
+
+
+# ---------------------------------------------------------------------------
+# _apply_buffer_overrides
+# ---------------------------------------------------------------------------
+
+
+class TestApplyBufferOverrides:
+    """Tests for the _apply_buffer_overrides helper."""
+
+    def test_override_ram(self):
+        import core.resource_guard as rg
+
+        original = rg.RAM_BUFFER_MB
+        try:
+            _apply_buffer_overrides(ram_buffer_mb=4096)
+            assert rg.RAM_BUFFER_MB == 4096
+        finally:
+            rg.RAM_BUFFER_MB = original
+
+    def test_override_vram(self):
+        import core.resource_guard as rg
+
+        original = rg.VRAM_BUFFER_MB
+        try:
+            _apply_buffer_overrides(vram_buffer_mb=1024)
+            assert rg.VRAM_BUFFER_MB == 1024
+        finally:
+            rg.VRAM_BUFFER_MB = original
+
+    def test_override_both(self):
+        import core.resource_guard as rg
+
+        orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
+        try:
+            _apply_buffer_overrides(ram_buffer_mb=5000, vram_buffer_mb=3000)
+            assert rg.RAM_BUFFER_MB == 5000
+            assert rg.VRAM_BUFFER_MB == 3000
+        finally:
+            rg.RAM_BUFFER_MB = orig_ram
+            rg.VRAM_BUFFER_MB = orig_vram
+
+    def test_none_values_no_change(self):
+        import core.resource_guard as rg
+
+        orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
+        _apply_buffer_overrides(ram_buffer_mb=None, vram_buffer_mb=None)
+        assert rg.RAM_BUFFER_MB == orig_ram
+        assert rg.VRAM_BUFFER_MB == orig_vram
+
+
+# ---------------------------------------------------------------------------
+# ResourceGuard with custom buffer kwargs
+# ---------------------------------------------------------------------------
+
+
+class TestResourceGuardCustomBuffers:
+    """Tests that ResourceGuard.__init__ applies buffer overrides."""
+
+    def test_custom_ram_buffer(self):
+        import core.resource_guard as rg
+
+        original = rg.RAM_BUFFER_MB
+        try:
+            guard = ResourceGuard(ram_buffer_mb=4096)
+            assert rg.RAM_BUFFER_MB == 4096
+        finally:
+            rg.RAM_BUFFER_MB = original
+
+    def test_custom_vram_buffer(self):
+        import core.resource_guard as rg
+
+        original = rg.VRAM_BUFFER_MB
+        try:
+            guard = ResourceGuard(vram_buffer_mb=1024)
+            assert rg.VRAM_BUFFER_MB == 1024
+        finally:
+            rg.VRAM_BUFFER_MB = original
+
+    def test_custom_interval(self):
+        guard = ResourceGuard(interval=10.0)
+        assert guard._interval == 10.0
+
+    def test_no_override_when_none(self):
+        import core.resource_guard as rg
+
+        orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
+        guard = ResourceGuard()
+        assert rg.RAM_BUFFER_MB == orig_ram
+        assert rg.VRAM_BUFFER_MB == orig_vram
+
+
+# ---------------------------------------------------------------------------
+# ResourceConfig
+# ---------------------------------------------------------------------------
+
+
+class TestResourceConfig:
+    """Tests for the ResourceConfig pydantic model."""
+
+    def test_defaults(self):
+        from core.config import ResourceConfig
+
+        cfg = ResourceConfig()
+        assert cfg.ram_buffer_mb == 3 * 1024
+        assert cfg.vram_buffer_mb == 2 * 1024
+        assert cfg.check_interval_seconds == 30.0
+        assert cfg.estimated_ram_per_build_mb == 512
+        assert cfg.estimated_ram_per_agent_mb == 256
+
+    def test_custom_values(self):
+        from core.config import ResourceConfig
+
+        cfg = ResourceConfig(
+            ram_buffer_mb=4096,
+            vram_buffer_mb=1024,
+            check_interval_seconds=10.0,
+            estimated_ram_per_build_mb=1024,
+            estimated_ram_per_agent_mb=128,
+        )
+        assert cfg.ram_buffer_mb == 4096
+        assert cfg.vram_buffer_mb == 1024
+        assert cfg.check_interval_seconds == 10.0
+        assert cfg.estimated_ram_per_build_mb == 1024
+        assert cfg.estimated_ram_per_agent_mb == 128
+
+    def test_ram_buffer_min_validation(self):
+        from core.config import ResourceConfig
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ResourceConfig(ram_buffer_mb=100)  # below ge=256
+
+    def test_check_interval_must_be_positive(self):
+        from core.config import ResourceConfig
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ResourceConfig(check_interval_seconds=0)  # gt=0 violated
+
+    def test_estimated_ram_per_build_min(self):
+        from core.config import ResourceConfig
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ResourceConfig(estimated_ram_per_build_mb=32)  # below ge=64
+
+    def test_estimated_ram_per_agent_min(self):
+        from core.config import ResourceConfig
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ResourceConfig(estimated_ram_per_agent_mb=16)  # below ge=32
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator wiring of config → ResourceGuard
+# ---------------------------------------------------------------------------
+
+
+class TestOrchestratorResourceConfigWiring:
+    """Tests that orchestrator passes config to ResourceGuard."""
+
+    def test_resource_guard_receives_config(self, orchestrator):
+        """ResourceGuard should be initialized with config values."""
+        import core.resource_guard as rg
+
+        cfg = orchestrator.config.system.resources
+        # The module globals should reflect the config values
+        assert rg.RAM_BUFFER_MB == cfg.ram_buffer_mb
+        assert rg.VRAM_BUFFER_MB == cfg.vram_buffer_mb
+        assert orchestrator.resource_guard._interval == cfg.check_interval_seconds
+
+
+# ---------------------------------------------------------------------------
+# Enforcement: agent_coordinator._spawn_sub_agent
+# ---------------------------------------------------------------------------
+
+
+class TestAgentCoordinatorResourceCheck:
+    """Tests that _spawn_sub_agent checks resources before spawning."""
+
+    @pytest.mark.asyncio
+    async def test_spawn_blocked_when_ram_insufficient(self, orchestrator):
+        """_spawn_sub_agent should return error string when RAM is denied."""
+        from core.agent_coordinator import AgentCoordinator
+
+        coord = AgentCoordinator(orchestrator)
+        with patch("core.agent_coordinator.can_allocate", return_value=False):
+            result = await coord._spawn_sub_agent({"name": "test-agent", "task": "do stuff", "role": "Dev"})
+        assert "blocked" in result.lower()
+        assert "insufficient RAM" in result
+
+    @pytest.mark.asyncio
+    async def test_spawn_proceeds_when_ram_sufficient(self, orchestrator):
+        """_spawn_sub_agent should proceed past the check when RAM is OK."""
+        from core.agent_coordinator import AgentCoordinator
+
+        coord = AgentCoordinator(orchestrator)
+
+        # Mock can_allocate to return True AND mock the agent creation to
+        # avoid hitting the LLM during validation.
+        mock_agent = MagicMock()
+        mock_agent.generate_plan = AsyncMock(return_value="plan")
+        mock_agent.run = AsyncMock(return_value="done")
+
+        with (
+            patch("core.agent_coordinator.can_allocate", return_value=True),
+            patch.object(coord, "orchestrator") as mock_orch,
+        ):
+            mock_orch.config.system.resources.estimated_ram_per_agent_mb = 256
+            mock_orch.llm.generate = AsyncMock(return_value="VALID")
+            mock_orch.sub_agents = {}
+
+            # Patch SubAgent globally in agent_coordinator module
+            with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+                result = await coord._spawn_sub_agent({"name": "test-agent", "task": "do stuff", "role": "Dev"})
+        # Should NOT contain "blocked"
+        assert "blocked" not in str(result).lower()
+
+
+# ---------------------------------------------------------------------------
+# Enforcement: loki.py activate() and _execute_parallel_tasks()
+# ---------------------------------------------------------------------------
+
+
+class TestLokiResourceChecks:
+    """Tests that Loki Mode checks resources before heavy operations."""
+
+    @pytest.mark.asyncio
+    async def test_activate_raises_on_insufficient_ram(self, orchestrator):
+        """LokiMode.activate() should raise InsufficientResourcesError."""
+        from core.loki import LokiMode
+
+        loki = LokiMode(orchestrator)
+        with patch("core.loki.can_allocate", side_effect=InsufficientResourcesError("blocked")):
+            with pytest.raises(InsufficientResourcesError):
+                await loki.activate("Build a feature")
+
+    @pytest.mark.asyncio
+    async def test_activate_proceeds_when_ram_ok(self, orchestrator):
+        """LokiMode.activate() should pass the check and continue."""
+        from core.loki import LokiMode
+
+        loki = LokiMode(orchestrator)
+        # Mock enough to get past the resource check and into the pipeline
+        with (
+            patch("core.loki.can_allocate", return_value=True),
+            patch.object(loki, "_retrieve_learned_lessons", new_callable=AsyncMock, return_value=""),
+            patch.object(loki, "_decompose_prd", new_callable=AsyncMock, return_value=[]),
+            patch.object(loki, "_execute_parallel_tasks", new_callable=AsyncMock, return_value=[]),
+            patch.object(loki, "_run_parallel_review", new_callable=AsyncMock, return_value="ok"),
+            patch.object(loki, "_run_security_audit", new_callable=AsyncMock, return_value="ok"),
+            patch.object(loki, "_deploy_product", new_callable=AsyncMock, return_value="deployed"),
+            patch.object(loki, "_save_loki_macro", new_callable=AsyncMock),
+            patch.object(loki, "_relay_status", new_callable=AsyncMock),
+        ):
+            result = await loki.activate("Build a feature")
+        assert "complete" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_parallel_tasks_fallback_to_sequential(self, orchestrator):
+        """When can_allocate returns False, tasks run sequentially."""
+        from core.loki import LokiMode
+
+        loki = LokiMode(orchestrator)
+        tasks = [
+            {"name": "A", "role": "Dev", "task_description": "task-a"},
+            {"name": "B", "role": "Dev", "task_description": "task-b"},
+        ]
+
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value="result")
+
+        with (
+            patch("core.loki.can_allocate", return_value=False),
+            patch("core.agents.SubAgent", return_value=mock_agent) as mock_cls,
+        ):
+            results = await loki._execute_parallel_tasks(tasks, "context")
+
+        # Should have created 2 agents sequentially
+        assert mock_cls.call_count == 2
+        assert len(results) == 2
+        assert all(r == "result" for r in results)
+
+    @pytest.mark.asyncio
+    async def test_parallel_tasks_run_parallel_when_ok(self, orchestrator):
+        """When can_allocate returns True, tasks run via asyncio.gather."""
+        from core.loki import LokiMode
+
+        loki = LokiMode(orchestrator)
+        tasks = [
+            {"name": "A", "role": "Dev", "task_description": "task-a"},
+            {"name": "B", "role": "Dev", "task_description": "task-b"},
+        ]
+
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value="result")
+
+        with (
+            patch("core.loki.can_allocate", return_value=True),
+            patch("core.agents.SubAgent", return_value=mock_agent) as mock_cls,
+        ):
+            results = await loki._execute_parallel_tasks(tasks, "")
+
+        assert mock_cls.call_count == 2
+        assert len(results) == 2
+
+
+# ---------------------------------------------------------------------------
+# Enforcement: build_session (existing patterns verified)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSessionResourceChecks:
+    """Verify build_session pre-flight checks are wired correctly."""
+
+    @pytest.mark.asyncio
+    async def test_gateway_build_raises_on_insufficient_ram(self, orchestrator):
+        """run_autonomous_gateway_build raises InsufficientResourcesError."""
+        from core.build_session import run_autonomous_gateway_build
+        from core.interfaces import Message
+
+        msg = Message(content="build it", sender="user")
+        with patch(
+            "core.build_session.can_allocate",
+            side_effect=InsufficientResourcesError("denied", requested_ram_mb=512),
+        ):
+            with pytest.raises(InsufficientResourcesError):
+                await run_autonomous_gateway_build(orchestrator, msg, {})
+
+    @pytest.mark.asyncio
+    async def test_websocket_build_sends_error_on_insufficient_ram(self, orchestrator):
+        """run_autonomous_build sends error JSON and returns on denial."""
+        from core.build_session import run_autonomous_build
+        from core.interfaces import Message
+
+        msg = Message(content="build it", sender="user")
+        mock_ws = AsyncMock()
+
+        with patch("core.build_session.can_allocate", return_value=False):
+            await run_autonomous_build(orchestrator, msg, mock_ws)
+
+        # Should have sent an error JSON
+        mock_ws.send_json.assert_called_once()
+        call_args = mock_ws.send_json.call_args[0][0]
+        assert call_args["type"] == "error"
+        assert "blocked" in call_args["content"].lower() or "insufficient" in call_args["content"].lower()

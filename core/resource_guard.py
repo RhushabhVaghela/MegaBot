@@ -3,14 +3,15 @@
 Provides:
 - ``get_resource_status()`` — snapshot of current RAM/VRAM usage
 - ``can_allocate(ram_mb, vram_mb)`` — pre-flight check before heavy operations
-- ``ResourceGuard`` — singleton that runs periodic checks and can trigger eviction
+- ``ResourceGuard`` — singleton that runs periodic checks and enforces limits
 - ``LRUCache`` — bounded dict with automatic eviction on size limit
+- ``InsufficientResourcesError`` — raised when an operation is blocked
 
 Design decisions:
-- **3 GB RAM buffer**: ensures the OS and other processes have headroom.
-- **2 GB VRAM buffer**: ensures the GPU driver and display have headroom.
-- Buffers are hardcoded (not configurable) because they represent safety
-  minimums — lowering them risks system instability on WSL2 with 32 GB RAM.
+- **3 GB RAM buffer** (default): ensures the OS and other processes have
+  headroom.  Configurable via ``SystemConfig.resources.ram_buffer_mb``.
+- **2 GB VRAM buffer** (default): ensures the GPU driver and display have
+  headroom.  Configurable via ``SystemConfig.resources.vram_buffer_mb``.
 - VRAM monitoring is best-effort: if ``nvidia-smi`` is unavailable, VRAM
   checks are skipped and ``can_allocate`` always returns True for VRAM.
 """
@@ -30,12 +31,44 @@ import psutil
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants (defaults — can be overridden via SystemConfig.resources)
 # ---------------------------------------------------------------------------
 
 RAM_BUFFER_MB: int = 3 * 1024  # 3 GB reserved for OS / other processes
 VRAM_BUFFER_MB: int = 2 * 1024  # 2 GB reserved for GPU driver / display
 _CHECK_INTERVAL_SECONDS: float = 30.0  # How often the background loop runs
+
+
+# ---------------------------------------------------------------------------
+# Exception for enforcement
+# ---------------------------------------------------------------------------
+
+
+class InsufficientResourcesError(RuntimeError):
+    """Raised when an operation is blocked due to insufficient RAM or VRAM.
+
+    Attributes:
+        requested_ram_mb:  RAM the caller wanted to allocate.
+        available_ram_mb:  RAM headroom at the time of the check.
+        requested_vram_mb: VRAM the caller wanted to allocate (0 if N/A).
+        available_vram_mb: VRAM headroom at the time (None if no GPU).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        requested_ram_mb: float = 0,
+        available_ram_mb: float = 0,
+        requested_vram_mb: float = 0,
+        available_vram_mb: Optional[float] = None,
+    ):
+        super().__init__(message)
+        self.requested_ram_mb = requested_ram_mb
+        self.available_ram_mb = available_ram_mb
+        self.requested_vram_mb = requested_vram_mb
+        self.available_vram_mb = available_vram_mb
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -124,12 +157,16 @@ def get_resource_status() -> ResourceSnapshot:
     return snap
 
 
-def can_allocate(ram_mb: float = 0, vram_mb: float = 0) -> bool:
+def can_allocate(ram_mb: float = 0, vram_mb: float = 0, *, raise_on_failure: bool = False) -> bool:
     """Pre-flight check: can we allocate *ram_mb* and *vram_mb* without
     breaching the safety buffers?
 
     Returns True if the allocation is safe, False otherwise.
     VRAM checks are skipped if ``nvidia-smi`` is unavailable.
+
+    If *raise_on_failure* is True, raises ``InsufficientResourcesError``
+    instead of returning False — useful for callers that want to propagate
+    the denial as an exception (e.g. build sessions, sub-agent spawning).
     """
     snap = get_resource_status()
 
@@ -140,6 +177,13 @@ def can_allocate(ram_mb: float = 0, vram_mb: float = 0) -> bool:
             snap.ram_headroom_mb,
             RAM_BUFFER_MB,
         )
+        if raise_on_failure:
+            raise InsufficientResourcesError(
+                f"RAM allocation denied: requested {ram_mb:.0f} MB but only "
+                f"{snap.ram_headroom_mb:.0f} MB headroom (buffer={RAM_BUFFER_MB} MB)",
+                requested_ram_mb=ram_mb,
+                available_ram_mb=snap.ram_headroom_mb,
+            )
         return False
 
     if vram_mb > 0 and snap.vram_headroom_mb is not None:
@@ -150,6 +194,13 @@ def can_allocate(ram_mb: float = 0, vram_mb: float = 0) -> bool:
                 snap.vram_headroom_mb,
                 VRAM_BUFFER_MB,
             )
+            if raise_on_failure:
+                raise InsufficientResourcesError(
+                    f"VRAM allocation denied: requested {vram_mb:.0f} MB but only "
+                    f"{snap.vram_headroom_mb:.0f} MB headroom (buffer={VRAM_BUFFER_MB} MB)",
+                    requested_vram_mb=vram_mb,
+                    available_vram_mb=snap.vram_headroom_mb,
+                )
             return False
 
     return True
@@ -234,6 +285,32 @@ class LRUCache(Generic[KT, VT]):
 
 
 # ---------------------------------------------------------------------------
+# Buffer override helper
+# ---------------------------------------------------------------------------
+
+
+def _apply_buffer_overrides(
+    *,
+    ram_buffer_mb: Optional[int] = None,
+    vram_buffer_mb: Optional[int] = None,
+) -> None:
+    """Update module-level buffer constants.
+
+    Called by ``ResourceGuard.__init__`` when buffers are configured via
+    ``SystemConfig.resources``.  Changing the module globals ensures that
+    ``can_allocate()``, ``ResourceSnapshot.ram_headroom_mb`` and the
+    background loop all use the same values.
+    """
+    global RAM_BUFFER_MB, VRAM_BUFFER_MB
+    if ram_buffer_mb is not None:
+        RAM_BUFFER_MB = ram_buffer_mb
+        logger.info("RAM buffer overridden to %d MB", ram_buffer_mb)
+    if vram_buffer_mb is not None:
+        VRAM_BUFFER_MB = vram_buffer_mb
+        logger.info("VRAM buffer overridden to %d MB", vram_buffer_mb)
+
+
+# ---------------------------------------------------------------------------
 # ResourceGuard — background monitor
 # ---------------------------------------------------------------------------
 
@@ -250,14 +327,32 @@ class ResourceGuard:
 
     The guard periodically snapshots resource usage and logs warnings when
     headroom drops below the safety buffers.
+
+    The *ram_buffer_mb*, *vram_buffer_mb*, and *interval* parameters override
+    the module-level defaults so that the guard can be configured from
+    ``SystemConfig.resources`` at startup.
     """
 
-    def __init__(self, *, interval: float = _CHECK_INTERVAL_SECONDS):
+    def __init__(
+        self,
+        *,
+        interval: float = _CHECK_INTERVAL_SECONDS,
+        ram_buffer_mb: Optional[int] = None,
+        vram_buffer_mb: Optional[int] = None,
+    ):
         self._interval = interval
         self._task: Optional[asyncio.Task] = None
         self._latest: Optional[ResourceSnapshot] = None
         self._warning_issued_ram = False
         self._warning_issued_vram = False
+
+        # Apply configurable buffer overrides to module-level constants so
+        # that ``can_allocate()``, ``ResourceSnapshot.ram_headroom_mb``, etc.
+        # all use the same values.
+        if ram_buffer_mb is not None:
+            _apply_buffer_overrides(ram_buffer_mb=ram_buffer_mb)
+        if vram_buffer_mb is not None:
+            _apply_buffer_overrides(vram_buffer_mb=vram_buffer_mb)
 
     @property
     def latest(self) -> Optional[ResourceSnapshot]:
