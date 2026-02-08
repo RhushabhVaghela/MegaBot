@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.mcp_adapter import MCPAdapter, MCPManager
+from megabot.adapters.mcp_adapter import MCPAdapter, MCPManager
 
 
 @pytest.mark.asyncio
@@ -57,7 +57,7 @@ async def test_mcp_adapter_execute_no_stdout():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_call_tool():
-    with patch("adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
+    with patch("megabot.adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
         mock_execute.return_value = {"result": "success"}
 
         manager = MCPManager([{"name": "test-server", "command": "npx"}])
@@ -127,7 +127,7 @@ async def test_mcp_manager_find_server_for_tool():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_call_tool_lookup():
-    with patch("adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
+    with patch("megabot.adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
         mock_execute.return_value = {"result": "ok"}
         manager = MCPManager([{"name": "s1", "command": "c1"}])
         manager.servers["s1"].tools = [{"name": "tool1"}]

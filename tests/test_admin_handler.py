@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.admin_handler import AdminHandler
+from megabot.core.admin_handler import AdminHandler
 
 
 @pytest.fixture
@@ -608,7 +608,7 @@ async def test_system_command_shlex_value_error(admin_handler):
 @pytest.mark.asyncio
 async def test_system_command_shlex_empty_result(admin_handler):
     """Line 360: shlex.split returns empty list -> 'No command provided'."""
-    with patch("core.admin_handler.shlex.split", return_value=[]):
+    with patch("megabot.core.admin_handler.shlex.split", return_value=[]):
         action = {
             "type": "system_command",
             "payload": {"params": {"command": "something"}},
@@ -785,8 +785,8 @@ async def test_atomic_write_uses_tempfile_and_replace(admin_handler, tmp_path):
 
     with (
         patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
-        patch("core.admin_handler.tempfile.mkstemp", wraps=tempfile.mkstemp) as mock_mkstemp,
-        patch("core.admin_handler.os.replace", wraps=os.replace) as mock_replace,
+        patch("megabot.core.admin_handler.tempfile.mkstemp", wraps=tempfile.mkstemp) as mock_mkstemp,
+        patch("megabot.core.admin_handler.os.replace", wraps=os.replace) as mock_replace,
     ):
         action = {
             "type": "file_operation",
@@ -815,7 +815,7 @@ async def test_atomic_write_cleans_up_temp_on_failure(admin_handler, tmp_path):
     with (
         patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
         # Make os.fdopen return a context manager whose write() raises
-        patch("core.admin_handler.os.fdopen") as mock_fdopen,
+        patch("megabot.core.admin_handler.os.fdopen") as mock_fdopen,
     ):
         mock_f = MagicMock()
         mock_f.__enter__ = MagicMock(return_value=mock_f)
@@ -823,7 +823,7 @@ async def test_atomic_write_cleans_up_temp_on_failure(admin_handler, tmp_path):
         mock_f.write.side_effect = OSError("disk full")
         mock_fdopen.return_value = mock_f
 
-        with patch("core.admin_handler.os.unlink") as mock_unlink:
+        with patch("megabot.core.admin_handler.os.unlink") as mock_unlink:
             action = {
                 "type": "file_operation",
                 "payload": {
@@ -846,7 +846,7 @@ async def test_atomic_write_unlink_oserror_suppressed(admin_handler, tmp_path):
 
     with (
         patch.object(type(admin_handler), "PROJECT_ROOT", tmp_path),
-        patch("core.admin_handler.os.fdopen") as mock_fdopen,
+        patch("megabot.core.admin_handler.os.fdopen") as mock_fdopen,
     ):
         mock_f = MagicMock()
         mock_f.__enter__ = MagicMock(return_value=mock_f)
@@ -854,7 +854,7 @@ async def test_atomic_write_unlink_oserror_suppressed(admin_handler, tmp_path):
         mock_f.write.side_effect = OSError("disk full")
         mock_fdopen.return_value = mock_f
 
-        with patch("core.admin_handler.os.unlink", side_effect=OSError("no perm")):
+        with patch("megabot.core.admin_handler.os.unlink", side_effect=OSError("no perm")):
             action = {
                 "type": "file_operation",
                 "payload": {

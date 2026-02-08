@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.messaging.telegram import TelegramAdapter
-from adapters.push_notification_adapter import (
+from megabot.adapters.messaging.telegram import TelegramAdapter
+from megabot.adapters.push_notification_adapter import (
     PushNotificationAdapter,
     create_notification,
 )
-from adapters.signal_adapter import SignalAdapter
-from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
+from megabot.adapters.signal_adapter import SignalAdapter
+from megabot.adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 
 class TestMessagingIntegration:
@@ -74,7 +74,7 @@ class TestMessagingIntegration:
         with patch.object(
             adapters["push"], "send_to_token", new_callable=AsyncMock
         ) as m:
-            from adapters.push_notification_adapter import NotificationResult, Platform
+            from megabot.adapters.push_notification_adapter import NotificationResult, Platform
 
             m.return_value = NotificationResult(success=True)
 

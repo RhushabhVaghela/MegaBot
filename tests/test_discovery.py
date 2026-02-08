@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from core.discovery import ModuleDiscovery
+from megabot.core.discovery import ModuleDiscovery
 
 
 @pytest.fixture

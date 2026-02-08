@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.messaging import MessageType
-from adapters.signal_adapter import (
+from megabot.adapters.messaging import MessageType
+from megabot.adapters.signal_adapter import (
     SignalAdapter,
     SignalAttachment,
     SignalGroup,
@@ -235,7 +235,7 @@ class TestSignalAdapter:
 
         # Error case
         with patch(
-            "adapters.signal_adapter.SignalMessage.from_dict",
+            "megabot.adapters.signal_adapter.SignalMessage.from_dict",
             side_effect=Exception("error"),
         ):
             await adapter._handle_message({"dataMessage": {}})  # Should log error and not crash
@@ -934,7 +934,7 @@ class TestSignalAdapter:
     async def test_handle_webhook_exception_handling(self, adapter):
         """Test handle_webhook exception handling"""
         with patch(
-            "adapters.signal_adapter.SignalMessage.from_dict",
+            "megabot.adapters.signal_adapter.SignalMessage.from_dict",
             side_effect=Exception("parse error"),
         ):
             # Test with dataMessage that causes exception
@@ -1243,14 +1243,14 @@ async def test_signal_adapter_gaps_more():
 
     assert adapter._generate_id() is not None
 
-    from adapters.signal_adapter import main as signal_main
+    from megabot.adapters.signal_adapter import main as signal_main
 
     with (
         patch(
-            "adapters.signal_adapter.SignalAdapter.initialize",
+            "megabot.adapters.signal_adapter.SignalAdapter.initialize",
             AsyncMock(return_value=True),
         ),
-        patch("adapters.signal_adapter.SignalAdapter.send_message", AsyncMock()),
+        patch("megabot.adapters.signal_adapter.SignalAdapter.send_message", AsyncMock()),
         patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),
     ):
         try:

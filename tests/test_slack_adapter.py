@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pytest
 
-from adapters.messaging import MessageType, PlatformMessage
-from adapters.slack_adapter import SlackAdapter, SlackMessage
+from megabot.adapters.messaging import MessageType, PlatformMessage
+from megabot.adapters.slack_adapter import SlackAdapter, SlackMessage
 
 
 class TestSlackAdapter:
@@ -24,8 +24,8 @@ class TestSlackAdapter:
     def slack_adapter(self, mock_server):
         """Create SlackAdapter instance with mocked dependencies"""
         with (
-            patch("adapters.slack_adapter.WebClient") as mock_web_client,
-            patch("adapters.slack_adapter.SocketModeClient") as mock_socket_client,
+            patch("megabot.adapters.slack_adapter.WebClient") as mock_web_client,
+            patch("megabot.adapters.slack_adapter.SocketModeClient") as mock_socket_client,
         ):
             # Configure mock_web_client to return a mock when instantiated
             mock_web_client.return_value = MagicMock()
@@ -459,22 +459,22 @@ class TestSlackAdapter:
             # Force reimport to trigger fallback
             import importlib
 
-            import adapters.slack_adapter
+            import megabot.adapters.slack_adapter
 
-            importlib.reload(adapters.slack_adapter)
+            importlib.reload(megabot.adapters.slack_adapter)
 
             # Check that fallback mocks are in place
-            assert hasattr(adapters.slack_adapter, "slack_sdk")
-            assert adapters.slack_adapter.slack_sdk is not None
-            assert hasattr(adapters.slack_adapter, "WebClient")
-            assert hasattr(adapters.slack_adapter, "SocketModeClient")
+            assert hasattr(megabot.adapters.slack_adapter, "slack_sdk")
+            assert megabot.adapters.slack_adapter.slack_sdk is not None
+            assert hasattr(megabot.adapters.slack_adapter, "WebClient")
+            assert hasattr(megabot.adapters.slack_adapter, "SocketModeClient")
 
     @pytest.mark.asyncio
     async def test_init_socket_mode(self, slack_adapter, mock_client):
         """Test socket mode initialization"""
         slack_adapter.app_token = "xapp-test-token"
 
-        with patch("adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
+        with patch("megabot.adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
             mock_socket_client_instance = MagicMock()
             mock_socket_mode_client.return_value = mock_socket_client_instance
             mock_socket_client_instance.client.connect = MagicMock()
@@ -497,7 +497,7 @@ class TestSlackAdapter:
 
         with (
             patch.object(slack_adapter, "_handle_event") as mock_handle_event,
-            patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class,
+            patch("megabot.adapters.slack_adapter.SocketModeResponse") as mock_response_class,
             patch.object(slack_adapter, "socket_client", create=True) as mock_socket_client,
         ):
             mock_response = MagicMock()
@@ -742,7 +742,7 @@ class TestSlackAdapter:
 
         with (
             patch.object(slack_adapter, "_handle_event", new_callable=AsyncMock) as mock_handle_event,
-            patch("adapters.slack_adapter.SocketModeResponse") as mock_response_class,
+            patch("megabot.adapters.slack_adapter.SocketModeResponse") as mock_response_class,
         ):
             mock_response = MagicMock()
             mock_response_class.return_value = mock_response
@@ -834,7 +834,7 @@ class TestSlackAdapter:
         """Test that _init_socket_mode executes the decorator and function"""
         slack_adapter.app_token = "xapp-test-token"
 
-        with patch("adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
+        with patch("megabot.adapters.slack_adapter.SocketModeClient") as mock_socket_mode_client:
             mock_socket_client_instance = MagicMock()
             mock_socket_mode_client.return_value = mock_socket_client_instance
             mock_socket_client_instance.client.connect = MagicMock()
@@ -879,24 +879,24 @@ class TestSlackAdapter:
         with patch.dict("sys.modules", {"slack_sdk": None}):
             import importlib
 
-            import adapters.slack_adapter
+            import megabot.adapters.slack_adapter
 
-            importlib.reload(adapters.slack_adapter)
+            importlib.reload(megabot.adapters.slack_adapter)
 
             # Now test the fallback classes
-            client = adapters.slack_adapter.WebClient(token="test")
+            client = megabot.adapters.slack_adapter.WebClient(token="test")
             # This triggers __getattr__ (line 30)
             result = client.any_method()
             assert isinstance(result, MagicMock)
 
-            socket_client = adapters.slack_adapter.SocketModeClient(app_token="test")
+            socket_client = megabot.adapters.slack_adapter.SocketModeClient(app_token="test")
             assert socket_client is not None
 
 
 @pytest.mark.asyncio
 async def test_slack_adapter_final():
     server = MagicMock()
-    from adapters.slack_adapter import SlackAdapter
+    from megabot.adapters.slack_adapter import SlackAdapter
 
     adapter = SlackAdapter("slack", server, bot_token="token", app_token="xapp-123")
     assert adapter._generate_id() is not None
@@ -904,8 +904,8 @@ async def test_slack_adapter_final():
     # Trigger line 162
     mock_socket_client = MagicMock()
     with (
-        patch("adapters.slack_adapter.SocketModeClient", return_value=mock_socket_client),
-        patch("adapters.slack_adapter.WebClient"),
+        patch("megabot.adapters.slack_adapter.SocketModeClient", return_value=mock_socket_client),
+        patch("megabot.adapters.slack_adapter.WebClient"),
         patch("asyncio.get_event_loop") as mock_loop,
     ):
         # Capture the listener function
@@ -938,8 +938,8 @@ class TestSetupEventHandlers:
     def adapter(self):
         """Create SlackAdapter with mocked deps"""
         with (
-            patch("adapters.slack_adapter.WebClient") as mock_wc,
-            patch("adapters.slack_adapter.SocketModeClient") as mock_sc,
+            patch("megabot.adapters.slack_adapter.WebClient") as mock_wc,
+            patch("megabot.adapters.slack_adapter.SocketModeClient") as mock_sc,
         ):
             mock_wc.return_value = MagicMock()
             mock_sc.return_value = MagicMock()

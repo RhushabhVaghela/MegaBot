@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13']
 
     steps:
       - name: Checkout repository
@@ -42,23 +42,23 @@ jobs:
         run: |
           PYTHONPATH=. OPENCLAW_AUTH_TOKEN=test_token_12345 \
           python -m pytest tests/ -v \
-            --cov=core --cov=adapters \
+            --cov=megabot \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=95
 
       - name: Run ruff (lint + format check)
         run: |
-          python -m ruff check core/ adapters/
-          python -m ruff format --check core/ adapters/
+          python -m ruff check megabot/ tests/
+          python -m ruff format --check megabot/ tests/
 
       - name: Run mypy (type checks)
-        run: python -m mypy --ignore-missing-imports core/ adapters/
+        run: python -m mypy --ignore-missing-imports megabot/
 
       # --- Security scanning ---
       - name: Run bandit (security lint)
         run: |
-          python -m bandit -r core/ adapters/ \
+          python -m bandit -r megabot/ \
             -c pyproject.toml \
             --severity-level medium \
             -f json -o bandit-report.json

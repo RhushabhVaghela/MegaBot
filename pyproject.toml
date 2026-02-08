@@ -1,9 +1,9 @@
 [project]
 name = "megabot"
-version = "1.0.0"
+version = "1.2.0"
 description = "Production-ready, local-first AI orchestrator unifying OpenClaw, memU, and MCP into a single secure agentic brain with multi-channel messaging"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Rhushabh Vaghela"},
@@ -29,6 +29,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -43,23 +45,36 @@ dependencies = [
     "pydantic>=2.12.5",
     "websockets>=16.0",
     "sqlalchemy>=2.0.46",
-    "psycopg2-binary>=2.9.11",
-    "pgvector>=0.4.2",
     "fastapi>=0.128.0",
     "uvicorn>=0.40.0",
     "cryptography>=46.0.4",
     "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
-    "firebase-admin>=7.1.0",
     "pyjwt>=2.11.0",
     "httpx>=0.28.1",
-    "pyautogui>=0.9.54",
     "pillow>=12.1.0",
-    "python-xlib>=0.15",
-    "twilio>=9.10.1",
     "python-multipart>=0.0.22",
-    "slack-sdk>=3.39.0",
+]
+
+[project.optional-dependencies]
+telegram = []  # Uses httpx (already a core dep)
+discord = ["discord.py>=2.6.4"]
+slack = ["slack-sdk>=3.39.0"]
+sms = ["twilio>=9.10.1"]
+whatsapp = []  # Uses aiohttp (already a core dep)
+voice = ["twilio>=9.10.1"]
+push = ["firebase-admin>=7.1.0"]
+desktop = ["pyautogui>=0.9.54", "python-xlib>=0.15"]
+postgres = ["psycopg2-binary>=2.9.11", "pgvector>=0.4.2"]
+all = [
     "discord.py>=2.6.4",
+    "slack-sdk>=3.39.0",
+    "twilio>=9.10.1",
+    "firebase-admin>=7.1.0",
+    "pyautogui>=0.9.54",
+    "python-xlib>=0.15",
+    "psycopg2-binary>=2.9.11",
+    "pgvector>=0.4.2",
 ]
 
 [project.urls]
@@ -73,11 +88,14 @@ Changelog = "https://github.com/RhushabhVaghela/MegaBot/blob/main/CHANGELOG.md"
 requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["core", "adapters", "modules", "features"]
+[tool.setuptools.packages.find]
+include = ["megabot*"]
+
+[project.scripts]
+megabot = "megabot.cli:main"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py310"
 line-length = 120
 
 [tool.ruff.lint]
@@ -92,7 +110,7 @@ ignore = ["UP041", "UP046", "UP047", "SIM105", "SIM108"]
 
 [tool.ruff.lint.per-file-ignores]
 # Imports after dynamic api-credentials.py loading block are intentional
-"core/orchestrator.py" = ["E402"]
+"megabot/core/orchestrator.py" = ["E402"]
 # Test files commonly have unused variables from side-effect calls and context managers
 "tests/**" = ["F841"]
 
@@ -107,7 +125,7 @@ filterwarnings = [
 addopts = "-v --strict-markers"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true

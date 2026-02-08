@@ -14,7 +14,7 @@ import pytest
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from adapters.messaging import (
+from megabot.adapters.messaging import (
     IMessageAdapter,
     MediaAttachment,
     MegaBotMessagingServer,
@@ -401,12 +401,12 @@ async def test_messaging_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [k for k in sys.modules if k.startswith("adapters.messaging")]
+    modules_to_clear = [k for k in sys.modules if k.startswith("megabot.adapters.messaging")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
     with (
-        patch("adapters.messaging.server.websockets.serve", new_callable=AsyncMock),
+        patch("megabot.adapters.messaging.server.websockets.serve", new_callable=AsyncMock),
         patch("asyncio.Future") as mock_fut,
     ):
         mock_fut.return_value = asyncio.Future()
@@ -417,7 +417,7 @@ async def test_messaging_run_module():
             return None
 
         with patch("asyncio.run", side_effect=mock_run):
-            runpy.run_module("adapters.messaging", run_name="__main__")
+            runpy.run_module("megabot.adapters.messaging", run_name="__main__")
             assert True
 
 
@@ -532,7 +532,7 @@ async def test_messaging_server_send_message_error(messaging_server):
     mock_ws.send.side_effect = ConnectionError("Broadcast failure")
     messaging_server.clients = {"bad_client": mock_ws}
 
-    from adapters.messaging import PlatformMessage
+    from megabot.adapters.messaging import PlatformMessage
 
     msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
@@ -547,7 +547,7 @@ async def test_messaging_main_entrypoint():
     # Just verify the function exists and returns a coroutine
     import inspect
 
-    from adapters.messaging import main
+    from megabot.adapters.messaging import main
 
     assert inspect.iscoroutinefunction(main), "main should be an async function"
 
@@ -561,7 +561,7 @@ async def test_messaging_server_broadcast_error_handling(messaging_server):
 
     messaging_server.clients = {"good": mock_ws1, "bad": mock_ws2}
 
-    from adapters.messaging import PlatformMessage
+    from megabot.adapters.messaging import PlatformMessage
 
     msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
@@ -579,7 +579,7 @@ async def test_messaging_server_send_to_specific_client_error(messaging_server):
 
     messaging_server.clients = {"client1": mock_ws}
 
-    from adapters.messaging import PlatformMessage
+    from megabot.adapters.messaging import PlatformMessage
 
     msg = PlatformMessage(id="1", platform="n", sender_id="u", sender_name="n", chat_id="ch", content="hi")
 
@@ -1572,7 +1572,7 @@ class TestMegaBotMessagingServer:
         assert encrypted_server.enable_encryption is True
         assert encrypted_server.secure_ws is not None
 
-    @patch("adapters.messaging.websockets.serve")
+    @patch("megabot.adapters.messaging.websockets.serve")
     @pytest.mark.asyncio
     async def test_server_start(self, mock_serve, server):
         """Test server start method"""
@@ -1585,7 +1585,7 @@ class TestMegaBotMessagingServer:
 
         mock_serve.assert_called_once()
 
-    @patch("adapters.messaging.websockets.serve")
+    @patch("megabot.adapters.messaging.websockets.serve")
     @pytest.mark.asyncio
     async def test_server_start_encrypted(self, mock_serve, encrypted_server):
         """Test server start method with encryption"""
@@ -1614,7 +1614,7 @@ class TestMegaBotMessagingServer:
     @pytest.mark.asyncio
     async def test_process_message_invalid_json(self, server, caplog):
         """Test processing invalid JSON message"""
-        with caplog.at_level(logging.ERROR, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.messaging.server"):
             await server._process_message("client1", "invalid json")
             assert any("Error processing message from client1" in r.message for r in caplog.records)
 
@@ -1632,7 +1632,7 @@ class TestMegaBotMessagingServer:
     async def test_process_message_unknown_type(self, caplog):
         """Test processing message with unknown type"""
         server = MegaBotMessagingServer(enable_encryption=False)
-        with caplog.at_level(logging.WARNING, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.messaging.server"):
             await server._process_message("client1", '{"type": "unknown"}')
             assert any("Unknown message type: unknown" in r.message for r in caplog.records)
 
@@ -1711,7 +1711,7 @@ class TestMegaBotMessagingServer:
         """Test platform connect for WhatsApp"""
         connect_data = {"platform": "whatsapp", "config": {"phone_number_id": "123"}}
 
-        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.INFO, logger="megabot.adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "whatsapp" in server.platform_adapters
             assert any("Initialized WhatsApp adapter" in r.message for r in caplog.records)
@@ -1721,7 +1721,7 @@ class TestMegaBotMessagingServer:
         """Test platform connect for Telegram"""
         connect_data = {"platform": "telegram", "credentials": {"token": "test_token"}}
 
-        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.INFO, logger="megabot.adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "telegram" in server.platform_adapters
             assert any("Initialized Telegram adapter" in r.message for r in caplog.records)
@@ -1731,7 +1731,7 @@ class TestMegaBotMessagingServer:
         """Test platform connect for unknown platform"""
         connect_data = {"platform": "unknown", "config": {}}
 
-        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.INFO, logger="megabot.adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "unknown" in server.platform_adapters
             assert any("Initialized generic adapter for unknown platform: unknown" in r.message for r in caplog.records)
@@ -1741,7 +1741,7 @@ class TestMegaBotMessagingServer:
         """Test command handling"""
         command_data = {"command": "test_command", "args": ["arg1", "arg2"]}
 
-        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.INFO, logger="megabot.adapters.messaging.server"):
             await server._handle_command(command_data)
             assert any("Command: test_command with args: ['arg1', 'arg2']" in r.message for r in caplog.records)
 
@@ -1752,7 +1752,7 @@ class TestMegaBotMessagingServer:
         attachment.data = b"test data"
         attachment.filename = "test.jpg"
 
-        with patch("adapters.messaging.aiofiles.open", create=True) as mock_open:
+        with patch("megabot.adapters.messaging.aiofiles.open", create=True) as mock_open:
             mock_file = AsyncMock()
             mock_open.return_value.__aenter__.return_value = mock_file
 
@@ -1832,7 +1832,7 @@ class TestMegaBotMessagingServer:
         mock_client.send = AsyncMock(side_effect=ConnectionError("Send failed"))
         server.clients = {"client1": mock_client}
 
-        with caplog.at_level(logging.ERROR, logger="adapters.messaging.server"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.messaging.server"):
             await server.send_message(message)
             assert any("Failed to send to client1: Send failed" in r.message for r in caplog.records)
 
@@ -1840,7 +1840,7 @@ class TestMegaBotMessagingServer:
 class TestMainFunction:
     """Test main function and script execution"""
 
-    @patch("adapters.messaging.MegaBotMessagingServer")
+    @patch("megabot.adapters.messaging.MegaBotMessagingServer")
     @pytest.mark.asyncio
     async def test_main_function(self, mock_server_class):
         """Test main function execution"""
@@ -1849,14 +1849,14 @@ class TestMainFunction:
         mock_server.register_handler = MagicMock()
         mock_server.start = AsyncMock()
 
-        from adapters.messaging import main
+        from megabot.adapters.messaging import main
 
         await main()
 
         mock_server_class.assert_called_once_with()
         mock_server.register_handler.assert_called_once()
 
-    @patch("adapters.messaging.MegaBotMessagingServer")
+    @patch("megabot.adapters.messaging.MegaBotMessagingServer")
     @pytest.mark.asyncio
     async def test_script_execution(self, mock_server_class):
         """Test script execution when run directly"""
@@ -1873,7 +1873,7 @@ class TestMainFunction:
 
         try:
             # This would normally be executed by the if __name__ == "__main__" block
-            from adapters.messaging import main
+            from megabot.adapters.messaging import main
 
             await main()
         finally:
@@ -1881,7 +1881,7 @@ class TestMainFunction:
 
         mock_server_class.assert_called_once_with()
 
-    @patch("adapters.messaging.MegaBotMessagingServer")
+    @patch("megabot.adapters.messaging.MegaBotMessagingServer")
     @pytest.mark.asyncio
     async def test_main_function_message_handler_print(self, mock_server_class):
         """Test main function message handler print statement"""
@@ -1891,7 +1891,7 @@ class TestMainFunction:
         mock_server.start = AsyncMock()
 
         # Import the main function and create the handler manually
-        from adapters.messaging import PlatformMessage, main
+        from megabot.adapters.messaging import PlatformMessage, main
 
         # Call main to register the handler
         with patch("asyncio.run", side_effect=lambda coro: None):
@@ -2041,7 +2041,7 @@ class TestWhatsAppAdapterErrorHandling:
         mock_session.close = AsyncMock(side_effect=Exception("Close error"))
         wa_adapter.session = mock_session
 
-        with caplog.at_level(logging.ERROR, logger="adapters.messaging.whatsapp"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.messaging.whatsapp"):
             await wa_adapter.shutdown()
             assert any("Error during shutdown: Close error" in r.message for r in caplog.records)
 
@@ -2507,13 +2507,13 @@ class TestWhatsAppAdapterErrorHandling:
         # Mock MegaBotMessagingServer to raise exception
         with (
             patch(
-                "adapters.messaging.MegaBotMessagingServer",
+                "megabot.adapters.messaging.MegaBotMessagingServer",
                 side_effect=Exception("Server init error"),
             ),
             patch("asyncio.run", side_effect=lambda coro: coro.close()),
         ):
             # This should not crash the import
-            from adapters.messaging import main
+            from megabot.adapters.messaging import main
 
             # main is a coroutine function, just verify it exists
             assert callable(main)
@@ -2600,10 +2600,10 @@ class TestSMSAdapter:
 
 @pytest.mark.asyncio
 async def test_messaging_adapters_coverage_gaps():
-    from adapters.messaging.imessage import IMessageAdapter
-    from adapters.messaging.sms import SMSAdapter
-    from adapters.messaging.telegram import TelegramAdapter as MessagingTelegramAdapter
-    from adapters.messaging.whatsapp import WhatsAppAdapter
+    from megabot.adapters.messaging.imessage import IMessageAdapter
+    from megabot.adapters.messaging.sms import SMSAdapter
+    from megabot.adapters.messaging.telegram import TelegramAdapter as MessagingTelegramAdapter
+    from megabot.adapters.messaging.whatsapp import WhatsAppAdapter
 
     server = MagicMock()
     imessage = IMessageAdapter("imessage", server)
@@ -2619,7 +2619,7 @@ async def test_messaging_adapters_coverage_gaps():
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
     mock_session.post.return_value = mock_ctx
-    with patch("adapters.messaging.telegram.aiohttp.ClientSession", return_value=mock_session):
+    with patch("megabot.adapters.messaging.telegram.aiohttp.ClientSession", return_value=mock_session):
         res = await tg._make_request("test")
         assert res == {"id": 123}
     res = await tg.handle_webhook({"update_id": 1})

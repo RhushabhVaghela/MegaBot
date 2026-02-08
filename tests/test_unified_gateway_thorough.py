@@ -11,7 +11,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-import adapters.unified_gateway as ug
+import megabot.adapters.unified_gateway as ug
 
 # Ensure ug has web if it was lost by another test
 if not getattr(ug, "web", None):
@@ -19,7 +19,7 @@ if not getattr(ug, "web", None):
 if not getattr(ug, "aiohttp", None):
     ug.aiohttp = aiohttp
 
-from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
+from megabot.adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 
 @pytest.fixture
@@ -232,7 +232,7 @@ async def test_gateway_run_module():
     import sys
 
     # Clear module from cache to avoid runpy warning
-    modules_to_clear = [k for k in sys.modules if k.startswith("adapters.unified_gateway")]
+    modules_to_clear = [k for k in sys.modules if k.startswith("megabot.adapters.unified_gateway")]
     for mod in modules_to_clear:
         del sys.modules[mod]
 
@@ -241,7 +241,7 @@ async def test_gateway_run_module():
         return None
 
     with patch.object(UnifiedGateway, "start", new_callable=AsyncMock), patch("asyncio.run", side_effect=mock_run):
-        runpy.run_module("adapters.unified_gateway", run_name="__main__")
+        runpy.run_module("megabot.adapters.unified_gateway", run_name="__main__")
         assert True
 
 
@@ -430,7 +430,7 @@ async def test_check_rate_limit_exceptions(gateway):
 
     # 1. Trigger Exception in now_obj (lines 142-143)
     # We patch the module-level ug.datetime to be None
-    with patch("adapters.unified_gateway.datetime", None):
+    with patch("megabot.adapters.unified_gateway.datetime", None):
         assert gateway._check_rate_limit(conn) is True
 
     # 2. Trigger Exception in _ts (lines 149-151)
@@ -441,7 +441,7 @@ async def test_check_rate_limit_exceptions(gateway):
         def __float__(self):
             raise ValueError("No float")
 
-    with patch("core.network.gateway.datetime") as mock_dt:
+    with patch("megabot.core.network.gateway.datetime") as mock_dt:
         mock_dt.now.return_value = BadObj()
         # Should hit line 151 and return current timestamp
         assert gateway._check_rate_limit(conn) is True
@@ -631,7 +631,7 @@ async def test_decode_exceptions_real_trigger(gateway):
         patch.object(gateway, "_check_rate_limit", return_value=True),
         # We need to ensure it thinks it's bytes
         patch(
-            "core.network.gateway.isinstance",
+            "megabot.core.network.gateway.isinstance",
             side_effect=lambda o, t: True if t == bytes and o == mock_payload else isinstance(o, t),
         ),
     ):

@@ -3,7 +3,7 @@
 import os
 from unittest.mock import patch
 
-from adapters.openclaw_adapter import OpenClawAdapter
+from megabot.adapters.openclaw_adapter import OpenClawAdapter
 
 
 def test_openclaw_token_generation():

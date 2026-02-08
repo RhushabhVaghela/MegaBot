@@ -24,9 +24,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.interfaces import Message
-from core.orchestrator import MegaBotOrchestrator, health, websocket_endpoint
-from core.orchestrator_components import BackgroundTasks, HealthMonitor, MessageHandler
+from megabot.core.interfaces import Message
+from megabot.core.orchestrator import MegaBotOrchestrator, health, websocket_endpoint
+from megabot.core.orchestrator_components import BackgroundTasks, HealthMonitor, MessageHandler
 
 # =====================================================================
 # Helpers (deduplicated from satellite files)
@@ -76,10 +76,10 @@ def orchestrator(mock_config):
     AsyncMock adapters for openclaw, memu, mcp, messaging, gateway.
     """
     with (
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
     ):
         orc = MegaBotOrchestrator(mock_config)
         # Use fresh mocks for all adapters
@@ -101,7 +101,7 @@ def mock_config_coverage():
     """Fixture from test_orchestrator_coverage.py — uses AdapterConfig with
     host/port for openclaw and explicit paths dict.
     """
-    from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
+    from megabot.core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
 
     return Config(
         system=SystemConfig(name="TestBot"),
@@ -132,16 +132,16 @@ def orchestrator_coverage_final():
     }
 
     with (
-        patch("core.orchestrator.MemoryServer") as mock_memory_class,
-        patch("core.orchestrator.get_llm_provider") as mock_get_llm,
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.LokiMode"),
-        patch("features.dash_data.agent.DashDataAgent"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
-        patch("core.orchestrator.MegaBotMessagingServer") as mock_msg_class,
-        patch("core.orchestrator.UnifiedGateway"),
+        patch("megabot.core.orchestrator.MemoryServer") as mock_memory_class,
+        patch("megabot.core.orchestrator.get_llm_provider") as mock_get_llm,
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.features.dash_data.agent.DashDataAgent"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.MegaBotMessagingServer") as mock_msg_class,
+        patch("megabot.core.orchestrator.UnifiedGateway"),
     ):
         mock_memory = mock_memory_class.return_value
         for method in [
@@ -419,7 +419,7 @@ async def test_orchestrator_gateway_message(orchestrator):
         "sender_name": "remote-user",
         "_meta": {"client_id": "cf-1"},
     }
-    with patch("core.build_session.can_allocate", return_value=True):
+    with patch("megabot.core.build_session.can_allocate", return_value=True):
         await orchestrator.on_gateway_message(data)
     assert orchestrator.memory.chat_write.called
 
@@ -444,8 +444,8 @@ async def test_orchestrator_on_openclaw_event_relay(orchestrator):
 async def test_orchestrator_llm_dispatch_mock(orchestrator):
     """Test LLM dispatch logic with mocking"""
     orchestrator.llm = None
-    with patch("core.orchestrator.get_llm_provider") as mock_get:
-        from core.llm_providers import AnthropicProvider
+    with patch("megabot.core.orchestrator.get_llm_provider") as mock_get:
+        from megabot.core.llm_providers import AnthropicProvider
 
         mock_get.return_value = AnthropicProvider(api_key="test")
         orchestrator.llm = mock_get.return_value
@@ -465,7 +465,7 @@ async def test_orchestrator_run_autonomous_gateway_build(orchestrator):
     """Test autonomous build triggered from gateway"""
     msg = Message(content="build app", sender="gateway-user")
     original_data = {"_meta": {"client_id": "cf-1"}}
-    with patch("core.build_session.can_allocate", return_value=True):
+    with patch("megabot.core.build_session.can_allocate", return_value=True):
         await orchestrator.run_autonomous_gateway_build(msg, original_data)
     assert orchestrator.adapters["openclaw"].send_message.called
     assert orchestrator.adapters["gateway"].send_message.called
@@ -475,8 +475,8 @@ async def test_orchestrator_run_autonomous_gateway_build(orchestrator):
 async def test_orchestrator_llm_dispatch_failure(orchestrator):
     """Test LLM dispatch failure (non-200 status)"""
     orchestrator.llm = None
-    with patch("core.orchestrator.get_llm_provider") as mock_get:
-        from core.llm_providers import AnthropicProvider
+    with patch("megabot.core.orchestrator.get_llm_provider") as mock_get:
+        from megabot.core.llm_providers import AnthropicProvider
 
         mock_get.return_value = AnthropicProvider(api_key="test")
         orchestrator.llm = mock_get.return_value
@@ -668,7 +668,7 @@ async def test_orchestrator_api_credentials_loading():
     """Test API credentials loading via safe line-by-line parser (VULN-004 fix)."""
     import tempfile
 
-    from core.config import load_api_credentials
+    from megabot.core.config import load_api_credentials
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write('OPENAI_API_KEY = "test-key-123"\n')
@@ -676,9 +676,9 @@ async def test_orchestrator_api_credentials_loading():
         temp_path = f.name
     try:
         with (
-            patch("core.config.os.path.exists", return_value=True),
-            patch("core.config.os.path.join", return_value=temp_path),
-            patch("core.config.os.getcwd", return_value="/tmp"),
+            patch("megabot.core.config.os.path.exists", return_value=True),
+            patch("megabot.core.config.os.path.join", return_value=temp_path),
+            patch("megabot.core.config.os.getcwd", return_value="/tmp"),
         ):
             load_api_credentials()
             assert os.environ.get("OPENAI_API_KEY") == "test-key-123"
@@ -712,7 +712,7 @@ async def test_orchestrator_admin_check_failure(orchestrator):
 async def test_orchestrator_deny_command(orchestrator):
     """Test !deny command"""
     orchestrator.config.admins = ["admin"]
-    with patch("core.config.Config.save") as mock_save:
+    with patch("megabot.core.config.Config.save") as mock_save:
         result = await orchestrator._handle_admin_command("!deny rm -rf", "admin")
         assert result is True
         assert "rm -rf" in orchestrator.config.policies.get("deny", [])
@@ -776,7 +776,7 @@ async def test_orchestrator_handle_client_json_error_robust(orchestrator):
 @pytest.mark.asyncio
 async def test_orchestrator_dispatch_unknown_provider(orchestrator):
     """Test get_llm_provider with unknown type defaults to ollama"""
-    from core.llm_providers import OllamaProvider, get_llm_provider
+    from megabot.core.llm_providers import OllamaProvider, get_llm_provider
 
     p = get_llm_provider({"provider": "unknown"})
     assert isinstance(p, OllamaProvider)
@@ -788,7 +788,7 @@ async def test_orchestrator_run_autonomous_build_step_error(orchestrator):
     mock_ws = AsyncMock()
     msg = Message(content="build", sender="u")
     orchestrator.llm.generate.side_effect = Exception("llm error")
-    with patch("core.build_session.can_allocate", return_value=True):
+    with patch("megabot.core.build_session.can_allocate", return_value=True):
         await orchestrator.run_autonomous_build(msg, mock_ws)
     assert mock_ws.send_json.called
     # Check if error status was sent
@@ -843,7 +843,7 @@ async def test_orchestrator_approval_queue_update_error(orchestrator):
 @pytest.mark.asyncio
 async def test_root_endpoint():
     """Test FastAPI root endpoint"""
-    from core.orchestrator import root
+    from megabot.core.orchestrator import root
 
     result = await root()
     assert result["status"] == "online"
@@ -883,7 +883,7 @@ async def test_orchestrator_admin_commands_empty_policies(orchestrator):
     """Test !allow/!deny with empty policies dict for coverage"""
     orchestrator.config.admins = ["admin"]
     orchestrator.config.policies = {}
-    with patch("core.config.Config.save"):
+    with patch("megabot.core.config.Config.save"):
         await orchestrator._handle_admin_command("!allow cmd1", "admin")
         assert "cmd1" in orchestrator.config.policies["allow"]
         await orchestrator._handle_admin_command("!deny cmd2", "admin")
@@ -952,7 +952,7 @@ async def test_orchestrator_handle_client_command_message_type(orchestrator):
 @pytest.mark.asyncio
 async def test_websocket_endpoint_orchestrator_none():
     """Test websocket endpoint when orchestrator is not initialized"""
-    with patch("core.orchestrator.orchestrator", None):
+    with patch("megabot.core.orchestrator.orchestrator", None):
         mock_ws = AsyncMock()
         # SEC-FIX-001: WebSocket auth requires a valid token
         with patch.dict("os.environ", {"WS_AUTH_TOKEN": "test-token"}):
@@ -966,22 +966,22 @@ async def test_websocket_endpoint_orchestrator_none():
 @pytest.mark.asyncio
 async def test_websocket_endpoint_with_orchestrator(orchestrator):
     """Test websocket endpoint when orchestrator is initialized"""
-    import core.orchestrator
+    import megabot.core.orchestrator
 
-    with patch("core.orchestrator.orchestrator", orchestrator):
+    with patch("megabot.core.orchestrator.orchestrator", orchestrator):
         mock_ws = AsyncMock()
         orchestrator.handle_client = AsyncMock()
         # SEC-FIX-001: WebSocket auth requires a valid token
         with patch.dict("os.environ", {"WS_AUTH_TOKEN": "test-token"}):
             mock_ws.query_params = {"token": "test-token"}
-            await core.orchestrator.websocket_endpoint(mock_ws)
+            await megabot.core.orchestrator.websocket_endpoint(mock_ws)
             orchestrator.handle_client.assert_called_once_with(mock_ws)
 
 
 @pytest.mark.asyncio
 async def test_health_endpoint_no_orchestrator():
     """Test health endpoint returns 503 when orchestrator is None"""
-    import core.orchestrator as orch_module
+    import megabot.core.orchestrator as orch_module
 
     original = orch_module.orchestrator
     try:
@@ -1041,7 +1041,7 @@ async def test_orchestrator_start_rag_print(orchestrator, caplog):
     """Test RAG build print and exception (lines 541-542)"""
     import logging
 
-    with caplog.at_level(logging.DEBUG, logger="core.lifecycle"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.core.lifecycle"):
         # Success path (line 541)
         orchestrator.rag.build_index = AsyncMock()
         await orchestrator.start()
@@ -1068,15 +1068,15 @@ async def test_orchestrator_initialization_all_components(mock_config_coverage):
         pass
 
     with (
-        patch("core.orchestrator.MemoryServer"),
-        patch("core.orchestrator.OpenClawAdapter") as mock_oc,
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager") as mock_mcp,
-        patch("core.orchestrator.MegaBotMessagingServer") as mock_msg,
-        patch("core.orchestrator.UnifiedGateway") as mock_gw,
-        patch("core.orchestrator.ModuleDiscovery") as mock_disc_class,
-        patch("core.orchestrator.LokiMode"),
-        patch("core.orchestrator.get_llm_provider"),
+        patch("megabot.core.orchestrator.MemoryServer"),
+        patch("megabot.core.orchestrator.OpenClawAdapter") as mock_oc,
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager") as mock_mcp,
+        patch("megabot.core.orchestrator.MegaBotMessagingServer") as mock_msg,
+        patch("megabot.core.orchestrator.UnifiedGateway") as mock_gw,
+        patch("megabot.core.orchestrator.ModuleDiscovery") as mock_disc_class,
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.core.orchestrator.get_llm_provider"),
     ):
         mock_msg.return_value.start = mock_coro
         mock_gw.return_value.start = mock_coro
@@ -1096,15 +1096,15 @@ async def test_orchestrator_initialization_all_components(mock_config_coverage):
 @pytest.mark.asyncio
 async def test_orchestrator_on_openclaw_event_coverage(mock_config_coverage):
     with (
-        patch("core.orchestrator.MemoryServer"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
-        patch("core.orchestrator.MegaBotMessagingServer"),
-        patch("core.orchestrator.UnifiedGateway"),
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.LokiMode"),
-        patch("core.orchestrator.get_llm_provider"),
+        patch("megabot.core.orchestrator.MemoryServer"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.MegaBotMessagingServer"),
+        patch("megabot.core.orchestrator.UnifiedGateway"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.core.orchestrator.get_llm_provider"),
     ):
         orch = MegaBotOrchestrator(mock_config_coverage)
         orch.adapters["openclaw"] = AsyncMock()
@@ -1117,15 +1117,15 @@ async def test_orchestrator_on_openclaw_event_coverage(mock_config_coverage):
 @pytest.mark.asyncio
 async def test_orchestrator_tool_handling(mock_config_coverage):
     with (
-        patch("core.orchestrator.MemoryServer"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
-        patch("core.orchestrator.MegaBotMessagingServer"),
-        patch("core.orchestrator.UnifiedGateway"),
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.LokiMode"),
-        patch("core.orchestrator.get_llm_provider"),
+        patch("megabot.core.orchestrator.MemoryServer"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.MegaBotMessagingServer"),
+        patch("megabot.core.orchestrator.UnifiedGateway"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.core.orchestrator.get_llm_provider"),
     ):
         orch = MegaBotOrchestrator(mock_config_coverage)
         orch.permissions = MagicMock()
@@ -1146,15 +1146,15 @@ async def test_orchestrator_tool_handling(mock_config_coverage):
 @pytest.mark.asyncio
 async def test_orchestrator_handle_client_websocket(mock_config_coverage):
     with (
-        patch("core.orchestrator.MemoryServer"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
-        patch("core.orchestrator.MegaBotMessagingServer"),
-        patch("core.orchestrator.UnifiedGateway"),
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.LokiMode"),
-        patch("core.orchestrator.get_llm_provider"),
+        patch("megabot.core.orchestrator.MemoryServer"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.MegaBotMessagingServer"),
+        patch("megabot.core.orchestrator.UnifiedGateway"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.core.orchestrator.get_llm_provider"),
     ):
         orch = MegaBotOrchestrator(mock_config_coverage)
         ws = AsyncMock()
@@ -1171,15 +1171,15 @@ async def test_orchestrator_handle_client_websocket(mock_config_coverage):
 
 @pytest.mark.asyncio
 async def test_orchestrator_ivr_callback_direct():
-    from core.orchestrator import ivr_callback
+    from megabot.core.orchestrator import ivr_callback
 
     request = AsyncMock()
     request.form.return_value = {"Digits": "1"}
     mock_orch = MagicMock()
     mock_orch.admin_handler = AsyncMock()
     with (
-        patch("core.orchestrator.orchestrator", mock_orch),
-        patch("core.app._validate_twilio_signature", return_value=True),
+        patch("megabot.core.orchestrator.orchestrator", mock_orch),
+        patch("megabot.core.app._validate_twilio_signature", return_value=True),
     ):
         response = await ivr_callback(request, action_id="act123")
         assert response.status_code == 200
@@ -1188,15 +1188,15 @@ async def test_orchestrator_ivr_callback_direct():
 @pytest.mark.asyncio
 async def test_orchestrator_shutdown_full(mock_config_coverage):
     with (
-        patch("core.orchestrator.MemoryServer"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
-        patch("core.orchestrator.MegaBotMessagingServer"),
-        patch("core.orchestrator.UnifiedGateway"),
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.LokiMode"),
-        patch("core.orchestrator.get_llm_provider"),
+        patch("megabot.core.orchestrator.MemoryServer"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.MegaBotMessagingServer"),
+        patch("megabot.core.orchestrator.UnifiedGateway"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.LokiMode"),
+        patch("megabot.core.orchestrator.get_llm_provider"),
     ):
         orch = MegaBotOrchestrator(mock_config_coverage)
         adapter = MagicMock()
@@ -1217,7 +1217,7 @@ async def test_orchestrator_spawn_sub_agent(orchestrator_coverage_final):
     orchestrator_coverage_final.discovery = MagicMock()
     orchestrator_coverage_final.discovery.get_module.return_value = MagicMock()
 
-    with patch("core.agent_coordinator.SubAgent") as mock_agent_class:
+    with patch("megabot.core.agent_coordinator.SubAgent") as mock_agent_class:
         mock_agent = mock_agent_class.return_value
         mock_agent.id = "agent_123"
         mock_agent.generate_plan = AsyncMock(return_value="plan")
@@ -1414,8 +1414,8 @@ async def test_spawn_sub_agent_validation_fail(orchestrator):
     mock_agent.generate_plan = AsyncMock(return_value=["format"])
     mock_agent.run = AsyncMock(return_value="executed")
     with (
-        patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
-        patch("core.agent_coordinator.can_allocate", return_value=True),
+        patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent),
+        patch("megabot.core.agent_coordinator.can_allocate", return_value=True),
     ):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "blocked by pre-flight check" in result
@@ -1435,8 +1435,8 @@ async def test_spawn_sub_agent_synthesis_fallback(orchestrator):
     mock_agent.generate_plan = AsyncMock()
     mock_agent.run = AsyncMock(return_value="raw result")
     with (
-        patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
-        patch("core.agent_coordinator.can_allocate", return_value=True),
+        patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent),
+        patch("megabot.core.agent_coordinator.can_allocate", return_value=True),
     ):
         result = await orchestrator._spawn_sub_agent(tool_input)
         assert "CRITICAL: Always backup" in result
@@ -1493,7 +1493,7 @@ def test_sanitize_output_empty(orchestrator):
 @pytest.mark.asyncio
 async def test_safe_create_task_runtime_error_fallback():
     """Lines 23-24: get_running_loop raises RuntimeError → falls back to get_event_loop."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1512,7 +1512,7 @@ async def test_safe_create_task_runtime_error_fallback():
 @pytest.mark.asyncio
 async def test_safe_create_task_set_name_success():
     """Lines 29-30: name provided → task.set_name(name) called successfully."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1526,7 +1526,7 @@ async def test_safe_create_task_set_name_success():
 @pytest.mark.asyncio
 async def test_safe_create_task_set_name_failure():
     """Lines 31-32: task.set_name raises → exception swallowed."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1549,7 +1549,7 @@ async def test_safe_create_task_set_name_failure():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_with_exception(caplog):
     """Lines 36-40: _on_done detects a task exception and logs it."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def fail():
         raise ValueError("boom")
@@ -1568,7 +1568,7 @@ async def test_safe_create_task_on_done_with_exception(caplog):
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_cancelled():
     """Lines 41-42: _on_done with CancelledError → swallowed silently."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def hang():
         await asyncio.sleep(999)
@@ -1586,8 +1586,8 @@ async def test_safe_create_task_on_done_cancelled():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_discard_fails():
     """Lines 48-49: _orchestrator_tasks.discard raises → swallowed."""
-    import core.task_utils as task_utils_mod
-    from core.task_utils import safe_create_task as _safe_create_task
+    import megabot.core.task_utils as task_utils_mod
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1612,7 +1612,7 @@ async def test_safe_create_task_on_done_discard_fails():
 @pytest.mark.asyncio
 async def test_lifespan_skip_startup():
     """Lines 154-166: MEGABOT_SKIP_STARTUP=1 skips orchestrator start/shutdown."""
-    from core.orchestrator import app, lifespan
+    from megabot.core.orchestrator import app, lifespan
 
     with patch.dict("os.environ", {"MEGABOT_SKIP_STARTUP": "1"}):
         async with lifespan(app):
@@ -1636,7 +1636,7 @@ async def test_init_audit_log_auto_enable(mock_config):
         with (
             patch.dict("os.environ", env_copy, clear=True),
             patch.object(sys, "argv", ["megabot", "run"]),
-            patch("core.orchestrator.attach_audit_file_handler") as mock_attach,
+            patch("megabot.core.orchestrator.attach_audit_file_handler") as mock_attach,
         ):
             try:
                 orch = MegaBotOrchestrator(mock_config)
@@ -1841,7 +1841,7 @@ async def test_process_approval_data_execution(orchestrator):
     ]
     orchestrator.clients = set()
 
-    with patch("features.dash_data.agent.DashDataAgent") as MockAgent:
+    with patch("megabot.features.dash_data.agent.DashDataAgent") as MockAgent:
         mock_instance = MagicMock()
         mock_instance.execute_python_analysis = AsyncMock(return_value="result: 42")
         MockAgent.return_value = mock_instance
@@ -1867,7 +1867,7 @@ async def test_process_approval_data_execution_error(orchestrator):
     ]
     orchestrator.clients = set()
 
-    with patch("features.dash_data.agent.DashDataAgent", side_effect=ImportError("no module")):
+    with patch("megabot.features.dash_data.agent.DashDataAgent", side_effect=ImportError("no module")):
         orchestrator.send_platform_message = AsyncMock()
         await orchestrator._process_approval(action_id, approved=True)
         call_msg = orchestrator.send_platform_message.call_args[0][0]
@@ -2122,12 +2122,12 @@ async def test_ivr_callback_no_orchestrator():
     """Lines 1743-1744: orchestrator is None → 'System error.' response."""
     from httpx import ASGITransport, AsyncClient
 
-    from core.orchestrator import app
+    from megabot.core.orchestrator import app
 
     with (
         patch.dict("os.environ", {"MEGABOT_SKIP_STARTUP": "1"}),
-        patch("core.orchestrator.orchestrator", None),
-        patch("core.app._validate_twilio_signature", return_value=True),
+        patch("megabot.core.orchestrator.orchestrator", None),
+        patch("megabot.core.app._validate_twilio_signature", return_value=True),
     ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -2141,7 +2141,7 @@ async def test_ivr_callback_rejects_missing_signature():
     """VULN-012: /ivr rejects requests without valid Twilio signature (CSRF)."""
     from httpx import ASGITransport, AsyncClient
 
-    from core.orchestrator import app
+    from megabot.core.orchestrator import app
 
     with patch.dict(
         "os.environ",
@@ -2160,7 +2160,7 @@ async def test_ivr_callback_rejects_no_auth_token():
     """VULN-012: /ivr rejects when TWILIO_AUTH_TOKEN is not set (fail-closed)."""
     from httpx import ASGITransport, AsyncClient
 
-    from core.orchestrator import app
+    from megabot.core.orchestrator import app
 
     with patch.dict(
         "os.environ",
@@ -2237,7 +2237,7 @@ async def test_shutdown_closes_underlying_coroutine_for_mock_task(orchestrator):
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_non_cancelled_exception():
     """Lines 43-44: t.exception() raises non-CancelledError -> prints error."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def failing_task():
         raise ValueError("something went wrong")
@@ -2250,8 +2250,8 @@ async def test_safe_create_task_on_done_non_cancelled_exception():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_callback_error():
     """Lines 43-44: t.exception() itself raises a non-CancelledError."""
-    from core.task_utils import _tracked_tasks as _orchestrator_tasks
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import _tracked_tasks as _orchestrator_tasks
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def simple_task():
         return "done"
@@ -2269,7 +2269,7 @@ async def test_init_audit_log_exception(mock_config):
     """Lines 237-239: exception in audit log setup -> pass (no crash)."""
     with (
         patch(
-            "core.orchestrator.attach_audit_file_handler",
+            "megabot.core.orchestrator.attach_audit_file_handler",
             side_effect=OSError("log fail"),
         ),
         patch.dict("os.environ", {"MEGABOT_ENABLE_AUDIT_LOG": "1"}),
@@ -2302,8 +2302,8 @@ async def test_gateway_build_memory_injection(orchestrator):
     original_data = {"_meta": {"client_id": "test-client", "connection_type": "local"}}
 
     with (
-        patch("core.build_session.get_relevant_lessons", new_callable=AsyncMock, return_value="LESSON: do X"),
-        patch("core.build_session.can_allocate", return_value=True),
+        patch("megabot.core.build_session.get_relevant_lessons", new_callable=AsyncMock, return_value="LESSON: do X"),
+        patch("megabot.core.build_session.can_allocate", return_value=True),
     ):
         await orchestrator.run_autonomous_gateway_build(msg, original_data)
     assert msg.content.startswith("LESSON: do X")
@@ -2415,7 +2415,7 @@ async def test_escalation_dnd_active_wrap_around(orchestrator):
     action = {"id": "action-1"}
     orchestrator.admin_handler.approval_queue = [action]
 
-    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("megabot.core.approval_workflows.datetime") as mock_dt:
         mock_dt.now.return_value = MagicMock(hour=23)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
         await orchestrator._start_approval_escalation(action)
@@ -2431,7 +2431,7 @@ async def test_escalation_dnd_same_range(orchestrator):
     action = {"id": "action-2"}
     orchestrator.admin_handler.approval_queue = [action]
 
-    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("megabot.core.approval_workflows.datetime") as mock_dt:
         mock_dt.now.return_value = MagicMock(hour=10)  # inside 8-17
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
         await orchestrator._start_approval_escalation(action)
@@ -2451,7 +2451,7 @@ async def test_escalation_calendar_dnd(orchestrator):
     mcp_mock.call_tool = AsyncMock(return_value=[{"summary": "BUSY - Important Meeting"}])
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": MagicMock()}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("megabot.core.approval_workflows.datetime") as mock_dt:
         mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
         await orchestrator._start_approval_escalation(action)
@@ -2477,7 +2477,7 @@ async def test_escalation_calendar_check_fails(orchestrator):
 
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": messaging_mock}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("megabot.core.approval_workflows.datetime") as mock_dt:
         mock_dt.now.return_value = MagicMock(hour=15)  # outside DND
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
         await orchestrator._start_approval_escalation(action)
@@ -2499,7 +2499,7 @@ async def test_escalation_no_admin_phone(orchestrator):
     mcp_mock.call_tool = AsyncMock(return_value=[])
     orchestrator.adapters = {"mcp": mcp_mock, "messaging": MagicMock()}
 
-    with patch("asyncio.sleep", new_callable=AsyncMock), patch("core.approval_workflows.datetime") as mock_dt:
+    with patch("asyncio.sleep", new_callable=AsyncMock), patch("megabot.core.approval_workflows.datetime") as mock_dt:
         mock_dt.now.return_value = MagicMock(hour=15)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
         await orchestrator._start_approval_escalation(action)
@@ -2808,7 +2808,7 @@ async def test_background_tasks_extra_coverage(mock_orchestrator_components_extr
 
     # Start all tasks (lines 238-242)
     with (
-        patch("core.orchestrator_components.safe_create_task") as mock_create,
+        patch("megabot.core.orchestrator_components.safe_create_task") as mock_create,
         patch.object(tasks, "sync_loop", return_value=None),
         patch.object(tasks, "proactive_loop", return_value=None),
         patch.object(tasks, "pruning_loop", return_value=None),
@@ -3161,7 +3161,7 @@ class TestBackgroundTasksScheduling:
 
 @pytest.mark.asyncio
 async def test_orchestrator_restart_components(mock_config):
-    with patch("core.orchestrator.ModuleDiscovery"):
+    with patch("megabot.core.orchestrator.ModuleDiscovery"):
         orc = MegaBotOrchestrator(mock_config)
         orc.adapters = {
             "openclaw": AsyncMock(),
@@ -3231,7 +3231,7 @@ class TestOrchestratorCoverage:
 @pytest.mark.asyncio
 async def test_on_done_exception_from_task_exception_call():
     """Lines 43-44: t.exception() raises non-CancelledError -> prints error."""
-    from core.task_utils import safe_create_task as _safe_create_task
+    from megabot.core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -3370,20 +3370,20 @@ async def test_shutdown_health_task_coro_close(orchestrator):
 
 def test_core_getattr_megabot_orchestrator():
     """Line 16-19: __getattr__ returns MegaBotOrchestrator."""
-    import core
+    import megabot.core
 
-    cls = core.__getattr__("MegaBotOrchestrator")
-    from core.orchestrator import MegaBotOrchestrator
+    cls = megabot.core.__getattr__("MegaBotOrchestrator")
+    from megabot.core.orchestrator import MegaBotOrchestrator
 
     assert cls is MegaBotOrchestrator
 
 
 def test_core_getattr_unknown():
     """Line 20: __getattr__ raises for unknown attribute."""
-    import core
+    import megabot.core
 
     with pytest.raises(AttributeError, match="has no attribute"):
-        core.__getattr__("NoSuchThing")
+        megabot.core.__getattr__("NoSuchThing")
 
 
 @pytest.mark.asyncio
@@ -3429,7 +3429,7 @@ async def test_process_attachments_audio_success(mock_orchestrator_components):
     mock_voice = AsyncMock()
     mock_voice.transcribe_audio = AsyncMock(return_value="Hello from audio")
 
-    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+    with patch("megabot.adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
         result = await handler._process_attachments(
             [{"type": "audio", "data": b"fake_audio_bytes"}], "sender1", "computer"
         )
@@ -3446,7 +3446,7 @@ async def test_process_attachments_audio_string_data(mock_orchestrator_component
     mock_voice = AsyncMock()
     mock_voice.transcribe_audio = AsyncMock(return_value="Transcribed text")
 
-    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+    with patch("megabot.adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
         result = await handler._process_attachments(
             [{"type": "audio", "data": "string_audio_data"}], "sender1", "computer"
         )
@@ -3462,7 +3462,7 @@ async def test_process_attachments_audio_exception(mock_orchestrator_components)
     handler = MessageHandler(mock_orchestrator_components)
 
     with patch(
-        "adapters.voice_adapter.VoiceAdapter",
+        "megabot.adapters.voice_adapter.VoiceAdapter",
         side_effect=Exception("VoiceAdapter init failed"),
     ):
         result = await handler._process_attachments([{"type": "audio", "data": b"fake_audio"}], "sender1", "computer")
@@ -3479,7 +3479,7 @@ async def test_process_attachments_audio_empty_transcript(mock_orchestrator_comp
     mock_voice = AsyncMock()
     mock_voice.transcribe_audio = AsyncMock(return_value="")
 
-    with patch("adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
+    with patch("megabot.adapters.voice_adapter.VoiceAdapter", return_value=mock_voice):
         result = await handler._process_attachments([{"type": "audio", "data": b"audio_data"}], "sender1", "computer")
 
     # Empty transcript should not be added

@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from adapters.messaging import (
+from megabot.adapters.messaging import (
     IMessageAdapter,
     MegaBotMessagingServer,
     SMSAdapter,

@@ -12,13 +12,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.messaging import (
+from megabot.adapters.messaging import (
     MediaAttachment,
     MegaBotMessagingServer,
     MessageType,
     PlatformMessage,
 )
-from adapters.messaging.server import (
+from megabot.adapters.messaging.server import (
     PlatformAdapter,
     SecureWebSocket,
 )
@@ -92,7 +92,7 @@ class TestMegaBotMessagingServer:
         }
 
         # Patch it in the module where it's imported
-        with patch("adapters.discord_adapter.DiscordAdapter") as mock_discord:
+        with patch("megabot.adapters.discord_adapter.DiscordAdapter") as mock_discord:
             await server._handle_platform_connect(data)
 
             assert "discord" in server.platform_adapters
@@ -109,7 +109,7 @@ class TestMegaBotMessagingServer:
             "config": {"signing_secret": "secret"},
         }
 
-        with patch("adapters.slack_adapter.SlackAdapter") as mock_slack:
+        with patch("megabot.adapters.slack_adapter.SlackAdapter") as mock_slack:
             await server._handle_platform_connect(data)
 
             assert "slack" in server.platform_adapters
@@ -133,7 +133,7 @@ class TestMegaBotMessagingServer:
     @pytest.mark.asyncio
     async def test_initialize_memu_success(self, server):
         """Test successful memU initialization"""
-        with patch("adapters.memu_adapter.MemUAdapter") as mock_memu:
+        with patch("megabot.adapters.memu_adapter.MemUAdapter") as mock_memu:
             await server.initialize_memu("./memu", "sqlite:///test.db")
 
             mock_memu.assert_called_once_with("./memu", "sqlite:///test.db")
@@ -142,7 +142,7 @@ class TestMegaBotMessagingServer:
     @pytest.mark.asyncio
     async def test_initialize_memu_failure(self, server):
         """Test memU initialization failure"""
-        with patch("adapters.memu_adapter.MemUAdapter", side_effect=Exception("Import error")):
+        with patch("megabot.adapters.memu_adapter.MemUAdapter", side_effect=Exception("Import error")):
             await server.initialize_memu()
 
             assert server.memu_adapter is None
@@ -150,7 +150,7 @@ class TestMegaBotMessagingServer:
     @pytest.mark.asyncio
     async def test_initialize_voice_success(self, server):
         """Test successful voice adapter initialization"""
-        with patch("adapters.voice_adapter.VoiceAdapter") as mock_voice:
+        with patch("megabot.adapters.voice_adapter.VoiceAdapter") as mock_voice:
             await server.initialize_voice("sid", "token", "+1234567890")
 
             mock_voice.assert_called_once_with("sid", "token", "+1234567890")
@@ -159,7 +159,7 @@ class TestMegaBotMessagingServer:
     @pytest.mark.asyncio
     async def test_initialize_voice_failure(self, server):
         """Test voice adapter initialization failure"""
-        with patch("adapters.voice_adapter.VoiceAdapter", side_effect=Exception("Import error")):
+        with patch("megabot.adapters.voice_adapter.VoiceAdapter", side_effect=Exception("Import error")):
             await server.initialize_voice("sid", "token", "+1234567890")
 
             assert server.voice_adapter is None
@@ -306,7 +306,7 @@ class TestMegaBotMessagingServer:
             "credentials": {"token": "telegram_token"},
         }
 
-        with patch("adapters.messaging.telegram.TelegramAdapter") as mock_telegram:
+        with patch("megabot.adapters.messaging.telegram.TelegramAdapter") as mock_telegram:
             await server._handle_platform_connect(data)
 
             assert "telegram" in server.platform_adapters
@@ -320,7 +320,7 @@ class TestMegaBotMessagingServer:
             "config": {"session_path": "/tmp/whatsapp"},
         }
 
-        with patch("adapters.messaging.whatsapp.WhatsAppAdapter") as mock_whatsapp:
+        with patch("megabot.adapters.messaging.whatsapp.WhatsAppAdapter") as mock_whatsapp:
             await server._handle_platform_connect(data)
 
             assert "whatsapp" in server.platform_adapters
@@ -331,7 +331,7 @@ class TestMegaBotMessagingServer:
         """Test _handle_platform_connect for imessage"""
         data = {"platform": "imessage"}
 
-        with patch("adapters.messaging.imessage.IMessageAdapter") as mock_imessage:
+        with patch("megabot.adapters.messaging.imessage.IMessageAdapter") as mock_imessage:
             await server._handle_platform_connect(data)
 
             assert "imessage" in server.platform_adapters
@@ -345,7 +345,7 @@ class TestMegaBotMessagingServer:
             "config": {"provider": "twilio"},
         }
 
-        with patch("adapters.messaging.sms.SMSAdapter") as mock_sms:
+        with patch("megabot.adapters.messaging.sms.SMSAdapter") as mock_sms:
             await server._handle_platform_connect(data)
 
             assert "sms" in server.platform_adapters
@@ -384,7 +384,7 @@ class TestMegaBotMessagingServer:
         )
 
         # Mock aiofiles to avoid actual file I/O
-        with patch("adapters.messaging.server.aiofiles.open") as mock_open:
+        with patch("megabot.adapters.messaging.server.aiofiles.open") as mock_open:
             mock_file = AsyncMock()
             mock_open.return_value.__aenter__.return_value = mock_file
 
@@ -534,7 +534,7 @@ async def test_server_send_message_continue():
     """Test send_message continues past missing clients."""
     server = MegaBotMessagingServer(enable_encryption=True)
     server.clients["c1"] = AsyncMock()
-    with patch("adapters.messaging.server.list", return_value=["c1", "c2"]):
+    with patch("megabot.adapters.messaging.server.list", return_value=["c1", "c2"]):
         msg = PlatformMessage(str(uuid.uuid4()), "p", "s", "sn", "c", content="hi")
         await server.send_message(msg)
 
@@ -621,7 +621,7 @@ async def test_signal_platform_adapter_send_text():
     async def mock_init():
         pass
 
-    with patch("adapters.signal_adapter.SignalAdapter", return_value=mock_signal):
+    with patch("megabot.adapters.signal_adapter.SignalAdapter", return_value=mock_signal):
         mock_signal.initialize = mock_init
         await server._handle_platform_connect(data)
     adapter = server.platform_adapters["signal"]
@@ -680,7 +680,7 @@ class TestSecureWebSocketMissingEnvVars:
 
 @pytest.mark.asyncio
 async def test_messaging_server_final_gaps():
-    from adapters.messaging.server import (
+    from megabot.adapters.messaging.server import (
         MegaBotMessagingServer,
         SecureWebSocket,
     )
@@ -718,5 +718,5 @@ async def test_messaging_server_final_gaps():
             server.clients.clear()
         return res
 
-    with patch("adapters.messaging.server.list", side_effect=special_list):
+    with patch("megabot.adapters.messaging.server.list", side_effect=special_list):
         await server.send_message(msg)

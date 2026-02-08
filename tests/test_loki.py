@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.loki import LokiMode
+from megabot.core.loki import LokiMode
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ class TestLokiMode:
     @pytest.mark.asyncio
     async def test_relay_status_with_active_chat(self, loki_mode):
         """Test _relay_status with active chat"""
-        with patch("core.loki.safe_create_task") as mock_task:
+        with patch("megabot.core.loki.safe_create_task") as mock_task:
             await loki_mode._relay_status("test message")
             mock_task.assert_called_once()
             # Verify the task creation - the coroutine should call send_platform_message
@@ -99,7 +99,7 @@ class TestLokiMode:
         memory_context = "context"
 
         # Mock SubAgent
-        with patch("core.loki.SubAgent") as mock_subagent:
+        with patch("megabot.core.loki.SubAgent") as mock_subagent:
             mock_agent = MagicMock()
             mock_agent.run = AsyncMock(return_value="review result")
             mock_subagent.return_value = mock_agent
@@ -165,7 +165,7 @@ class TestLokiMode:
         """Test _execute_parallel_tasks runs agents in parallel"""
         tasks = [{"name": "agent1", "role": "dev", "task_description": "task1"}]
 
-        with patch("core.agents.SubAgent") as mock_subagent:
+        with patch("megabot.core.agents.SubAgent") as mock_subagent:
             mock_agent = MagicMock()
             mock_agent.run = AsyncMock(return_value="result")
             mock_subagent.return_value = mock_agent
@@ -179,7 +179,7 @@ class TestLokiMode:
         """Test _run_security_audit passes security checks"""
         results = ["clean code"]
 
-        with patch("adapters.security.tirith_guard.guard.validate", return_value=True):
+        with patch("megabot.adapters.security.tirith_guard.guard.validate", return_value=True):
             result = await loki_mode._run_security_audit(results)
             assert "Passed" in result
 
@@ -188,7 +188,7 @@ class TestLokiMode:
         """Test _run_security_audit fails on suspicious unicode"""
         results = ["bad code with \u202e reversed"]
 
-        with patch("adapters.security.tirith_guard.guard.validate", return_value=False):
+        with patch("megabot.adapters.security.tirith_guard.guard.validate", return_value=False):
             result = await loki_mode._run_security_audit(results)
             assert "FAILED" in result
 
@@ -205,7 +205,7 @@ class TestLokiMode:
 
         # Mock all the methods
         with (
-            patch("core.loki.can_allocate", return_value=True),
+            patch("megabot.core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
@@ -236,7 +236,7 @@ class TestLokiMode:
         prd_text = "Build app"
 
         with (
-            patch("core.loki.can_allocate", return_value=True),
+            patch("megabot.core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
@@ -267,7 +267,7 @@ class TestLokiMode:
         """Test activate with memory conflict resolving to evolution (line 74)"""
         prd_text = "Build app"
         with (
-            patch("core.loki.can_allocate", return_value=True),
+            patch("megabot.core.loki.can_allocate", return_value=True),
             patch.object(loki_mode, "_retrieve_learned_lessons", new_callable=AsyncMock) as mock_retrieve,
             patch.object(loki_mode, "_decompose_prd", new_callable=AsyncMock) as mock_decompose,
             patch.object(loki_mode, "_execute_parallel_tasks", new_callable=AsyncMock) as mock_execute,
@@ -310,8 +310,8 @@ class TestLokiMode:
         results = ["api_key = 'sk-12345'"]
 
         with (
-            patch("adapters.security.tirith_guard.guard.validate", return_value=True),
-            caplog.at_level(logging.DEBUG, logger="core.loki"),
+            patch("megabot.adapters.security.tirith_guard.guard.validate", return_value=True),
+            caplog.at_level(logging.DEBUG, logger="megabot.core.loki"),
         ):
             result = await loki_mode._run_security_audit(results)
             assert "Passed" in result

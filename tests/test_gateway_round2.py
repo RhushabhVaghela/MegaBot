@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.network.gateway import UnifiedGateway
+from megabot.core.network.gateway import UnifiedGateway
 
 
 @pytest.fixture

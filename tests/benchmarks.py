@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from adapters.memu_adapter import MemUAdapter
-from adapters.messaging import (
+from megabot.adapters.memu_adapter import MemUAdapter
+from megabot.adapters.messaging import (
     MegaBotMessagingServer,
     PlatformMessage,
     SecureWebSocket,

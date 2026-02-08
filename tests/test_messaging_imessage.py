@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.messaging.imessage import IMessageAdapter
+from megabot.adapters.messaging.imessage import IMessageAdapter
 
 
 @pytest.fixture

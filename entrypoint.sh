@@ -41,4 +41,4 @@ else
 fi
 
 echo "Starting MegaBot Orchestrator..."
-exec python core/orchestrator.py
+exec python -m megabot.core.orchestrator

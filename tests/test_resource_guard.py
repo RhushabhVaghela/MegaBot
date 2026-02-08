@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.resource_guard import (
+from megabot.core.resource_guard import (
     RAM_BUFFER_MB,
     VRAM_BUFFER_MB,
     InsufficientResourcesError,
@@ -272,7 +272,7 @@ class TestResourceSnapshot:
 class TestQueryVram:
     """Tests for the nvidia-smi helper."""
 
-    @patch("core.resource_guard.subprocess.run")
+    @patch("megabot.core.resource_guard.subprocess.run")
     def test_successful_query(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -281,24 +281,24 @@ class TestQueryVram:
         result = _query_vram()
         assert result == {"total": 16384.0, "used": 8192.0, "free": 8192.0}
 
-    @patch("core.resource_guard.subprocess.run")
+    @patch("megabot.core.resource_guard.subprocess.run")
     def test_nonzero_returncode(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert _query_vram() is None
 
-    @patch("core.resource_guard.subprocess.run")
+    @patch("megabot.core.resource_guard.subprocess.run")
     def test_exception_returns_none(self, mock_run):
         mock_run.side_effect = FileNotFoundError("nvidia-smi not found")
         assert _query_vram() is None
 
-    @patch("core.resource_guard.subprocess.run")
+    @patch("megabot.core.resource_guard.subprocess.run")
     def test_timeout_returns_none(self, mock_run):
         import subprocess as sp
 
         mock_run.side_effect = sp.TimeoutExpired(cmd="nvidia-smi", timeout=5)
         assert _query_vram() is None
 
-    @patch("core.resource_guard.subprocess.run")
+    @patch("megabot.core.resource_guard.subprocess.run")
     def test_malformed_output_returns_none(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="garbage")
         assert _query_vram() is None
@@ -312,8 +312,8 @@ class TestQueryVram:
 class TestGetResourceStatus:
     """Tests for the public get_resource_status() function."""
 
-    @patch("core.resource_guard._query_vram", return_value=None)
-    @patch("core.resource_guard.psutil.virtual_memory")
+    @patch("megabot.core.resource_guard._query_vram", return_value=None)
+    @patch("megabot.core.resource_guard.psutil.virtual_memory")
     def test_returns_snapshot_ram_only(self, mock_vmem, mock_vram):
         VmemResult = namedtuple("svmem", ["total", "used", "available", "percent"])
         mock_vmem.return_value = VmemResult(
@@ -329,8 +329,8 @@ class TestGetResourceStatus:
         assert snap.vram_total_mb is None
         assert snap.vram_used_mb is None
 
-    @patch("core.resource_guard._query_vram")
-    @patch("core.resource_guard.psutil.virtual_memory")
+    @patch("megabot.core.resource_guard._query_vram")
+    @patch("megabot.core.resource_guard.psutil.virtual_memory")
     def test_returns_snapshot_with_vram(self, mock_vmem, mock_vram):
         VmemResult = namedtuple("svmem", ["total", "used", "available", "percent"])
         mock_vmem.return_value = VmemResult(
@@ -346,8 +346,8 @@ class TestGetResourceStatus:
         assert snap.vram_available_mb == 8384.0
         assert snap.vram_percent == round(8000.0 / 16384.0 * 100, 1)
 
-    @patch("core.resource_guard._query_vram")
-    @patch("core.resource_guard.psutil.virtual_memory")
+    @patch("megabot.core.resource_guard._query_vram")
+    @patch("megabot.core.resource_guard.psutil.virtual_memory")
     def test_vram_percent_zero_total(self, mock_vmem, mock_vram):
         """Edge case: vram total is 0 — should skip percent calculation."""
         VmemResult = namedtuple("svmem", ["total", "used", "available", "percent"])
@@ -371,7 +371,7 @@ class TestGetResourceStatus:
 class TestCanAllocate:
     """Tests for the pre-flight allocation check."""
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_returns_true_with_plenty_of_ram(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -381,7 +381,7 @@ class TestCanAllocate:
         )
         assert can_allocate(ram_mb=1000) is True
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_returns_false_when_ram_insufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -391,7 +391,7 @@ class TestCanAllocate:
         )
         assert can_allocate(ram_mb=100) is False
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_returns_true_when_no_vram_requested(self, mock_status):
         """If no VRAM requested, VRAM is not checked."""
         mock_status.return_value = ResourceSnapshot(
@@ -402,7 +402,7 @@ class TestCanAllocate:
         )
         assert can_allocate(ram_mb=0, vram_mb=0) is True
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_vram_check_skipped_when_no_gpu(self, mock_status):
         """VRAM check is skipped when nvidia-smi is unavailable (vram_headroom is None)."""
         mock_status.return_value = ResourceSnapshot(
@@ -414,7 +414,7 @@ class TestCanAllocate:
         # Requesting VRAM but no GPU data — should still return True
         assert can_allocate(ram_mb=0, vram_mb=5000) is True
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_returns_false_when_vram_insufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -427,7 +427,7 @@ class TestCanAllocate:
         )
         assert can_allocate(vram_mb=100) is False
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_returns_true_when_vram_sufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -440,7 +440,7 @@ class TestCanAllocate:
         )
         assert can_allocate(vram_mb=5000) is True
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_zero_allocation_always_true(self, mock_status):
         """Requesting 0 MB should always pass."""
         mock_status.return_value = ResourceSnapshot(
@@ -472,7 +472,7 @@ class TestResourceGuard:
     @pytest.mark.asyncio
     async def test_start_stop_lifecycle(self):
         guard = ResourceGuard(interval=60.0)  # long interval so loop doesn't run
-        with patch("core.resource_guard.get_resource_status") as mock_status:
+        with patch("megabot.core.resource_guard.get_resource_status") as mock_status:
             mock_status.return_value = ResourceSnapshot(
                 ram_total_mb=32000,
                 ram_used_mb=16000,
@@ -490,7 +490,7 @@ class TestResourceGuard:
     async def test_start_idempotent(self):
         """Calling start() twice doesn't create a second task."""
         guard = ResourceGuard(interval=60.0)
-        with patch("core.resource_guard.get_resource_status") as mock_status:
+        with patch("megabot.core.resource_guard.get_resource_status") as mock_status:
             mock_status.return_value = ResourceSnapshot(
                 ram_total_mb=32000,
                 ram_used_mb=16000,
@@ -518,7 +518,7 @@ class TestResourceGuard:
             ram_available_mb=16000,
             ram_percent=50.0,
         )
-        with patch("core.resource_guard.get_resource_status", return_value=snap):
+        with patch("megabot.core.resource_guard.get_resource_status", return_value=snap):
             await guard.start()
             await asyncio.sleep(0.1)
             assert guard.latest is not None
@@ -543,7 +543,7 @@ class TestResourceGuard:
             )
 
         guard = ResourceGuard(interval=0.05)
-        with patch("core.resource_guard.get_resource_status", side_effect=flaky_status):
+        with patch("megabot.core.resource_guard.get_resource_status", side_effect=flaky_status):
             await guard.start()
             await asyncio.sleep(0.2)
             await guard.stop()
@@ -659,7 +659,7 @@ class TestResourceGuardIntegration:
     @pytest.mark.asyncio
     async def test_lifecycle_start_calls_guard_start(self, orchestrator):
         """lifecycle.start() should call resource_guard.start()."""
-        from core import lifecycle
+        from megabot.core import lifecycle
 
         # Patch everything that start() calls so we don't actually connect
         with (
@@ -679,7 +679,7 @@ class TestResourceGuardIntegration:
     @pytest.mark.asyncio
     async def test_lifecycle_shutdown_calls_guard_stop(self, orchestrator):
         """lifecycle.shutdown() should call resource_guard.stop()."""
-        from core import lifecycle
+        from megabot.core import lifecycle
 
         # Patch guard.stop to verify it gets called
         with patch.object(
@@ -795,7 +795,7 @@ class TestInsufficientResourcesError:
 class TestCanAllocateRaiseOnFailure:
     """Tests for can_allocate(raise_on_failure=True) behaviour."""
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_raises_on_ram_insufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -807,7 +807,7 @@ class TestCanAllocateRaiseOnFailure:
             can_allocate(ram_mb=100, raise_on_failure=True)
         assert exc_info.value.requested_ram_mb == 100
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_raises_on_vram_insufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -822,7 +822,7 @@ class TestCanAllocateRaiseOnFailure:
             can_allocate(vram_mb=100, raise_on_failure=True)
         assert exc_info.value.requested_vram_mb == 100
 
-    @patch("core.resource_guard.get_resource_status")
+    @patch("megabot.core.resource_guard.get_resource_status")
     def test_no_raise_when_sufficient(self, mock_status):
         mock_status.return_value = ResourceSnapshot(
             ram_total_mb=32000,
@@ -843,7 +843,7 @@ class TestApplyBufferOverrides:
     """Tests for the _apply_buffer_overrides helper."""
 
     def test_override_ram(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         original = rg.RAM_BUFFER_MB
         try:
@@ -853,7 +853,7 @@ class TestApplyBufferOverrides:
             rg.RAM_BUFFER_MB = original
 
     def test_override_vram(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         original = rg.VRAM_BUFFER_MB
         try:
@@ -863,7 +863,7 @@ class TestApplyBufferOverrides:
             rg.VRAM_BUFFER_MB = original
 
     def test_override_both(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
         try:
@@ -875,7 +875,7 @@ class TestApplyBufferOverrides:
             rg.VRAM_BUFFER_MB = orig_vram
 
     def test_none_values_no_change(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
         _apply_buffer_overrides(ram_buffer_mb=None, vram_buffer_mb=None)
@@ -892,7 +892,7 @@ class TestResourceGuardCustomBuffers:
     """Tests that ResourceGuard.__init__ applies buffer overrides."""
 
     def test_custom_ram_buffer(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         original = rg.RAM_BUFFER_MB
         try:
@@ -902,7 +902,7 @@ class TestResourceGuardCustomBuffers:
             rg.RAM_BUFFER_MB = original
 
     def test_custom_vram_buffer(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         original = rg.VRAM_BUFFER_MB
         try:
@@ -916,7 +916,7 @@ class TestResourceGuardCustomBuffers:
         assert guard._interval == 10.0
 
     def test_no_override_when_none(self):
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         orig_ram, orig_vram = rg.RAM_BUFFER_MB, rg.VRAM_BUFFER_MB
         guard = ResourceGuard()
@@ -933,7 +933,7 @@ class TestResourceConfig:
     """Tests for the ResourceConfig pydantic model."""
 
     def test_defaults(self):
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         cfg = ResourceConfig()
         assert cfg.ram_buffer_mb == 3 * 1024
@@ -943,7 +943,7 @@ class TestResourceConfig:
         assert cfg.estimated_ram_per_agent_mb == 256
 
     def test_custom_values(self):
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         cfg = ResourceConfig(
             ram_buffer_mb=4096,
@@ -961,7 +961,7 @@ class TestResourceConfig:
     def test_ram_buffer_min_validation(self):
         from pydantic import ValidationError
 
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(ram_buffer_mb=100)  # below ge=256
@@ -969,7 +969,7 @@ class TestResourceConfig:
     def test_check_interval_must_be_positive(self):
         from pydantic import ValidationError
 
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(check_interval_seconds=0)  # gt=0 violated
@@ -977,7 +977,7 @@ class TestResourceConfig:
     def test_estimated_ram_per_build_min(self):
         from pydantic import ValidationError
 
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(estimated_ram_per_build_mb=32)  # below ge=64
@@ -985,7 +985,7 @@ class TestResourceConfig:
     def test_estimated_ram_per_agent_min(self):
         from pydantic import ValidationError
 
-        from core.config import ResourceConfig
+        from megabot.core.config import ResourceConfig
 
         with pytest.raises(ValidationError):
             ResourceConfig(estimated_ram_per_agent_mb=16)  # below ge=32
@@ -1001,7 +1001,7 @@ class TestOrchestratorResourceConfigWiring:
 
     def test_resource_guard_receives_config(self, orchestrator):
         """ResourceGuard should be initialized with config values."""
-        import core.resource_guard as rg
+        import megabot.core.resource_guard as rg
 
         cfg = orchestrator.config.system.resources
         # The module globals should reflect the config values
@@ -1021,10 +1021,10 @@ class TestAgentCoordinatorResourceCheck:
     @pytest.mark.asyncio
     async def test_spawn_blocked_when_ram_insufficient(self, orchestrator):
         """_spawn_sub_agent should return error string when RAM is denied."""
-        from core.agent_coordinator import AgentCoordinator
+        from megabot.core.agent_coordinator import AgentCoordinator
 
         coord = AgentCoordinator(orchestrator)
-        with patch("core.agent_coordinator.can_allocate", return_value=False):
+        with patch("megabot.core.agent_coordinator.can_allocate", return_value=False):
             result = await coord._spawn_sub_agent({"name": "test-agent", "task": "do stuff", "role": "Dev"})
         assert "blocked" in result.lower()
         assert "insufficient RAM" in result
@@ -1032,7 +1032,7 @@ class TestAgentCoordinatorResourceCheck:
     @pytest.mark.asyncio
     async def test_spawn_proceeds_when_ram_sufficient(self, orchestrator):
         """_spawn_sub_agent should proceed past the check when RAM is OK."""
-        from core.agent_coordinator import AgentCoordinator
+        from megabot.core.agent_coordinator import AgentCoordinator
 
         coord = AgentCoordinator(orchestrator)
 
@@ -1043,7 +1043,7 @@ class TestAgentCoordinatorResourceCheck:
         mock_agent.run = AsyncMock(return_value="done")
 
         with (
-            patch("core.agent_coordinator.can_allocate", return_value=True),
+            patch("megabot.core.agent_coordinator.can_allocate", return_value=True),
             patch.object(coord, "orchestrator") as mock_orch,
         ):
             mock_orch.config.system.resources.estimated_ram_per_agent_mb = 256
@@ -1051,7 +1051,7 @@ class TestAgentCoordinatorResourceCheck:
             mock_orch.sub_agents = {}
 
             # Patch SubAgent globally in agent_coordinator module
-            with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+            with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
                 result = await coord._spawn_sub_agent({"name": "test-agent", "task": "do stuff", "role": "Dev"})
         # Should NOT contain "blocked"
         assert "blocked" not in str(result).lower()
@@ -1068,11 +1068,11 @@ class TestLokiResourceChecks:
     @pytest.mark.asyncio
     async def test_activate_raises_on_insufficient_ram(self, orchestrator):
         """LokiMode.activate() should raise InsufficientResourcesError."""
-        from core.loki import LokiMode
+        from megabot.core.loki import LokiMode
 
         loki = LokiMode(orchestrator)
         with (
-            patch("core.loki.can_allocate", side_effect=InsufficientResourcesError("blocked")),
+            patch("megabot.core.loki.can_allocate", side_effect=InsufficientResourcesError("blocked")),
             pytest.raises(InsufficientResourcesError),
         ):
             await loki.activate("Build a feature")
@@ -1080,12 +1080,12 @@ class TestLokiResourceChecks:
     @pytest.mark.asyncio
     async def test_activate_proceeds_when_ram_ok(self, orchestrator):
         """LokiMode.activate() should pass the check and continue."""
-        from core.loki import LokiMode
+        from megabot.core.loki import LokiMode
 
         loki = LokiMode(orchestrator)
         # Mock enough to get past the resource check and into the pipeline
         with (
-            patch("core.loki.can_allocate", return_value=True),
+            patch("megabot.core.loki.can_allocate", return_value=True),
             patch.object(loki, "_retrieve_learned_lessons", new_callable=AsyncMock, return_value=""),
             patch.object(loki, "_decompose_prd", new_callable=AsyncMock, return_value=[]),
             patch.object(loki, "_execute_parallel_tasks", new_callable=AsyncMock, return_value=[]),
@@ -1101,7 +1101,7 @@ class TestLokiResourceChecks:
     @pytest.mark.asyncio
     async def test_parallel_tasks_fallback_to_sequential(self, orchestrator):
         """When can_allocate returns False, tasks run sequentially."""
-        from core.loki import LokiMode
+        from megabot.core.loki import LokiMode
 
         loki = LokiMode(orchestrator)
         tasks = [
@@ -1113,8 +1113,8 @@ class TestLokiResourceChecks:
         mock_agent.run = AsyncMock(return_value="result")
 
         with (
-            patch("core.loki.can_allocate", return_value=False),
-            patch("core.agents.SubAgent", return_value=mock_agent) as mock_cls,
+            patch("megabot.core.loki.can_allocate", return_value=False),
+            patch("megabot.core.agents.SubAgent", return_value=mock_agent) as mock_cls,
         ):
             results = await loki._execute_parallel_tasks(tasks, "context")
 
@@ -1126,7 +1126,7 @@ class TestLokiResourceChecks:
     @pytest.mark.asyncio
     async def test_parallel_tasks_run_parallel_when_ok(self, orchestrator):
         """When can_allocate returns True, tasks run via asyncio.gather."""
-        from core.loki import LokiMode
+        from megabot.core.loki import LokiMode
 
         loki = LokiMode(orchestrator)
         tasks = [
@@ -1138,8 +1138,8 @@ class TestLokiResourceChecks:
         mock_agent.run = AsyncMock(return_value="result")
 
         with (
-            patch("core.loki.can_allocate", return_value=True),
-            patch("core.agents.SubAgent", return_value=mock_agent) as mock_cls,
+            patch("megabot.core.loki.can_allocate", return_value=True),
+            patch("megabot.core.agents.SubAgent", return_value=mock_agent) as mock_cls,
         ):
             results = await loki._execute_parallel_tasks(tasks, "")
 
@@ -1158,13 +1158,13 @@ class TestBuildSessionResourceChecks:
     @pytest.mark.asyncio
     async def test_gateway_build_raises_on_insufficient_ram(self, orchestrator):
         """run_autonomous_gateway_build raises InsufficientResourcesError."""
-        from core.build_session import run_autonomous_gateway_build
-        from core.interfaces import Message
+        from megabot.core.build_session import run_autonomous_gateway_build
+        from megabot.core.interfaces import Message
 
         msg = Message(content="build it", sender="user")
         with (
             patch(
-                "core.build_session.can_allocate",
+                "megabot.core.build_session.can_allocate",
                 side_effect=InsufficientResourcesError("denied", requested_ram_mb=512),
             ),
             pytest.raises(InsufficientResourcesError),
@@ -1174,13 +1174,13 @@ class TestBuildSessionResourceChecks:
     @pytest.mark.asyncio
     async def test_websocket_build_sends_error_on_insufficient_ram(self, orchestrator):
         """run_autonomous_build sends error JSON and returns on denial."""
-        from core.build_session import run_autonomous_build
-        from core.interfaces import Message
+        from megabot.core.build_session import run_autonomous_build
+        from megabot.core.interfaces import Message
 
         msg = Message(content="build it", sender="user")
         mock_ws = AsyncMock()
 
-        with patch("core.build_session.can_allocate", return_value=False):
+        with patch("megabot.core.build_session.can_allocate", return_value=False):
             await run_autonomous_build(orchestrator, msg, mock_ws)
 
         # Should have sent an error JSON

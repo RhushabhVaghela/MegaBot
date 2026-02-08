@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, mock_open, patch
 
 import pytest
 
-from core.agent_coordinator import AgentCoordinator, _audit
+from megabot.core.agent_coordinator import AgentCoordinator, _audit
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -80,7 +80,7 @@ async def test_spawn_sub_agent_validation_fail(orchestrator):
     mock_agent.generate_plan = AsyncMock(return_value="do dangerous things")
     mock_agent.run = AsyncMock(return_value="raw result")
 
-    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+    with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
         orch.llm = MagicMock()
         orch.llm.generate = AsyncMock(return_value="nope")
         res = await coord._spawn_sub_agent({"name": "a1", "task": "t1"})
@@ -102,7 +102,7 @@ async def test_spawn_sub_agent_synthesis_and_memory(orchestrator):
     orch.memory = MagicMock()
     orch.memory.memory_write = AsyncMock()
 
-    with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+    with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
         res = await coord._spawn_sub_agent({"name": "a2", "task": "t2"})
         assert isinstance(res, str)
         orch.memory.memory_write.assert_called()
@@ -191,14 +191,14 @@ class TestSpawnSubAgentResolutionFallbacks:
 
         with (
             patch.object(type(real_orchestrator), "__getattr__", _exploding_getattr),
-            patch("core.agent_coordinator.SubAgent", agent_cls_mock),
+            patch("megabot.core.agent_coordinator.SubAgent", agent_cls_mock),
         ):
             result = await coord._spawn_sub_agent({"name": "test1", "role": "tester", "task": "test task"})
             assert "test1" in str(result) or isinstance(result, str)
 
     @pytest.mark.asyncio
     async def test_fallback_to_core_orchestrator_module(self):
-        """Lines 79-84: globals SubAgent is None, orchestrator attr is None -> import from core.orchestrator."""
+        """Lines 79-84: globals SubAgent is None, orchestrator attr is None -> import from megabot.core.orchestrator."""
         coord = _make_coordinator()
 
         fake_agent = MagicMock()
@@ -213,8 +213,8 @@ class TestSpawnSubAgentResolutionFallbacks:
         coord.orchestrator.SubAgent = None
 
         with (
-            patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
-            patch("core.orchestrator.SubAgent", fake_cls, create=True),
+            patch.dict("megabot.core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
+            patch("megabot.core.orchestrator.SubAgent", fake_cls, create=True),
         ):
             result = await coord._spawn_sub_agent({"name": "fb_test", "role": "researcher", "task": "research"})
             assert isinstance(result, str)
@@ -237,9 +237,9 @@ class TestSpawnSubAgentResolutionFallbacks:
         coord.orchestrator.SubAgent = None
 
         with (
-            patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
-            patch("core.orchestrator.SubAgent", None, create=True),
-            patch("core.agent_coordinator.SubAgent", final_cls),
+            patch.dict("megabot.core.agent_coordinator.__dict__", {"SubAgent": None}, clear=False),
+            patch("megabot.core.orchestrator.SubAgent", None, create=True),
+            patch("megabot.core.agent_coordinator.SubAgent", final_cls),
         ):
             result = await coord._spawn_sub_agent({"name": "final", "role": "dev", "task": "do stuff"})
             assert isinstance(result, str)
@@ -268,7 +268,7 @@ class TestSpawnSubAgentFallbacks:
         orchestrator.memory.memory_write = AsyncMock()
 
         mock_cls = MagicMock(return_value=mock_agent)
-        with patch.dict("core.agent_coordinator.__dict__", {"SubAgent": None}):
+        with patch.dict("megabot.core.agent_coordinator.__dict__", {"SubAgent": None}):
             orchestrator.SubAgent = mock_cls
             res = await coord._spawn_sub_agent({"name": "fb1", "task": "t"})
         assert isinstance(res, str)
@@ -288,7 +288,7 @@ class TestSpawnSubAgentFallbacks:
 
         orchestrator.sub_agents["pre_reg"] = "placeholder"
 
-        with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+        with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
             res = await coord._spawn_sub_agent({"name": "pre_reg", "task": "t"})
 
         assert "blocked by pre-flight" in res
@@ -308,7 +308,7 @@ class TestSpawnSubAgentFallbacks:
         orchestrator.memory = MagicMock()
         orchestrator.memory.memory_write = AsyncMock()
 
-        with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+        with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
             res = await coord._spawn_sub_agent({"name": "nj", "task": "t"})
         assert "no json here at all" in res
 
@@ -330,7 +330,7 @@ class TestSpawnSubAgentFallbacks:
         bad_client.send_json = AsyncMock(side_effect=Exception("ws error"))
         orchestrator.clients = [bad_client]
 
-        with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+        with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
             res = await coord._spawn_sub_agent({"name": "cn", "task": "t"})
         assert "good" in res
 
@@ -348,7 +348,7 @@ class TestSpawnSubAgentFallbacks:
         orchestrator.memory = MagicMock()
         orchestrator.memory.memory_write = AsyncMock(side_effect=Exception("db err"))
 
-        with patch("core.agent_coordinator.SubAgent", return_value=mock_agent):
+        with patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent):
             res = await coord._spawn_sub_agent({"name": "mf", "task": "t"})
         assert isinstance(res, str)
 
@@ -379,7 +379,7 @@ class TestValidationExceptionPaths:
 
         coord.orchestrator.sub_agents = exploding_dict
 
-        with patch("core.agent_coordinator.SubAgent", fake_cls):
+        with patch("megabot.core.agent_coordinator.SubAgent", fake_cls):
             result = await coord._spawn_sub_agent({"name": "bad_agent", "role": "hacker", "task": "hack things"})
             assert "blocked" in result.lower()
 
@@ -413,7 +413,7 @@ class TestValidationExceptionPaths:
         coord.orchestrator.memory.memory_write = AsyncMock()
         coord.orchestrator.clients = []
 
-        with patch("core.agent_coordinator.SubAgent", fake_cls):
+        with patch("megabot.core.agent_coordinator.SubAgent", fake_cls):
             result = await coord._spawn_sub_agent({"name": "frozen", "role": "dev", "task": "test"})
             assert isinstance(result, str)
 
@@ -436,7 +436,7 @@ class TestValidationExceptionPaths:
         exploding_dict.__setitem__ = MagicMock(side_effect=TypeError("no space"))
         coord.orchestrator.sub_agents = exploding_dict
 
-        with patch("core.agent_coordinator.SubAgent", fake_cls):
+        with patch("megabot.core.agent_coordinator.SubAgent", fake_cls):
             result = await coord._spawn_sub_agent({"name": "orphan", "role": "dev", "task": "build"})
             assert isinstance(result, str)
 
@@ -471,9 +471,9 @@ class TestSynthesisOuterException:
         coord.orchestrator.clients = []
 
         with (
-            patch("core.agent_coordinator.SubAgent", fake_cls),
+            patch("megabot.core.agent_coordinator.SubAgent", fake_cls),
             patch(
-                "core.agent_coordinator.re.search",
+                "megabot.core.agent_coordinator.re.search",
                 side_effect=RuntimeError("regex broken"),
             ),
         ):
@@ -510,7 +510,7 @@ class TestSynthesisJsonParseFallback:
         coord.orchestrator.memory.memory_write = AsyncMock()
         coord.orchestrator.clients = []
 
-        with patch("core.agent_coordinator.SubAgent", fake_cls):
+        with patch("megabot.core.agent_coordinator.SubAgent", fake_cls):
             result = await coord._spawn_sub_agent({"name": "json_fail", "role": "dev", "task": "parse"})
             assert isinstance(result, str)
 
@@ -1660,7 +1660,7 @@ class TestSubAgentResolutionFallbacks:
         proxied_orch = OrchestratorProxy(orchestrator)
         coord_proxied = AgentCoordinator(proxied_orch)
 
-        import core.agent_coordinator as _ac_mod
+        import megabot.core.agent_coordinator as _ac_mod
 
         # 1. Set module-level SubAgent to None -> globals().get("SubAgent") returns None
         original_sub = _ac_mod.__dict__.get("SubAgent")
@@ -1669,7 +1669,7 @@ class TestSubAgentResolutionFallbacks:
         mock_constructor = MagicMock(return_value=mock_agent)
 
         try:
-            import core.orchestrator as _orch_mod
+            import megabot.core.orchestrator as _orch_mod
 
             _orch_mod.SubAgent = mock_constructor
             try:
@@ -1719,9 +1719,9 @@ class TestSubAgentResolutionFallbacks:
         # globals() returns no SubAgent, orchestrator raises, AND
         # importing core.orchestrator raises — so it falls to the final SubAgent
         with (
-            patch("core.agent_coordinator.globals", return_value={"SubAgent": None}),
-            patch.dict("sys.modules", {"core.orchestrator": None}),
-            patch("core.agent_coordinator.SubAgent", return_value=mock_agent),
+            patch("megabot.core.agent_coordinator.globals", return_value={"SubAgent": None}),
+            patch.dict("sys.modules", {"megabot.core.orchestrator": None}),
+            patch("megabot.core.agent_coordinator.SubAgent", return_value=mock_agent),
         ):
             # When core.orchestrator is None in sys.modules, importing it raises TypeError
             # The final fallback uses the module-level SubAgent import
@@ -1900,11 +1900,11 @@ async def test_agent_coordinator_subagent_fallback_all_fail(orchestrator):
     mock_sub_agent_cls = MagicMock(return_value=mock_agent_instance)
 
     with (
-        patch.dict("core.agent_coordinator.__builtins__", {}, clear=False),
-        patch("core.agent_coordinator.SubAgent", mock_sub_agent_cls),
+        patch.dict("megabot.core.agent_coordinator.__builtins__", {}, clear=False),
+        patch("megabot.core.agent_coordinator.SubAgent", mock_sub_agent_cls),
     ):
         original_globals = globals
-        with patch("core.agent_coordinator.globals", return_value={"SubAgent": None}):
+        with patch("megabot.core.agent_coordinator.globals", return_value={"SubAgent": None}):
             type(orchestrator).SubAgent = PropertyMock(side_effect=AttributeError("no SubAgent"))
             try:
                 result = await coord._spawn_sub_agent(
@@ -1957,7 +1957,7 @@ async def test_agent_coordinator_path_validation_outer_except(orchestrator):
     orchestrator.permissions = MagicMock()
     orchestrator.permissions.is_authorized = MagicMock(return_value=True)
 
-    with patch("core.agent_file_ops.Path", side_effect=RuntimeError("path weirdness")):
+    with patch("megabot.core.agent_file_ops.Path", side_effect=RuntimeError("path weirdness")):
         result = await coord._execute_tool_for_sub_agent(
             "test-agent",
             {"name": "read_file", "input": {"path": "/some/weird/path.txt"}},

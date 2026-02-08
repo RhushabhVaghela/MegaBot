@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.nanobot_adapter import NanobotAdapter
-from core.interfaces import Message
+from megabot.adapters.nanobot_adapter import NanobotAdapter
+from megabot.core.interfaces import Message
 
 
 @pytest.mark.asyncio
@@ -119,7 +119,7 @@ async def test_send_message_unsupported_platform(caplog):
     )
 
     # Should not raise exception, just log warning
-    with caplog.at_level(logging.WARNING, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.WARNING, logger="megabot.adapters.nanobot_adapter"):
         await adapter.send_message(message)
 
     assert any("Unsupported platform unknown or recipient unknown" in r.message for r in caplog.records)
@@ -139,7 +139,7 @@ async def test_send_message_whatsapp(caplog):
     )
 
     # Should not raise exception
-    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.adapters.nanobot_adapter"):
         await adapter.send_message(message)
 
     assert any("Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in r.message for r in caplog.records)
@@ -159,7 +159,7 @@ async def test_send_message_whatsapp_by_recipient_prefix(caplog):
     )
 
     # Should detect whatsapp from + prefix even with unknown platform
-    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.adapters.nanobot_adapter"):
         await adapter.send_message(message)
 
     assert any("Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in r.message for r in caplog.records)
@@ -204,7 +204,7 @@ async def test_messenger_methods(caplog):
 
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
-    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.adapters.nanobot_adapter"):
         # Test telegram send
         await adapter.messenger.send_telegram("123", "test telegram")
         assert any("Mock Telegram: Sent 'test telegram' to 123" in r.message for r in caplog.records)
@@ -229,7 +229,7 @@ async def test_send_message_telegram(caplog):
         metadata={"recipient": "123456789", "platform": "telegram"},
     )
 
-    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.adapters.nanobot_adapter"):
         await adapter.send_message(message)
 
     assert any("Mock Telegram: Sent 'Hello Telegram' to 123456789" in r.message for r in caplog.records)
@@ -248,7 +248,7 @@ async def test_send_message_telegram_by_recipient_prefix(caplog):
         metadata={"recipient": "@testuser", "platform": "unknown"},
     )
 
-    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.adapters.nanobot_adapter"):
         await adapter.send_message(message)
 
     assert any("Mock Telegram: Sent 'Hello Telegram' to @testuser" in r.message for r in caplog.records)

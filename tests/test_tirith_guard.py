@@ -1,6 +1,6 @@
 """Tests for Tirith Guard security module"""
 
-from adapters.security.tirith_guard import TirithGuard, guard
+from megabot.adapters.security.tirith_guard import TirithGuard, guard
 
 
 class TestTirithGuard:

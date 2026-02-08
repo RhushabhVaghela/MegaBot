@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from core.memory.knowledge_memory import KnowledgeMemoryManager
+from megabot.core.memory.knowledge_memory import KnowledgeMemoryManager
 
 
 @pytest.fixture

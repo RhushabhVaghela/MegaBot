@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from core.drivers import ComputerDriver
+from megabot.core.drivers import ComputerDriver
 
 
 @pytest.fixture
@@ -262,7 +262,7 @@ async def test_drivers_mopup():
 
     from PIL import Image
 
-    from core.drivers import ComputerDriver
+    from megabot.core.drivers import ComputerDriver
 
     driver = ComputerDriver()
 

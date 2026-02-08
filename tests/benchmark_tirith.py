@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from adapters.security.tirith_guard import TirithGuard, guard
+from megabot.adapters.security.tirith_guard import TirithGuard, guard
 
 # --- Test cases for validation ---
 

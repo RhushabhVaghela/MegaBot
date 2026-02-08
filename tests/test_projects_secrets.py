@@ -2,8 +2,8 @@
 
 import os
 
-from core.projects import ProjectManager
-from core.secrets import SecretManager
+from megabot.core.projects import ProjectManager
+from megabot.core.secrets import SecretManager
 
 
 class TestProjectManager:
@@ -155,7 +155,7 @@ class TestSecretManager:
             return result_or_exc
 
         with (
-            patch("core.secrets.os.stat", side_effect=stat_that_fails_on_second),
+            patch("megabot.core.secrets.os.stat", side_effect=stat_that_fails_on_second),
             caplog.at_level(logging.WARNING, logger="megabot.secrets"),
         ):
             sm = SecretManager(secrets_dir=str(secrets_dir))

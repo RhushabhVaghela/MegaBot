@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from core.orchestrator import lifespan, websocket_endpoint
+from megabot.core.orchestrator import lifespan, websocket_endpoint
 
 
 @pytest.mark.asyncio
@@ -25,13 +25,13 @@ async def test_websocket_endpoint_auth_rejected():
 @pytest.mark.asyncio
 async def test_lifespan():
     """Test FastAPI lifespan context manager"""
-    import core.orchestrator as orch_module
+    import megabot.core.orchestrator as orch_module
 
     original_orchestrator = orch_module.orchestrator
     orch_module.orchestrator = None  # Reset to None before test
 
     try:
-        with patch("core.orchestrator.MegaBotOrchestrator") as mock_orc_class:
+        with patch("megabot.core.orchestrator.MegaBotOrchestrator") as mock_orc_class:
             mock_instance = Mock()
             mock_instance.start = AsyncMock()
             mock_instance.shutdown = AsyncMock()
@@ -53,12 +53,12 @@ async def test_lifespan():
 @pytest.mark.asyncio
 async def test_websocket_endpoint():
     """Test websocket endpoint when orchestrator is available"""
-    import core.orchestrator as orch_module
+    import megabot.core.orchestrator as orch_module
 
     original_orchestrator = orch_module.orchestrator
 
     try:
-        with patch("core.orchestrator.orchestrator") as mock_orc:
+        with patch("megabot.core.orchestrator.orchestrator") as mock_orc:
             mock_orc.handle_client = AsyncMock()
             mock_ws = AsyncMock()
             # SEC-FIX-001: WebSocket auth requires a valid token
@@ -73,7 +73,7 @@ async def test_websocket_endpoint():
 @pytest.mark.asyncio
 async def test_websocket_endpoint_uninitialized():
     """Test websocket endpoint when orchestrator is None"""
-    import core.orchestrator as orch_module
+    import megabot.core.orchestrator as orch_module
 
     original_orchestrator = orch_module.orchestrator
     orch_module.orchestrator = None  # Ensure it's None for this test
@@ -100,8 +100,8 @@ async def test_health_endpoint():
     """
     from starlette.responses import JSONResponse
 
-    import core.orchestrator as orch_module
-    from core.orchestrator import health
+    import megabot.core.orchestrator as orch_module
+    from megabot.core.orchestrator import health
 
     original_orchestrator = orch_module.orchestrator
 

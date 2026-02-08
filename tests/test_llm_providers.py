@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import aiohttp
 import pytest
 
-from core.llm_providers import (
+from megabot.core.llm_providers import (
     AnthropicProvider,
     GeminiProvider,
     GitHubCopilotProvider,
@@ -734,7 +734,7 @@ class TestLLMProviderCoverage:
 
 @pytest.mark.asyncio
 async def test_llm_providers_mopup():
-    from core.llm_providers import (
+    from megabot.core.llm_providers import (
         GeminiProvider,
         OllamaProvider,
         OpenAIProvider,

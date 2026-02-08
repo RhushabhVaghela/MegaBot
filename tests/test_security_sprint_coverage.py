@@ -26,7 +26,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_write_file_post_replace_symlink_detected(orchestrator, tmp_path):
     """After os.replace, if destination is now a symlink, deny and unlink."""
-    from core.agent_coordinator import AgentCoordinator
+    from megabot.core.agent_coordinator import AgentCoordinator
 
     orch = orchestrator
     orch.config.paths["workspaces"] = str(tmp_path)
@@ -87,7 +87,7 @@ async def test_write_file_post_replace_symlink_detected(orchestrator, tmp_path):
 @pytest.mark.asyncio
 async def test_write_file_s_islnk_raises(orchestrator, tmp_path):
     """If _stat.S_ISLNK raises on the post_stat check, we should continue (except pass)."""
-    from core.agent_coordinator import AgentCoordinator
+    from megabot.core.agent_coordinator import AgentCoordinator
 
     orch = orchestrator
     orch.config.paths["workspaces"] = str(tmp_path)
@@ -135,7 +135,7 @@ async def test_write_file_s_islnk_raises(orchestrator, tmp_path):
 @pytest.mark.asyncio
 async def test_write_file_toctou_identity_change(orchestrator, tmp_path):
     """If inode changes between pre-write and post-write lstat, deny (TOCTOU)."""
-    from core.agent_coordinator import AgentCoordinator
+    from megabot.core.agent_coordinator import AgentCoordinator
 
     orch = orchestrator
     orch.config.paths["workspaces"] = str(tmp_path)
@@ -185,7 +185,7 @@ async def test_write_file_toctou_identity_change(orchestrator, tmp_path):
 
 def test_cleanup_rate_limits():
     """_cleanup_rate_limits removes client entries from all buckets."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -209,7 +209,7 @@ def test_cleanup_rate_limits():
 
 def test_cleanup_rate_limits_nonexistent():
     """_cleanup_rate_limits on non-existent client does not raise."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -230,7 +230,7 @@ def test_cleanup_rate_limits_nonexistent():
 @pytest.mark.asyncio
 async def test_health_monitor_sweeps_stale_rate_limits():
     """Health monitor loop should remove rate_limit entries for disconnected clients."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -268,7 +268,7 @@ async def test_health_monitor_sweeps_stale_rate_limits():
 @pytest.mark.asyncio
 async def test_authenticate_connection_timeout():
     """Auth timeout returns False."""
-    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
+    from megabot.core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -301,7 +301,7 @@ async def test_authenticate_connection_timeout():
 @pytest.mark.asyncio
 async def test_authenticate_connection_json_decode_error():
     """Non-JSON auth message returns False."""
-    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
+    from megabot.core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -334,7 +334,7 @@ async def test_authenticate_connection_json_decode_error():
 @pytest.mark.asyncio
 async def test_authenticate_connection_stop_async_iteration():
     """StopAsyncIteration on ws read returns False."""
-    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
+    from megabot.core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -371,7 +371,7 @@ async def test_authenticate_connection_stop_async_iteration():
 @pytest.mark.asyncio
 async def test_handle_client_auth_failure_cleans_rate_limits():
     """When auth fails, rate_limits for the client should be cleaned."""
-    from core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
+    from megabot.core.network.gateway import ClientConnection, ConnectionType, UnifiedGateway
 
     gw = UnifiedGateway(
         megabot_server_host="127.0.0.1",
@@ -416,7 +416,7 @@ def test_ast_validator_blocks_dunder_attr():
     """AST validator blocks __class__ attribute access."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     code = "x.__class__"
     tree = ast.parse(code, mode="exec")
@@ -429,7 +429,7 @@ def test_ast_validator_blocks_unknown_dunder():
     """AST validator blocks unknown dunder attributes (belt-and-suspenders)."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     code = "x.__totally_custom__"
     tree = ast.parse(code, mode="exec")
@@ -442,7 +442,7 @@ def test_ast_validator_blocks_eval_call():
     """AST validator blocks eval() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("eval('1+1')", mode="exec")
     err = _validate_ast(tree)
@@ -454,7 +454,7 @@ def test_ast_validator_blocks_exec_call():
     """AST validator blocks exec() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("exec('pass')", mode="exec")
     err = _validate_ast(tree)
@@ -466,7 +466,7 @@ def test_ast_validator_blocks_open_call():
     """AST validator blocks open() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("open('/etc/passwd')", mode="exec")
     err = _validate_ast(tree)
@@ -478,7 +478,7 @@ def test_ast_validator_blocks_getattr_call():
     """AST validator blocks getattr() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("getattr(x, 'secret')", mode="exec")
     err = _validate_ast(tree)
@@ -490,7 +490,7 @@ def test_ast_validator_blocks_os_module_call():
     """AST validator blocks os.system() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("os.system('ls')", mode="exec")
     err = _validate_ast(tree)
@@ -502,7 +502,7 @@ def test_ast_validator_blocks_subprocess_module_call():
     """AST validator blocks subprocess.run() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("subprocess.run(['ls'])", mode="exec")
     err = _validate_ast(tree)
@@ -514,7 +514,7 @@ def test_ast_validator_blocks_import_from():
     """AST validator blocks 'from os import path'."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("from os import path", mode="exec")
     err = _validate_ast(tree)
@@ -526,7 +526,7 @@ def test_ast_validator_blocks_dunder_globals_name():
     """AST validator blocks __globals__ as a Name node."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = __globals__", mode="exec")
     err = _validate_ast(tree)
@@ -538,7 +538,7 @@ def test_ast_validator_blocks_builtins_name():
     """AST validator blocks __builtins__ as a Name node."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = __builtins__", mode="exec")
     err = _validate_ast(tree)
@@ -550,7 +550,7 @@ def test_ast_validator_allows_safe_code():
     """AST validator allows simple arithmetic and list operations."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("x = [1, 2, 3]\ny = sum(x)\nz = len(x)", mode="exec")
     err = _validate_ast(tree)
@@ -561,7 +561,7 @@ def test_ast_validator_blocks_compile():
     """AST validator blocks compile() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("compile('x', 'f', 'exec')", mode="exec")
     err = _validate_ast(tree)
@@ -573,7 +573,7 @@ def test_ast_validator_blocks_type():
     """AST validator blocks type() calls."""
     import ast
 
-    from features.dash_data.agent import _validate_ast
+    from megabot.features.dash_data.agent import _validate_ast
 
     tree = ast.parse("type(x)", mode="exec")
     err = _validate_ast(tree)

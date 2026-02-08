@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-import adapters.discord_adapter
-from adapters.messaging import MessageType
+import megabot.adapters.discord_adapter
+from megabot.adapters.messaging import MessageType
 
 
 # Mock discord module
@@ -48,8 +48,8 @@ discord_mock.Color.blue = MagicMock()
 discord_mock.Message = MagicMock()
 
 with patch.dict("sys.modules", {"discord": discord_mock}):
-    importlib.reload(adapters.discord_adapter)
-    from adapters.discord_adapter import DiscordAdapter, DiscordMessage
+    importlib.reload(megabot.adapters.discord_adapter)
+    from megabot.adapters.discord_adapter import DiscordAdapter, DiscordMessage
 
 
 class TestDiscordAdapter:
@@ -678,7 +678,7 @@ class TestDiscordAdapter:
 
         adapter.register_message_handler(failing_handler)
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             await adapter._handle_message(mock_message)
 
         assert any("[Discord] Message handler error:" in r.message for r in caplog.records)
@@ -722,7 +722,7 @@ class TestDiscordAdapter:
     @pytest.mark.asyncio
     async def test_make_call_not_supported(self, adapter, caplog):
         """Test make_call not supported print and return"""
-        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.discord_adapter"):
             result = await adapter.make_call("123456")
 
         assert any("Call initiation not supported for 123456" in r.message for r in caplog.records)
@@ -796,25 +796,25 @@ class TestDiscordAdapter:
             # Force reimport to trigger fallback
             import importlib
 
-            import adapters.discord_adapter
+            import megabot.adapters.discord_adapter
 
-            importlib.reload(adapters.discord_adapter)
+            importlib.reload(megabot.adapters.discord_adapter)
 
             # Check that fallback mocks are in place
-            assert hasattr(adapters.discord_adapter, "discord")
+            assert hasattr(megabot.adapters.discord_adapter, "discord")
             # In the fallback case, it should be a MagicMock from the except block
-            assert isinstance(adapters.discord_adapter.discord, MagicMock)
+            assert isinstance(megabot.adapters.discord_adapter.discord, MagicMock)
 
             # Test fallback classes
-            embed = adapters.discord_adapter.Embed()
+            embed = megabot.adapters.discord_adapter.Embed()
             assert embed.to_dict() == {}
 
-            file = adapters.discord_adapter.File()
+            file = megabot.adapters.discord_adapter.File()
             assert file is not None
 
         # Restore the proper mock for other tests
         with patch.dict("sys.modules", {"discord": discord_mock}):
-            importlib.reload(adapters.discord_adapter)
+            importlib.reload(megabot.adapters.discord_adapter)
 
     @pytest.mark.asyncio
     async def test_create_channel(self, adapter, mock_bot):
@@ -882,7 +882,7 @@ class TestDiscordAdapter:
         mock_guild.create_text_channel = AsyncMock(side_effect=ConnectionError("Create failed"))
         mock_bot.get_guild.return_value = mock_guild
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.create_channel("123456", "test-channel", "text")
 
         assert any("Create channel error: Create failed" in r.message for r in caplog.records)
@@ -925,7 +925,7 @@ class TestDiscordAdapter:
         assert on_ready_handler is not None, "on_ready handler not captured"
 
         # Call the handler
-        with caplog.at_level(logging.INFO, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.INFO, logger="megabot.adapters.discord_adapter"):
             await on_ready_handler()
 
         assert any("Bot logged in as" in r.message for r in caplog.records)
@@ -1154,7 +1154,7 @@ class TestDiscordAdapter:
         assert on_reaction_add_handler is not None, "on_reaction_add handler not captured"
 
         # Call the handler - should catch exception and log
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             await on_reaction_add_handler(mock_reaction, mock_user)
 
         # Should have logged the error
@@ -1316,7 +1316,7 @@ class TestDiscordAdapter:
         assert on_reaction_remove_handler is not None, "on_reaction_remove handler not captured"
 
         # Call the handler - should catch exception and log
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             await on_reaction_remove_handler(mock_reaction, mock_user)
 
         # Should have logged the error
@@ -1420,7 +1420,7 @@ class TestDiscordAdapter:
         mock_channel.send = AsyncMock(side_effect=ConnectionError("Send failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_message("123456", "Test message")
 
         assert any("Send message error: Send failed" in r.message for r in caplog.records)
@@ -1463,7 +1463,7 @@ class TestDiscordAdapter:
         adapter.bot = mock_bot
         mock_bot.get_channel.return_value = None
 
-        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_message("999999999999999999", "Test message")
 
         assert any("Channel 999999999999999999 not found" in r.message for r in caplog.records)
@@ -1514,7 +1514,7 @@ class TestDiscordAdapter:
         adapter.bot = mock_bot
         mock_bot.get_channel.side_effect = ValueError("Channel fetch failed")
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.get_channel_info("123456")
 
         assert any("Get channel info error: Channel fetch failed" in r.message for r in caplog.records)
@@ -1555,7 +1555,7 @@ class TestDiscordAdapter:
         adapter.bot = mock_bot
         mock_bot.get_guild.side_effect = ValueError("Guild fetch failed")
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.get_guild_info("123456")
 
         assert any("Get guild info error: Guild fetch failed" in r.message for r in caplog.records)
@@ -1581,7 +1581,7 @@ class TestDiscordAdapter:
         mock_message.add_reaction = AsyncMock(side_effect=ConnectionError("Add reaction failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.add_reaction("123456", 789012, "\U0001f44d")
 
         assert any("Add reaction error: Add reaction failed" in r.message for r in caplog.records)
@@ -1608,7 +1608,7 @@ class TestDiscordAdapter:
         mock_bot.get_channel.return_value = mock_channel
         adapter.bot.user = Mock()
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.remove_reaction("123456", 789012, "\U0001f44d")
 
         assert any("Remove reaction error: Remove reaction failed" in r.message for r in caplog.records)
@@ -1634,7 +1634,7 @@ class TestDiscordAdapter:
         mock_message.delete = AsyncMock(side_effect=ConnectionError("Delete message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.delete_message("123456", 789012)
 
         assert any("Delete message error: Delete message failed" in r.message for r in caplog.records)
@@ -1674,7 +1674,7 @@ class TestDiscordAdapter:
         mock_message.edit = AsyncMock(side_effect=ConnectionError("Edit message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.edit_message("123456", 789012, "New content")
 
         assert any("Edit message error: Edit message failed" in r.message for r in caplog.records)
@@ -1686,7 +1686,7 @@ class TestDiscordAdapter:
         adapter.bot = mock_bot
         mock_bot.fetch_user = AsyncMock(side_effect=ConnectionError("User fetch failed"))
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.get_user_info("123456")
 
         assert any("Get user info error: User fetch failed" in r.message for r in caplog.records)
@@ -1708,7 +1708,7 @@ class TestDiscordAdapter:
         mock_channel.send.side_effect = ConnectionError("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_text("123456", "Hello World")
 
         assert any("Send message error: 'NoneType' object has no attribute 'send'" in r.message for r in caplog.records)
@@ -1725,7 +1725,7 @@ class TestDiscordAdapter:
         mock_channel.send.side_effect = ConnectionError("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_media("123456", "/path/to/image.png")
 
         assert any("Send message error: 'NoneType' object has no attribute 'send'" in r.message for r in caplog.records)
@@ -1735,7 +1735,7 @@ class TestDiscordAdapter:
     @pytest.mark.asyncio
     async def test_make_call_print_and_return_false(self, adapter, caplog):
         """Test make_call prints message and returns False"""
-        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.discord_adapter"):
             result = await adapter.make_call("123456")
 
             assert result is False
@@ -1800,7 +1800,7 @@ class TestDiscordAdapter:
         mock_channel.fetch_message = AsyncMock(side_effect=discord_mock.NotFound(Mock(), Mock()))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_message("123456", "Test message", reply_to=789012)
 
         assert any("Reply message 789012 not found" in r.message for r in caplog.records)
@@ -1853,7 +1853,7 @@ class TestDiscordAdapter:
         mock_channel.send = AsyncMock(side_effect=ConnectionError("Send text failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_text("123456", "Hello World")
 
         assert any("Send message error: Send text failed" in r.message for r in caplog.records)
@@ -1867,7 +1867,7 @@ class TestDiscordAdapter:
         mock_channel.send = AsyncMock(side_effect=ConnectionError("Send media failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.ERROR, logger="megabot.adapters.discord_adapter"):
             result = await adapter.send_media("123456", "/path/to/media.png")
 
         assert any("Send message error: Send media failed" in r.message for r in caplog.records)
@@ -1882,7 +1882,7 @@ class TestDiscordAdapter:
     @pytest.mark.asyncio
     async def test_make_call_prints_not_supported(self, adapter, caplog):
         """Test make_call prints not supported message and returns False"""
-        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
+        with caplog.at_level(logging.WARNING, logger="megabot.adapters.discord_adapter"):
             result = await adapter.make_call("123456", is_video=True)
 
         assert any("Call initiation not supported for 123456" in r.message for r in caplog.records)
@@ -1891,7 +1891,7 @@ class TestDiscordAdapter:
     def test_ping_slash_command_definition(self):
         """Test that ping slash command is defined (covers line 764)"""
         # Import the ping command to ensure it's defined
-        from adapters.discord_adapter import ping
+        from megabot.adapters.discord_adapter import ping
 
         assert ping is not None
         # Discord.py decorators add attributes to functions
@@ -1903,7 +1903,7 @@ class TestDiscordAdapter:
         """Test main function initialization and basic execution"""
         # Mock all the components that main() uses
         with (
-            patch("adapters.discord_adapter.DiscordAdapter") as mock_adapter_class,
+            patch("megabot.adapters.discord_adapter.DiscordAdapter") as mock_adapter_class,
             patch("asyncio.sleep") as mock_sleep,
             patch("builtins.print") as mock_print,
             patch.dict("os.environ", {"DISCORD_BOT_TOKEN": "test-token"}),
@@ -1920,7 +1920,7 @@ class TestDiscordAdapter:
             mock_sleep.side_effect = KeyboardInterrupt()
 
             # Import and call main
-            from adapters.discord_adapter import main
+            from megabot.adapters.discord_adapter import main
 
             await main()
 
@@ -1935,7 +1935,7 @@ class TestDiscordAdapter:
     def test_main_block_execution(self):
         """Test if __name__ == '__main__' block executes main()"""
         with (
-            patch("adapters.discord_adapter.main") as mock_main,
+            patch("megabot.adapters.discord_adapter.main") as mock_main,
             patch("asyncio.run") as mock_asyncio_run,
         ):
             # Simulate running the module directly
@@ -1943,14 +1943,14 @@ class TestDiscordAdapter:
 
             # Since we can't easily trigger the __main__ block without re-executing,
             # we'll verify the main function exists and can be imported
-            from adapters.discord_adapter import main
+            from megabot.adapters.discord_adapter import main
 
             assert callable(main)
 
     @pytest.mark.asyncio
     async def test_ping_command_execution(self):
         """Test ping slash command execution"""
-        from adapters.discord_adapter import ping
+        from megabot.adapters.discord_adapter import ping
 
         mock_interaction = AsyncMock()
         mock_interaction.response.send_message = AsyncMock()
@@ -1974,7 +1974,7 @@ async def test_discord_adapter_gaps():
     adapter.tree = MagicMock()
     adapter.add_slash_command(MagicMock())
     mock_interaction = AsyncMock()
-    with patch("adapters.discord_adapter.ping", AsyncMock()) as mock_ping:
+    with patch("megabot.adapters.discord_adapter.ping", AsyncMock()) as mock_ping:
         mock_ping.callback = AsyncMock()
         if hasattr(mock_ping, "callback"):
             await mock_ping.callback(mock_interaction)

@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from core.memory.user_identity import UserIdentityManager
+from megabot.core.memory.user_identity import UserIdentityManager
 
 
 @pytest.fixture

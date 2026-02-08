@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.agents import SubAgent
+from megabot.core.agents import SubAgent
 
 
 @pytest.fixture

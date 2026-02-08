@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.memory.backup_manager import MemoryBackupManager
+from megabot.core.memory.backup_manager import MemoryBackupManager
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ async def test_create_backup_success(backup_manager, temp_db):
     test_key = "dGVzdF9lbmNyeXB0aW9uX2tleV8zMl9jaGFyc19sb25n"  # base64 encoded
 
     # Mock Fernet to avoid real encryption
-    with patch("core.memory.backup_manager.Fernet") as mock_fernet:
+    with patch("megabot.core.memory.backup_manager.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
         mock_fernet_instance.encrypt.return_value = b"encrypted_data"
         mock_fernet.return_value = mock_fernet_instance
@@ -97,7 +97,7 @@ async def test_create_backup_encryption_error(backup_manager):
     """Test backup creation with encryption error."""
     test_key = "test_key"
 
-    with patch("core.memory.backup_manager.Fernet") as mock_fernet:
+    with patch("megabot.core.memory.backup_manager.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
         mock_fernet_instance.encrypt.side_effect = ValueError("Encryption failed")
         mock_fernet.return_value = mock_fernet_instance
@@ -119,14 +119,14 @@ async def test_restore_backup_success(backup_manager, temp_db):
         db_content = f.read()
 
     # Mock Fernet - use the actual key that would work
-    with patch("core.memory.backup_manager.Fernet") as mock_fernet:
+    with patch("megabot.core.memory.backup_manager.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
         # Mock decrypt to return the database content
         mock_fernet_instance.decrypt.return_value = db_content
         mock_fernet.return_value = mock_fernet_instance
 
         # Mock zlib to return the content as-is
-        with patch("core.memory.backup_manager.zlib") as mock_zlib:
+        with patch("megabot.core.memory.backup_manager.zlib") as mock_zlib:
             mock_zlib.decompress.return_value = db_content
 
             # Create a fake backup file
@@ -157,7 +157,7 @@ async def test_restore_backup_no_key(backup_manager, monkeypatch):
 async def test_restore_backup_file_not_found(backup_manager):
     """Test restore with non-existent backup file."""
     # Mock Fernet to avoid key validation
-    with patch("core.memory.backup_manager.Fernet"):
+    with patch("megabot.core.memory.backup_manager.Fernet"):
         result = await backup_manager.restore_backup("nonexistent.enc", "any_key")
         assert "Error: Backup file not found" in result
 
@@ -168,12 +168,12 @@ async def test_restore_backup_corrupted_database(backup_manager, temp_db):
     test_key = "test_key"
     backup_file = "corrupted.enc"
 
-    with patch("core.memory.backup_manager.Fernet") as mock_fernet:
+    with patch("megabot.core.memory.backup_manager.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
         mock_fernet_instance.decrypt.return_value = b"corrupted_data"
         mock_fernet.return_value = mock_fernet_instance
 
-        with patch("core.memory.backup_manager.zlib") as mock_zlib:
+        with patch("megabot.core.memory.backup_manager.zlib") as mock_zlib:
             mock_zlib.decompress.return_value = b"not_sqlite_data"
 
             # Create fake backup file
@@ -343,7 +343,7 @@ async def test_get_backup_stats_error(backup_manager):
 async def test_restore_backup_general_exception(backup_manager):
     """Test restore_backup with general exception (lines 104-106)"""
     # Mock Fernet constructor to raise exception
-    with patch("core.memory.backup_manager.Fernet", side_effect=ValueError("General Error")):
+    with patch("megabot.core.memory.backup_manager.Fernet", side_effect=ValueError("General Error")):
         result = await backup_manager.restore_backup("test.enc", "key")
         assert "Error: Restore failed: General Error" in result
 

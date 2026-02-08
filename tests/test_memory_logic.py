@@ -11,8 +11,8 @@ sys.modules["pyautogui"] = mock_pyautogui
 mock_mouseinfo = MagicMock()
 sys.modules["mouseinfo"] = mock_mouseinfo
 
-from core.interfaces import Message
-from core.orchestrator import MegaBotOrchestrator
+from megabot.core.interfaces import Message
+from megabot.core.orchestrator import MegaBotOrchestrator
 
 
 @pytest.fixture
@@ -46,10 +46,10 @@ def mock_config():
 @pytest.fixture
 def orchestrator(mock_config):
     with (
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
     ):
         orc = MegaBotOrchestrator(mock_config)
         orc.adapters["openclaw"] = AsyncMock()
@@ -104,7 +104,7 @@ async def test_memory_learning_and_distillation(orchestrator):
     orchestrator.llm.generate.side_effect = mock_gen
 
     # Trigger _spawn_sub_agent (we mock the SubAgent class inside)
-    with patch("core.agent_coordinator.SubAgent") as MockSubAgent:
+    with patch("megabot.core.agent_coordinator.SubAgent") as MockSubAgent:
         mock_agent = MockSubAgent.return_value
         mock_agent.run = AsyncMock(return_value=raw_result)
         mock_agent.generate_plan = AsyncMock(return_value=["Step 1"])

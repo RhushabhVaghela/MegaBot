@@ -1,6 +1,6 @@
 """Tests for PermissionManager"""
 
-from core.permissions import PermissionLevel, PermissionManager
+from megabot.core.permissions import PermissionLevel, PermissionManager
 
 
 class TestPermissionManager:

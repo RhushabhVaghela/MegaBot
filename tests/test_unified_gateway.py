@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
+from megabot.adapters.unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 # Ignore unawaited coroutine warnings for the health monitor loop in these tests
 pytestmark = pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -298,7 +298,7 @@ class TestUnifiedGatewayCoreOperations:
         """Test handling when aiohttp is not available"""
         with patch.dict("sys.modules", {"aiohttp": None}):
             # Force reimport to trigger ImportError path
-            import adapters.unified_gateway as ug
+            import megabot.adapters.unified_gateway as ug
 
             gateway = ug.UnifiedGateway(
                 megabot_server_port=18791,
@@ -457,7 +457,7 @@ class TestUnifiedGatewayCoreOperations:
                 return None
 
             with patch("asyncio.run", side_effect=mock_run), patch("logging.basicConfig"):
-                runpy.run_module("adapters.unified_gateway", run_name="__main__")
+                runpy.run_module("megabot.adapters.unified_gateway", run_name="__main__")
                 assert True
 
 
@@ -521,7 +521,7 @@ class TestUnifiedGatewayBranches:
         )
 
         # Patch datetime.now to control time
-        with patch("adapters.unified_gateway.datetime") as mock_datetime:
+        with patch("megabot.adapters.unified_gateway.datetime") as mock_datetime:
             mock_now = MagicMock()
             mock_datetime.now.return_value = mock_now
             mock_now.timestamp.return_value = 1000.0
@@ -710,7 +710,7 @@ class TestUnifiedGatewayBranches:
 
         # Simulate time passing by patching datetime.now to return a time 61 seconds later
         future_now = datetime.fromtimestamp(now.timestamp() + 61)
-        with patch("adapters.unified_gateway.datetime.datetime") as mock_dt:
+        with patch("megabot.adapters.unified_gateway.datetime.datetime") as mock_dt:
             mock_dt.now.return_value = future_now
 
             # Use numeric comparison in _ts mock if needed, but our implementation
@@ -729,7 +729,7 @@ class TestUnifiedGatewayBranches:
             # Force reimport to trigger ImportError
             import importlib
 
-            import adapters.unified_gateway as ug
+            import megabot.adapters.unified_gateway as ug
 
             importlib.reload(ug)
 
@@ -1076,7 +1076,7 @@ class TestUnifiedGatewayFullCoverage:
         mock_bad_datetime.timestamp.side_effect = Exception("timestamp failed")
 
         # Patch datetime.now to return our bad datetime
-        with patch("adapters.unified_gateway.datetime") as mock_datetime:
+        with patch("megabot.adapters.unified_gateway.datetime") as mock_datetime:
             mock_datetime.now.return_value = mock_bad_datetime
 
             # This should handle the exception and return True (allowing the request)
@@ -1127,7 +1127,7 @@ class TestUnifiedGatewayFullCoverage:
         invalid_datetime.__float__ = MagicMock(side_effect=Exception("float failed"))
 
         # Patch datetime.now to return our invalid datetime
-        with patch("adapters.unified_gateway.datetime") as mock_datetime:
+        with patch("megabot.adapters.unified_gateway.datetime") as mock_datetime:
             mock_datetime.now.return_value = invalid_datetime
 
             # This should handle all exceptions and fall back to current timestamp
@@ -1496,12 +1496,12 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------------
 # Gateway authentication tests (from test_coverage_phase4.py)
-# These test core.network.gateway (distinct from adapters.unified_gateway above)
+# These test core.network.gateway (distinct from megabot.adapters.unified_gateway above)
 # ---------------------------------------------------------------------------
 
-from core.network.gateway import ClientConnection as _CoreClientConnection
-from core.network.gateway import ConnectionType as _CoreConnectionType
-from core.network.gateway import UnifiedGateway as _CoreGateway
+from megabot.core.network.gateway import ClientConnection as _CoreClientConnection
+from megabot.core.network.gateway import ConnectionType as _CoreConnectionType
+from megabot.core.network.gateway import UnifiedGateway as _CoreGateway
 
 
 class TestGatewayAuthentication:
@@ -1717,7 +1717,7 @@ class TestGatewayAuthEdgeCases:
         gw = _CoreGateway.__new__(_CoreGateway)
         gw.auth_token = "secret"
         gw._AUTH_TIMEOUT_SECONDS = 5
-        gw.logger = logging.getLogger("core.network.gateway")
+        gw.logger = logging.getLogger("megabot.core.network.gateway")
 
         auth_msg = json.dumps({"type": "auth", "token": "secret"})
 
@@ -1747,7 +1747,7 @@ class TestGatewayAuthEdgeCases:
         gw = _CoreGateway.__new__(_CoreGateway)
         gw.auth_token = "secret"
         gw._AUTH_TIMEOUT_SECONDS = 5
-        gw.logger = logging.getLogger("core.network.gateway")
+        gw.logger = logging.getLogger("megabot.core.network.gateway")
 
         auth_msg = json.dumps({"type": "auth", "token": "secret"})
 
@@ -1785,7 +1785,7 @@ class TestGatewayAuthEdgeCases:
 @pytest.mark.asyncio
 async def test_gateway_health_wrapper_invocation_raises():
     """Lines 108-110: _health_monitor_loop() raises -> return."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw._health_task = None
@@ -1807,7 +1807,7 @@ async def test_gateway_health_wrapper_invocation_raises():
 @pytest.mark.asyncio
 async def test_gateway_health_await_coro_raises():
     """Line 133: safe_to_await=True, await raises -> pass."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw._health_task = None
@@ -1832,7 +1832,7 @@ async def test_gateway_health_await_coro_raises():
 @pytest.mark.asyncio
 async def test_gateway_health_last_resort_raises():
     """Lines 144-145: last-resort await raises -> except pass."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw._health_task = None
@@ -1858,7 +1858,7 @@ async def test_gateway_health_last_resort_raises():
 @pytest.mark.asyncio
 async def test_gateway_start_coro_close_raises():
     """Lines 172-173: coro.close() raises in start's finally."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw._health_task = None
@@ -1884,7 +1884,7 @@ async def test_gateway_start_coro_close_raises():
 @pytest.mark.asyncio
 async def test_gateway_stop_coro_close():
     """Lines 212-215: stop() closes __await__.__self__ coroutine."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw.logger = MagicMock()
@@ -1916,7 +1916,7 @@ async def test_gateway_stop_coro_close():
 @pytest.mark.asyncio
 async def test_gateway_stop_no_health_task():
     """Gateway stop() with no health task — just clients cleanup."""
-    from core.network.gateway import UnifiedGateway
+    from megabot.core.network.gateway import UnifiedGateway
 
     gw = UnifiedGateway.__new__(UnifiedGateway)
     gw.logger = MagicMock()
@@ -1949,7 +1949,7 @@ async def test_gateway_coverage_gaps():
     mock_bytes.decode.side_effect = Exception("Decode fail")
 
     with patch(
-        "core.network.gateway.isinstance",
+        "megabot.core.network.gateway.isinstance",
         side_effect=lambda x, t: True if t is bytes and x is mock_bytes else isinstance(x, t),
     ):
         await gateway._process_message(conn, mock_bytes)  # type: ignore
@@ -2024,11 +2024,11 @@ async def test_gateway_mopup_targeted():
     with (
         patch.dict("sys.modules", {"aiohttp": MagicMock()}),
         patch(
-            "core.network.gateway.hasattr",
+            "megabot.core.network.gateway.hasattr",
             side_effect=lambda o, a: False if a == "type" and o is mock_bytes_msg else hasattr(o, a),
         ),
         patch(
-            "core.network.gateway.isinstance",
+            "megabot.core.network.gateway.isinstance",
             side_effect=lambda o, t: True if t is bytes and o is mock_bytes_msg else isinstance(o, t),
         ),
         patch.object(gateway, "_process_message", AsyncMock()),

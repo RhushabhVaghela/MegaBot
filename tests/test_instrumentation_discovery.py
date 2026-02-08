@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from core.discovery import ModuleDiscovery
-from core.instrumentation import track_telemetry
+from megabot.core.discovery import ModuleDiscovery
+from megabot.core.instrumentation import track_telemetry
 
 
 class TestModuleDiscovery:
@@ -45,7 +45,7 @@ class TestInstrumentation:
                 return {"choices": [{"text": "hello"}], "usage": {"total_tokens": 10}}
 
         provider = MockProvider()
-        with patch("core.instrumentation.logger") as mock_logger:
+        with patch("megabot.core.instrumentation.logger") as mock_logger:
             result = await provider.generate("hi")
             assert result["usage"]["total_tokens"] == 10
             assert mock_logger.info.called
@@ -62,7 +62,7 @@ class TestInstrumentation:
                 raise Exception("API Error")
 
         provider = MockProvider()
-        with patch("core.instrumentation.logger") as mock_logger:
+        with patch("megabot.core.instrumentation.logger") as mock_logger:
             with pytest.raises(Exception, match="API Error"):
                 await provider.generate("hi")
             assert mock_logger.error.called
@@ -70,7 +70,7 @@ class TestInstrumentation:
     @pytest.mark.asyncio
     async def test_track_telemetry_extended_token_ids(self):
         """Test track_telemetry with extended token ID tracking (lines 50, 57, 61)"""
-        from core.instrumentation import track_telemetry
+        from megabot.core.instrumentation import track_telemetry
 
         class MockProvider:
             model = "test-model"
@@ -96,7 +96,7 @@ class TestInstrumentation:
     @pytest.mark.asyncio
     async def test_track_telemetry_list_response(self):
         """Test track_telemetry with list response (lines 63-66)"""
-        from core.instrumentation import track_telemetry
+        from megabot.core.instrumentation import track_telemetry
 
         class MockProvider:
             model = "test-model"

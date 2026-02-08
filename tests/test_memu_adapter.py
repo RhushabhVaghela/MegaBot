@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.memu_adapter import MemUAdapter
+from megabot.adapters.memu_adapter import MemUAdapter
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def mock_memory_service():
 
 @pytest.mark.asyncio
 async def test_memu_adapter_store(mock_memory_service):
-    with patch("adapters.memu_adapter.os.path.exists", return_value=False):
+    with patch("megabot.adapters.memu_adapter.os.path.exists", return_value=False):
         adapter = MemUAdapter("/tmp/mock_memu", "sqlite:///:memory:")
         adapter.service.memorize = AsyncMock()
         await adapter.store("key1", "value1")
@@ -60,7 +60,7 @@ async def test_memu_adapter_ingest_logs_not_found(mock_memory_service):
 async def test_memu_adapter_fallback_mock():
     """Test that the adapter falls back to a functional mock if memu is missing"""
     with (
-        patch("adapters.memu_adapter.os.path.exists", return_value=False),
+        patch("megabot.adapters.memu_adapter.os.path.exists", return_value=False),
         # Ensure imports fail
         patch.dict("sys.modules", {"memu.app": None}),
     ):
@@ -122,7 +122,7 @@ async def test_memu_adapter_path_search_success():
         return __import__(name, *args, **kwargs)
 
     # Mock path existence - first path exists
-    with patch("adapters.memu_adapter.os.path.exists") as mock_exists:
+    with patch("megabot.adapters.memu_adapter.os.path.exists") as mock_exists:
         mock_exists.side_effect = lambda p: p == "/tmp/mock_memu/src"
 
         with patch("builtins.__import__", side_effect=mock_import):
@@ -155,7 +155,7 @@ async def test_memu_adapter_import_error_handling():
     """Test import error handling in path search loop"""
     import sys
 
-    with patch("adapters.memu_adapter.os.path.exists", return_value=True), patch("sys.path", []):
+    with patch("megabot.adapters.memu_adapter.os.path.exists", return_value=True), patch("sys.path", []):
         # Remove memu.app from sys.modules if it exists
         original_module = sys.modules.pop("memu.app", None)
         try:

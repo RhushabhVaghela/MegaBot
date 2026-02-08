@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.rag.pageindex import PageIndexRAG
+from megabot.core.rag.pageindex import PageIndexRAG
 
 
 @pytest.fixture
@@ -299,7 +299,7 @@ async def test_build_index_cache_errors(page_index, temp_dir, caplog):
     with open(page_index.index_path, "w") as f:
         f.write("invalid json")
 
-    with caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"):
+    with caplog.at_level(logging.DEBUG, logger="megabot.core.rag.pageindex"):
         # Should build from scratch if cache load fails
         await page_index.build_index(force_rebuild=False)
         assert any("RAG: Failed to load cache:" in r.message for r in caplog.records)
@@ -311,7 +311,7 @@ async def test_build_index_cache_errors(page_index, temp_dir, caplog):
     with (
         patch("os.path.exists", return_value=False),
         patch("builtins.open", side_effect=OSError("Save error")),
-        caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"),
+        caplog.at_level(logging.DEBUG, logger="megabot.core.rag.pageindex"),
     ):
         await page_index.build_index(force_rebuild=True)
         assert any("RAG: Failed to save cache:" in r.message for r in caplog.records)

@@ -44,7 +44,7 @@ test:
 
 test-cov:
 	PYTHONPATH=. OPENCLAW_AUTH_TOKEN=test_token_12345 python3 -m pytest tests/ \
-		--cov=core --cov=adapters --cov=modules \
+		--cov=megabot \
 		--cov-report=term-missing --cov-report=html \
 		--cov-fail-under=95
 
@@ -62,7 +62,7 @@ typecheck:
 
 # ── Security ────────────────────────────────────────────
 security:
-	bandit -r core/ adapters/ modules/ -c pyproject.toml --severity-level medium
+	bandit -r megabot/ -c pyproject.toml --severity-level medium
 
 audit:
 	pip-audit --strict --desc
@@ -74,7 +74,7 @@ ci: lint typecheck test-cov security audit
 
 # ── Run ─────────────────────────────────────────────────
 run:
-	PYTHONPATH=. python3 core/orchestrator.py
+	PYTHONPATH=. python3 -m megabot.core.orchestrator
 
 # ── Build ───────────────────────────────────────────────
 build:

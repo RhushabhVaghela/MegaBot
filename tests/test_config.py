@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from core.config import Config, SecurityConfig, SystemConfig, load_config
+from megabot.core.config import Config, SecurityConfig, SystemConfig, load_config
 
 
 def test_load_config(temp_config_file):
@@ -57,7 +57,7 @@ def test_config_save(tmp_path):
         "policies": {"allow": ["pattern1"], "deny": ["pattern2"]},
     }
     config_file = tmp_path / "meta_save.yaml"
-    from core.config import Config
+    from megabot.core.config import Config
 
     config = Config(**config_data)
     config.save(str(config_file))
@@ -104,7 +104,7 @@ def test_load_api_credentials(tmp_path, monkeypatch):
     # Change current working directory to tmp_path
     monkeypatch.chdir(tmp_path)
 
-    from core.config import load_api_credentials
+    from megabot.core.config import load_api_credentials
 
     load_api_credentials()
 
@@ -126,7 +126,7 @@ def test_load_api_credentials_exception(tmp_path, monkeypatch, caplog):
 
     import logging
 
-    from core.config import load_api_credentials
+    from megabot.core.config import load_api_credentials
 
     with caplog.at_level(logging.INFO):
         load_api_credentials()
@@ -145,7 +145,7 @@ def test_load_api_credentials_file_error(tmp_path, monkeypatch, caplog):
 
     import logging
 
-    from core.config import load_api_credentials
+    from megabot.core.config import load_api_credentials
 
     with caplog.at_level(logging.ERROR):
         load_api_credentials()
@@ -161,7 +161,7 @@ def test_security_config_validation(monkeypatch):
     """Test SecurityConfig validation when not in test mode (lines 71-82)"""
     from pydantic import ValidationError
 
-    from core.config import SecurityConfig
+    from megabot.core.config import SecurityConfig
 
     # Remove PYTEST_CURRENT_TEST to trigger production validation
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
@@ -179,7 +179,7 @@ def test_security_config_validation(monkeypatch):
 
 def test_validate_environment_full(monkeypatch):
     """Test Config.validate_environment with various scenarios (lines 127, 129, 144, 154)"""
-    from core.config import AdapterConfig, Config, SystemConfig
+    from megabot.core.config import AdapterConfig, Config, SystemConfig
 
     monkeypatch.delenv("OPENCLAW_AUTH_TOKEN", raising=False)
 
@@ -207,7 +207,7 @@ def test_validate_environment_full(monkeypatch):
 def test_load_config_default_creation(tmp_path):
     """Test load_config when file doesn't exist (lines 168-179)"""
     config_file = tmp_path / "nonexistent.yaml"
-    from core.config import load_config
+    from megabot.core.config import load_config
 
     # This should create the file and return a default config
     config = load_config(str(config_file))
@@ -233,7 +233,7 @@ def test_load_config_adapter_env_injection(tmp_path, monkeypatch):
     monkeypatch.setenv("CUSTOM_PORT", "9999")
     monkeypatch.setenv("CUSTOM_AUTH_TOKEN", "secret-token")
 
-    from core.config import load_config
+    from megabot.core.config import load_config
 
     config = load_config(str(config_file))
 
@@ -244,7 +244,7 @@ def test_load_config_adapter_env_injection(tmp_path, monkeypatch):
 
 def test_set_nested_attr_no_attr():
     """Test _set_nested_attr with missing attribute (line 252)"""
-    from core.config import _set_nested_attr
+    from megabot.core.config import _set_nested_attr
 
     class MockObj:
         pass

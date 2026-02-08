@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.llm_providers import (
+from megabot.core.llm_providers import (
     LlamaCppProvider,
     LMStudioProvider,
     VLLMProvider,

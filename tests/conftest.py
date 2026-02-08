@@ -19,7 +19,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 # Import core config dataclasses used by fixtures
-from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
+from megabot.core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
 
 # Global mocking for firebase_admin to prevent import errors in tests
 sys.modules["firebase_admin"] = MagicMock()
@@ -32,7 +32,7 @@ sys.modules["jwt"] = MagicMock()
 @pytest.fixture(autouse=True)
 def reset_orchestrator_global():
     """Reset orchestrator global state before/after each test"""
-    import core.orchestrator as orch_module
+    import megabot.core.orchestrator as orch_module
 
     original = getattr(orch_module, "orchestrator", None)
     yield
@@ -51,9 +51,7 @@ def mock_config():
         ),
         adapters={
             "openclaw": AdapterConfig(host="127.0.0.1", port=18789),
-            "memu": AdapterConfig(
-                database_url="sqlite:///:memory:", vector_db="sqlite"
-            ),
+            "memu": AdapterConfig(database_url="sqlite:///:memory:", vector_db="sqlite"),
             "mcp": AdapterConfig(servers=[]),
         },
         paths={"external_repos": "/tmp/mock_repos"},
@@ -94,7 +92,7 @@ def temp_config_file(tmp_path):
 @pytest.fixture
 def orchestrator(mock_config):
     """Provide an Orchestrator instance for testing"""
-    from core.orchestrator import MegaBotOrchestrator
+    from megabot.core.orchestrator import MegaBotOrchestrator
 
     orch = MegaBotOrchestrator(mock_config)
     return orch

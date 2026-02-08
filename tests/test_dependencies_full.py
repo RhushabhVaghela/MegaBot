@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.dependencies import (
+from megabot.core.dependencies import (
     DependencyContainer,
     dependency_scope,
     inject,
@@ -119,7 +119,7 @@ class TestDependencyInjection:
 
 def test_factory_with_singleton_property():
     """Test factory that returns an object with _singleton=True (line 54)"""
-    from core.dependencies import DependencyContainer
+    from megabot.core.dependencies import DependencyContainer
 
     container = DependencyContainer()
 
@@ -137,7 +137,7 @@ def test_factory_with_singleton_property():
 
 def test_get_container():
     """Test get_container function (line 85)"""
-    from core.dependencies import DependencyContainer, get_container
+    from megabot.core.dependencies import DependencyContainer, get_container
 
     container = get_container()
     assert isinstance(container, DependencyContainer)
@@ -145,7 +145,7 @@ def test_get_container():
 
 def test_inject_optional_dependencies():
     """Test inject decorator with optional (unresolvable) dependencies (lines 107-108, 122-123)"""
-    from core.dependencies import dependency_scope, inject
+    from megabot.core.dependencies import dependency_scope, inject
 
     class Unresolvable:
         def __init__(self, arg):
@@ -173,7 +173,7 @@ def test_inject_optional_dependencies():
 
 def test_registration_helpers():
     """Test register_factory and register_singleton helper functions (lines 151, 156)"""
-    from core.dependencies import (
+    from megabot.core.dependencies import (
         dependency_scope,
         register_factory,
         register_singleton,

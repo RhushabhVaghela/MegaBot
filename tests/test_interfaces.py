@@ -1,4 +1,4 @@
-from core.interfaces import Message, MessagingInterface
+from megabot.core.interfaces import Message, MessagingInterface
 
 
 def test_message_model():

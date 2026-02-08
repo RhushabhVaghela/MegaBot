@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
-from core.interfaces import Message
-from core.orchestrator import MegaBotOrchestrator
+from megabot.core.config import AdapterConfig, Config, SecurityConfig, SystemConfig
+from megabot.core.interfaces import Message
+from megabot.core.orchestrator import MegaBotOrchestrator
 
 
 def _make_orchestrator() -> MegaBotOrchestrator:

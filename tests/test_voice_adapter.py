@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.voice_adapter import VoiceAdapter
+from megabot.adapters.voice_adapter import VoiceAdapter
 
 
 class TestVoiceAdapter:
@@ -15,14 +15,14 @@ class TestVoiceAdapter:
     @pytest.fixture
     def voice_adapter(self):
         """Create VoiceAdapter instance"""
-        with patch("adapters.voice_adapter.Client"):
+        with patch("megabot.adapters.voice_adapter.Client"):
             adapter = VoiceAdapter(account_sid="ACtest", auth_token="test_token", from_number="+1234567890")
             return adapter
 
     @pytest.fixture
     def voice_adapter_with_callback(self):
         """Create VoiceAdapter instance with callback URL"""
-        with patch("adapters.voice_adapter.Client"):
+        with patch("megabot.adapters.voice_adapter.Client"):
             adapter = VoiceAdapter(
                 account_sid="ACtest",
                 auth_token="test_token",
@@ -126,7 +126,7 @@ class TestVoiceAdapter:
 
     def test_initialization_error_handling(self):
         """Test initialization when Client fails"""
-        with patch("adapters.voice_adapter.Client", side_effect=Exception("Connection failed")):
+        with patch("megabot.adapters.voice_adapter.Client", side_effect=Exception("Connection failed")):
             adapter = VoiceAdapter(account_sid="ACtest", auth_token="test_token", from_number="+1234567890")
 
             assert adapter.client is None
@@ -138,7 +138,7 @@ class TestVoiceAdapter:
         # This test verifies the mock Client works
 
         # If Client is the real one (installed), we must mock it to avoid network calls
-        with patch("adapters.voice_adapter.Client") as MockClient:
+        with patch("megabot.adapters.voice_adapter.Client") as MockClient:
             instance = MockClient("test", "test")
             mock_call = MagicMock()
             mock_call.sid = "CA123"
@@ -170,7 +170,7 @@ class TestVoiceAdapter:
 
         voice_adapter.client = None
 
-        with caplog.at_level(logging.DEBUG, logger="adapters.voice_adapter"):
+        with caplog.at_level(logging.DEBUG, logger="megabot.adapters.voice_adapter"):
             sid = await voice_adapter.make_call("+123", "Hello")
             assert sid == "error_no_client"
             assert any("Cannot make call: Twilio client not initialized" in r.message for r in caplog.records)
@@ -181,12 +181,12 @@ class TestVoiceAdapter:
         with patch.dict("sys.modules", {"twilio.rest": None}):
             import importlib
 
-            import adapters.voice_adapter
+            import megabot.adapters.voice_adapter
 
-            importlib.reload(adapters.voice_adapter)
+            importlib.reload(megabot.adapters.voice_adapter)
 
             # Test fallback Client
-            client = adapters.voice_adapter.Client(None, None)
+            client = megabot.adapters.voice_adapter.Client(None, None)
             call = client.calls.create(to="+123")
             assert call.sid.startswith("CA")
             assert len(call.sid) == 34  # CA + 32 hex

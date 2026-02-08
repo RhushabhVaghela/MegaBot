@@ -11,7 +11,7 @@ sys.modules["twilio"] = mock_twilio
 sys.modules["twilio.rest"] = mock_twilio
 sys.modules["twilio.request_validator"] = mock_twilio
 
-from adapters.messaging.sms import SMSAdapter
+from megabot.adapters.messaging.sms import SMSAdapter
 
 
 @pytest.fixture

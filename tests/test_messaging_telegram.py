@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from adapters.messaging.telegram import TelegramAdapter
+from megabot.adapters.messaging.telegram import TelegramAdapter
 
 
 @pytest.fixture

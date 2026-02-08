@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from core.memory.chat_memory import ChatMemoryManager
+from megabot.core.memory.chat_memory import ChatMemoryManager
 
 
 @pytest.fixture

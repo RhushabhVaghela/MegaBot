@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from features.dash_data.agent import DashDataAgent
+from megabot.features.dash_data.agent import DashDataAgent
 
 # ---------------------------------------------------------------------------
 # Fixtures

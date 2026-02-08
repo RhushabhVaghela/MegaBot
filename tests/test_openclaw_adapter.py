@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from adapters.openclaw_adapter import OpenClawAdapter
-from core.interfaces import Message
+from megabot.adapters.openclaw_adapter import OpenClawAdapter
+from megabot.core.interfaces import Message
 
 
 @pytest.mark.asyncio

@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from core.interfaces import Message
-from core.memory.mcp_server import MemoryServer
-from core.orchestrator import MegaBotOrchestrator
+from megabot.core.interfaces import Message
+from megabot.core.memory.mcp_server import MemoryServer
+from megabot.core.orchestrator import MegaBotOrchestrator
 
 
 @pytest.fixture
@@ -18,10 +18,10 @@ def memory_server(tmp_path):
 @pytest.fixture
 def mock_orchestrator(mock_config):
     with (
-        patch("core.orchestrator.ModuleDiscovery"),
-        patch("core.orchestrator.OpenClawAdapter"),
-        patch("core.orchestrator.MemUAdapter"),
-        patch("core.orchestrator.MCPManager"),
+        patch("megabot.core.orchestrator.ModuleDiscovery"),
+        patch("megabot.core.orchestrator.OpenClawAdapter"),
+        patch("megabot.core.orchestrator.MemUAdapter"),
+        patch("megabot.core.orchestrator.MCPManager"),
     ):
         orc = MegaBotOrchestrator(mock_config)
         orc.adapters["openclaw"] = AsyncMock()
@@ -75,13 +75,13 @@ async def test_orchestrator_redaction(mock_orchestrator):
 
 
 def test_ivr_callback():
-    from core.orchestrator import app as current_app
+    from megabot.core.orchestrator import app as current_app
 
     client = TestClient(current_app)
     # Patch the global orchestrator variable in the module
     with (
-        patch("core.orchestrator.orchestrator") as mock_orc,
-        patch("core.app._validate_twilio_signature", return_value=True),
+        patch("megabot.core.orchestrator.orchestrator") as mock_orc,
+        patch("megabot.core.app._validate_twilio_signature", return_value=True),
         patch("fastapi.Request.form", new_callable=AsyncMock) as mock_form,
     ):
         mock_orc.admin_handler._process_approval = AsyncMock()

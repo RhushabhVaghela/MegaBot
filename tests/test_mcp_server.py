@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from core.memory.mcp_server import MemoryServer
+from megabot.core.memory.mcp_server import MemoryServer
 
 
 @pytest.fixture
@@ -384,10 +384,10 @@ async def test_handle_tool_call_unknown_tool(memory_server):
 async def test_init_legacy_db_exception():
     """Test MemoryServer init when _run_migrations fails due to DB error."""
     with (
-        patch("core.memory.mcp_server.ChatMemoryManager"),
-        patch("core.memory.mcp_server.UserIdentityManager"),
-        patch("core.memory.mcp_server.KnowledgeMemoryManager"),
-        patch("core.memory.mcp_server.MemoryBackupManager"),
+        patch("megabot.core.memory.mcp_server.ChatMemoryManager"),
+        patch("megabot.core.memory.mcp_server.UserIdentityManager"),
+        patch("megabot.core.memory.mcp_server.KnowledgeMemoryManager"),
+        patch("megabot.core.memory.mcp_server.MemoryBackupManager"),
         patch("sqlite3.connect", side_effect=Exception("DB Error")),
         pytest.raises(Exception, match="DB Error"),
     ):

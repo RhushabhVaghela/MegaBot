@@ -68,7 +68,7 @@ def reset_firebase_mocks():
     firebase_admin_mock.initialize_app.return_value = MagicMock()
 
 
-from adapters.push_notification_adapter import (
+from megabot.adapters.push_notification_adapter import (
     AndroidConfig,
     ApnsConfig,
     DeviceToken,
@@ -267,19 +267,19 @@ class TestPushNotificationAdapter:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = mock_batch_response
             await adapter.send_broadcast(notif, topic="news")
             await adapter.send_broadcast(notif, condition="'A' in topics", dry_run=True)
             assert m.call_count == 2
 
-        with patch("adapters.push_notification_adapter.messaging.send") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as m:
             m.return_value = "msg_id"
             await adapter.send_to_topic("news", notif)
             await adapter.send_to_topic("news", notif, dry_run=True)
             assert m.call_count == 1  # dry_run doesn't call messaging.send
 
-        with patch("adapters.push_notification_adapter.messaging.unsubscribe_from_topic") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.unsubscribe_from_topic") as m:
             m.side_effect = Exception("unsubscribe error")
             result = await adapter.unsubscribe_from_topic(["t1"], "news")
             assert result is False
@@ -320,7 +320,7 @@ class TestPushNotificationAdapter:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B", badge=1)
 
-        with patch("adapters.push_notification_adapter.messaging.send") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as m:
             m.return_value = "id"
             res = await adapter._send_fcm("t", notif)
             assert res.success is True
@@ -355,7 +355,7 @@ class TestPushNotificationAdapter:
         # Register a token first
         await adapter.register_token("test_token", Platform.ANDROID, "user123")
 
-        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = MagicMock(success_count=1, failure_count=0)
             res = await adapter.send_broadcast(notif)
             assert res.success is True
@@ -520,7 +520,7 @@ class TestPushNotificationAdapterBranches:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch("adapters.push_notification_adapter.messaging.send") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as m:
             # Test INVALID_ARGUMENT error
             m.side_effect = Exception("INVALID_ARGUMENT")
             res = await adapter._send_fcm("t", notif)
@@ -623,7 +623,7 @@ class TestPushNotificationAdapterBranches:
         await adapter.register_token("test_token", Platform.ANDROID, "user123")
 
         with patch(
-            "adapters.push_notification_adapter.messaging.send_each_for_multicast_sync",
+            "megabot.adapters.push_notification_adapter.messaging.send_each_for_multicast_sync",
             side_effect=Exception("Broadcast failed"),
         ):
             res = await adapter.send_broadcast(notif)
@@ -637,7 +637,7 @@ class TestPushNotificationAdapterBranches:
         notif = create_notification("T", "B")
 
         with patch(
-            "adapters.push_notification_adapter.messaging.send",
+            "megabot.adapters.push_notification_adapter.messaging.send",
             side_effect=Exception("Topic send failed"),
         ):
             res = await adapter.send_to_topic("news", notif)
@@ -650,7 +650,7 @@ class TestPushNotificationAdapterBranches:
         adapter._firebase_app = MagicMock()
 
         with patch(
-            "adapters.push_notification_adapter.messaging.subscribe_to_topic",
+            "megabot.adapters.push_notification_adapter.messaging.subscribe_to_topic",
             side_effect=Exception("Subscribe failed"),
         ):
             res = await adapter.subscribe_to_topic(["t1"], "news")
@@ -664,7 +664,7 @@ class TestPushNotificationAdapterBranches:
         notif = create_notification("T", "B")
 
         with patch(
-            "adapters.push_notification_adapter.messaging.send",
+            "megabot.adapters.push_notification_adapter.messaging.send",
             side_effect=Exception("APNS failed"),
         ):
             res = await adapter._send_apns("t", notif)
@@ -725,7 +725,7 @@ class TestPushNotificationAdapterBranches:
         # Register a token first
         await adapter.register_token("test_token", Platform.ANDROID, "user123")
 
-        with patch("adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send_each_for_multicast_sync") as m:
             m.return_value = MagicMock(success_count=1, failure_count=0)
             res = await adapter.send_broadcast(notif)
             assert res.success is True
@@ -737,7 +737,7 @@ class TestPushNotificationAdapterBranches:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch("adapters.push_notification_adapter.messaging.send") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as m:
             res = await adapter._send_fcm("t", notif, dry_run=True)
             assert res.success is True
             m.assert_not_called()
@@ -749,7 +749,7 @@ class TestPushNotificationAdapterBranches:
         adapter.apns_bundle_id = "com.example.app"
         notif = create_notification("T", "B")
 
-        with patch("adapters.push_notification_adapter.messaging.send") as m:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as m:
             res = await adapter._send_apns("t", notif, dry_run=True)
             assert res.success is True
             m.assert_not_called()
@@ -768,7 +768,7 @@ class TestPushNotificationAdapterBranches:
         # This tests line 1208 where asyncio.run(main()) is called
         with patch("asyncio.run") as mock_run:
             # Import main function
-            from adapters.push_notification_adapter import main
+            from megabot.adapters.push_notification_adapter import main
 
             # The test just verifies the function exists and can be imported
             # The actual asyncio.run call is tested implicitly by importing
@@ -834,8 +834,8 @@ class TestPushNotificationAdapterBranches:
         """Test the main function example"""
         # Mock the entire main function execution
         with (
-            patch("adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class,
-            patch("adapters.push_notification_adapter.create_notification") as mock_create,
+            patch("megabot.adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class,
+            patch("megabot.adapters.push_notification_adapter.create_notification") as mock_create,
             patch("builtins.print") as mock_print,
             patch.dict("os.environ", {"FCM_TOKEN": "test-fcm-token"}),
         ):
@@ -851,7 +851,7 @@ class TestPushNotificationAdapterBranches:
             mock_adapter.send_to_token.return_value = mock_result
 
             # Import and run main
-            from adapters.push_notification_adapter import main
+            from megabot.adapters.push_notification_adapter import main
 
             await main()
 
@@ -882,12 +882,12 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_project_id = "test-project"
 
         with (
-            patch("adapters.push_notification_adapter.os.path.exists", return_value=True),
+            patch("megabot.adapters.push_notification_adapter.os.path.exists", return_value=True),
             patch(
-                "adapters.push_notification_adapter.credentials.Certificate",
+                "megabot.adapters.push_notification_adapter.credentials.Certificate",
                 side_effect=ValueError("Credential error"),
             ),
-            patch("adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init,
+            patch("megabot.adapters.push_notification_adapter.firebase_admin.initialize_app") as mock_init,
             patch("builtins.print") as mock_print,
         ):
             adapter._initialize_fcm()
@@ -903,16 +903,16 @@ class TestPushNotificationAdapterBranches:
         adapter.fcm_project_id = "test-project"
 
         with (
-            patch("adapters.push_notification_adapter.os.path.exists", return_value=True),
+            patch("megabot.adapters.push_notification_adapter.os.path.exists", return_value=True),
             patch(
-                "adapters.push_notification_adapter.credentials.Certificate",
+                "megabot.adapters.push_notification_adapter.credentials.Certificate",
                 return_value=MagicMock(),
             ),
             patch(
-                "adapters.push_notification_adapter.firebase_admin.initialize_app",
+                "megabot.adapters.push_notification_adapter.firebase_admin.initialize_app",
                 side_effect=Exception("App init error"),
             ),
-            caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"),
+            caplog.at_level(logging.DEBUG, logger="megabot.adapters.push_notification_adapter"),
         ):
             adapter._initialize_fcm()
             assert any("FCM initialization warning: App init error" in r.message for r in caplog.records)
@@ -963,10 +963,10 @@ class TestPushNotificationAdapterBranches:
 
         with (
             patch(
-                "adapters.push_notification_adapter.messaging.send",
+                "megabot.adapters.push_notification_adapter.messaging.send",
                 side_effect=Exception("WebPush failed"),
             ),
-            caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"),
+            caplog.at_level(logging.DEBUG, logger="megabot.adapters.push_notification_adapter"),
         ):
             res = await adapter._send_webpush("t", notif)
             assert res.success is False
@@ -1011,7 +1011,7 @@ class TestPushNotificationAdapterBranches:
         adapter.notification_channels = mock_dict
 
         try:
-            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
+            with caplog.at_level(logging.DEBUG, logger="megabot.adapters.push_notification_adapter"):
                 result = await adapter.delete_notification_channel("test")
                 assert result is False
                 assert any("Channel deletion failed:" in r.message for r in caplog.records)
@@ -1024,7 +1024,7 @@ class TestPushNotificationAdapterBranches:
         """Test subscribe_to_topic with successful subscription"""
         adapter._firebase_app = MagicMock()
 
-        with patch("adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
+        with patch("megabot.adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
             mock_subscribe.return_value = mock_topic_response
             result = await adapter.subscribe_to_topic(["t1"], "news")
             assert result is True  # success_count (1) == len(tokens) (1)
@@ -1035,7 +1035,7 @@ class TestPushNotificationAdapterBranches:
         """Test subscribe_to_topic with partial success"""
         adapter._firebase_app = MagicMock()
 
-        with patch("adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
+        with patch("megabot.adapters.push_notification_adapter.messaging.subscribe_to_topic") as mock_subscribe:
             mock_response = MagicMock()
             mock_response.success_count = 1
             mock_subscribe.return_value = mock_response
@@ -1057,7 +1057,7 @@ class TestPushNotificationAdapterBranches:
 
         try:
             channel = NotificationChannel(id="c1", name="N")
-            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
+            with caplog.at_level(logging.DEBUG, logger="megabot.adapters.push_notification_adapter"):
                 result = await adapter.create_notification_channel(channel)
                 assert result is False
                 assert any("Channel creation failed: Creation error" in r.message for r in caplog.records)
@@ -1088,12 +1088,12 @@ class TestPushNotificationAdapterBranches:
     async def test_main_function_execution(self):
         """Test that main function can be executed without error"""
         # Test that the main function exists and is callable
-        from adapters.push_notification_adapter import main
+        from megabot.adapters.push_notification_adapter import main
 
         assert callable(main)
 
         # Mock the adapter initialization to avoid actual Firebase/APNS setup
-        with patch("adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class:
+        with patch("megabot.adapters.push_notification_adapter.PushNotificationAdapter") as mock_adapter_class:
             mock_adapter = MagicMock()
             mock_adapter.initialize.return_value = True
             mock_adapter_class.return_value = mock_adapter
@@ -1120,7 +1120,7 @@ class TestPushNotificationAdapterBranches:
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
-        with patch("adapters.push_notification_adapter.messaging.send") as mock_send:
+        with patch("megabot.adapters.push_notification_adapter.messaging.send") as mock_send:
             mock_send.return_value = "web_msg_id"
 
             # Test dry_run (line 1029)
@@ -1176,15 +1176,15 @@ class TestPushNotificationAdapterBranches:
 
 @pytest.mark.asyncio
 async def test_push_notification_adapter_main():
-    from adapters.push_notification_adapter import main
+    from megabot.adapters.push_notification_adapter import main
 
     with (
         patch(
-            "adapters.push_notification_adapter.PushNotificationAdapter.initialize",
+            "megabot.adapters.push_notification_adapter.PushNotificationAdapter.initialize",
             AsyncMock(return_value=True),
         ),
         patch(
-            "adapters.push_notification_adapter.PushNotificationAdapter.shutdown",
+            "megabot.adapters.push_notification_adapter.PushNotificationAdapter.shutdown",
             AsyncMock(),
         ),
         patch("asyncio.sleep", AsyncMock(side_effect=[None, asyncio.CancelledError])),

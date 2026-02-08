@@ -19,7 +19,7 @@ class TestMessageHandlerLRUEviction:
 
     @pytest.fixture
     def handler(self):
-        from core.orchestrator_components import MessageHandler
+        from megabot.core.orchestrator_components import MessageHandler
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.memory = AsyncMock()
@@ -91,7 +91,7 @@ class TestMemoryServerClose:
 
     @pytest.fixture
     def memory_server(self, tmp_path):
-        from core.memory.mcp_server import MemoryServer
+        from megabot.core.memory.mcp_server import MemoryServer
 
         db_path = str(tmp_path / "test_memory.db")
         server = MemoryServer(db_path=db_path)
@@ -130,7 +130,7 @@ class TestChatMemoryClose:
 
     @pytest.fixture
     def chat_memory(self, tmp_path):
-        from core.memory.chat_memory import ChatMemoryManager
+        from megabot.core.memory.chat_memory import ChatMemoryManager
 
         db_path = str(tmp_path / "test_chat.db")
         return ChatMemoryManager(db_path=db_path)
@@ -167,7 +167,7 @@ class TestKnowledgeMemoryClose:
 
     @pytest.fixture
     def knowledge_memory(self, tmp_path):
-        from core.memory.knowledge_memory import KnowledgeMemoryManager
+        from megabot.core.memory.knowledge_memory import KnowledgeMemoryManager
 
         db_path = str(tmp_path / "test_knowledge.db")
         return KnowledgeMemoryManager(db_path=db_path)
@@ -200,13 +200,13 @@ class TestParallelKeywordSearches:
 
     @pytest.fixture
     def orchestrator(self, mock_config):
-        from core.orchestrator import MegaBotOrchestrator
+        from megabot.core.orchestrator import MegaBotOrchestrator
 
         with (
-            patch("core.orchestrator.ModuleDiscovery"),
-            patch("core.orchestrator.OpenClawAdapter"),
-            patch("core.orchestrator.MemUAdapter"),
-            patch("core.orchestrator.MCPManager"),
+            patch("megabot.core.orchestrator.ModuleDiscovery"),
+            patch("megabot.core.orchestrator.OpenClawAdapter"),
+            patch("megabot.core.orchestrator.MemUAdapter"),
+            patch("megabot.core.orchestrator.MCPManager"),
         ):
             orc = MegaBotOrchestrator(mock_config)
             orc.llm = AsyncMock()
@@ -261,7 +261,7 @@ class TestGatewayAsyncSubprocess:
     @pytest.mark.asyncio
     async def test_start_tailscale_vpn_uses_async_subprocess(self):
         """PERF-01: _start_tailscale_vpn should use asyncio.create_subprocess_exec."""
-        from core.network.gateway import UnifiedGateway
+        from megabot.core.network.gateway import UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.tailscale_auth_key = "tskey-12345"
@@ -282,7 +282,7 @@ class TestGatewayAsyncSubprocess:
     @pytest.mark.asyncio
     async def test_start_tailscale_vpn_timeout(self):
         """PERF-01: Tailscale subprocess should be killed on timeout."""
-        from core.network.gateway import UnifiedGateway
+        from megabot.core.network.gateway import UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.tailscale_auth_key = "tskey-12345"
@@ -303,7 +303,7 @@ class TestGatewayAsyncSubprocess:
     @pytest.mark.asyncio
     async def test_start_tailscale_vpn_no_key(self):
         """PERF-01: Without auth key, should return False immediately."""
-        from core.network.gateway import ConnectionType, UnifiedGateway
+        from megabot.core.network.gateway import ConnectionType, UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.tailscale_auth_key = None
@@ -316,7 +316,7 @@ class TestGatewayAsyncSubprocess:
     @pytest.mark.asyncio
     async def test_start_cloudflare_tunnel_uses_async_subprocess(self):
         """PERF-02: _start_cloudflare_tunnel version check should use async subprocess."""
-        from core.network.gateway import UnifiedGateway
+        from megabot.core.network.gateway import UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.cloudflare_tunnel_id = "tunnel-123"
@@ -339,7 +339,7 @@ class TestGatewayAsyncSubprocess:
     @pytest.mark.asyncio
     async def test_start_cloudflare_no_tunnel_id(self):
         """PERF-02: Without tunnel ID, should return False immediately."""
-        from core.network.gateway import UnifiedGateway
+        from megabot.core.network.gateway import UnifiedGateway
 
         gw = MagicMock(spec=UnifiedGateway)
         gw.cloudflare_tunnel_id = None
@@ -357,13 +357,13 @@ class TestOrchestratorAsyncSubprocess:
 
     @pytest.fixture
     def orchestrator(self, mock_config):
-        from core.orchestrator import MegaBotOrchestrator
+        from megabot.core.orchestrator import MegaBotOrchestrator
 
         with (
-            patch("core.orchestrator.ModuleDiscovery"),
-            patch("core.orchestrator.OpenClawAdapter"),
-            patch("core.orchestrator.MemUAdapter"),
-            patch("core.orchestrator.MCPManager"),
+            patch("megabot.core.orchestrator.ModuleDiscovery"),
+            patch("megabot.core.orchestrator.OpenClawAdapter"),
+            patch("megabot.core.orchestrator.MemUAdapter"),
+            patch("megabot.core.orchestrator.MCPManager"),
         ):
             orc = MegaBotOrchestrator(mock_config)
             orc.adapters = {
@@ -427,13 +427,13 @@ class TestOrchestratorShutdownCleanup:
 
     @pytest.fixture
     def orchestrator(self, mock_config):
-        from core.orchestrator import MegaBotOrchestrator
+        from megabot.core.orchestrator import MegaBotOrchestrator
 
         with (
-            patch("core.orchestrator.ModuleDiscovery"),
-            patch("core.orchestrator.OpenClawAdapter"),
-            patch("core.orchestrator.MemUAdapter"),
-            patch("core.orchestrator.MCPManager"),
+            patch("megabot.core.orchestrator.ModuleDiscovery"),
+            patch("megabot.core.orchestrator.OpenClawAdapter"),
+            patch("megabot.core.orchestrator.MemUAdapter"),
+            patch("megabot.core.orchestrator.MCPManager"),
         ):
             orc = MegaBotOrchestrator(mock_config)
             orc.adapters = {
@@ -496,13 +496,13 @@ class TestAsyncDiscoveryScan:
     @pytest.mark.asyncio
     async def test_start_uses_asyncio_to_thread(self, mock_config):
         """PERF-11: discovery.scan() should run in asyncio.to_thread."""
-        from core.orchestrator import MegaBotOrchestrator
+        from megabot.core.orchestrator import MegaBotOrchestrator
 
         with (
-            patch("core.orchestrator.ModuleDiscovery") as mock_disc_cls,
-            patch("core.orchestrator.OpenClawAdapter"),
-            patch("core.orchestrator.MemUAdapter"),
-            patch("core.orchestrator.MCPManager"),
+            patch("megabot.core.orchestrator.ModuleDiscovery") as mock_disc_cls,
+            patch("megabot.core.orchestrator.OpenClawAdapter"),
+            patch("megabot.core.orchestrator.MemUAdapter"),
+            patch("megabot.core.orchestrator.MCPManager"),
         ):
             orc = MegaBotOrchestrator(mock_config)
             orc.adapters = {
@@ -521,7 +521,7 @@ class TestAsyncDiscoveryScan:
             with (
                 patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread,
                 # Patch safe_create_task to avoid actually starting tasks
-                patch("core.task_utils.safe_create_task"),
+                patch("megabot.core.task_utils.safe_create_task"),
             ):
                 await orc.start()
 
@@ -536,7 +536,7 @@ class TestModuleLevelImports:
 
     def test_hashlib_is_module_level_import(self):
         """PERF-12: hashlib should be imported at module level, not inside functions."""
-        import core.network.gateway as gw_module
+        import megabot.core.network.gateway as gw_module
 
         # If hashlib is at module level, it should be accessible as an attribute
         assert hasattr(gw_module, "hashlib") or "hashlib" in dir(gw_module)
@@ -551,7 +551,7 @@ class TestMemoryServerLifecycle:
     @pytest.mark.asyncio
     async def test_full_lifecycle(self, tmp_path):
         """Test that MemoryServer works after creation and cleans up on close."""
-        from core.memory.mcp_server import MemoryServer
+        from megabot.core.memory.mcp_server import MemoryServer
 
         db_path = str(tmp_path / "lifecycle_test.db")
         server = MemoryServer(db_path=db_path)
@@ -574,7 +574,7 @@ class TestMemoryServerLifecycle:
     @pytest.mark.asyncio
     async def test_close_then_reopen(self, tmp_path):
         """Test that data persists after close and reopen."""
-        from core.memory.mcp_server import MemoryServer
+        from megabot.core.memory.mcp_server import MemoryServer
 
         db_path = str(tmp_path / "persist_test.db")
 

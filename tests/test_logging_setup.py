@@ -9,7 +9,7 @@ from logging.handlers import RotatingFileHandler
 
 import pytest
 
-from core.logging_setup import attach_audit_file_handler
+from megabot.core.logging_setup import attach_audit_file_handler
 
 
 @pytest.fixture(autouse=True)

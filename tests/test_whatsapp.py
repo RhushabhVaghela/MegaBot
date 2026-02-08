@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.messaging.server import MessageType
-from adapters.messaging.whatsapp import WhatsAppAdapter
+from megabot.adapters.messaging.server import MessageType
+from megabot.adapters.messaging.whatsapp import WhatsAppAdapter
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ class TestInitialization:
             "openclaw": {"host": "localhost", "port": 8080},
         }
         adapter = WhatsAppAdapter("whatsapp", mock_server, config)
-        with patch("adapters.openclaw_adapter.OpenClawAdapter") as mock_oa_class:
+        with patch("megabot.adapters.openclaw_adapter.OpenClawAdapter") as mock_oa_class:
             mock_oa = mock_oa_class.return_value
             mock_oa.connect = AsyncMock()
             success = await adapter.initialize()
@@ -110,7 +110,7 @@ class TestInitialization:
 
         # OpenClaw success from config
         mock_server.openclaw = None
-        with patch("adapters.openclaw_adapter.OpenClawAdapter") as mock_oa_class:
+        with patch("megabot.adapters.openclaw_adapter.OpenClawAdapter") as mock_oa_class:
             mock_oa = mock_oa_class.return_value
             mock_oa.connect = AsyncMock()
             a2 = WhatsAppAdapter("wa", mock_server, {"openclaw": {"host": "h"}})
@@ -127,7 +127,7 @@ class TestInitialization:
     async def test_init_openclaw_exception(self, mock_server):
         """_init_openclaw handles exceptions gracefully."""
         adapter = WhatsAppAdapter("whatsapp", mock_server, {})
-        with patch("adapters.openclaw_adapter.OpenClawAdapter", side_effect=Exception("Err")):
+        with patch("megabot.adapters.openclaw_adapter.OpenClawAdapter", side_effect=Exception("Err")):
             success = await adapter._init_openclaw()
             assert not success
 
@@ -135,7 +135,7 @@ class TestInitialization:
     async def test_init_openclaw_manual(self, adapter):
         """_init_openclaw with explicit OpenClawAdapter creation."""
         adapter.server.openclaw = None
-        with patch("adapters.openclaw_adapter.OpenClawAdapter") as mock_oc:
+        with patch("megabot.adapters.openclaw_adapter.OpenClawAdapter") as mock_oc:
             mock_oc.return_value.connect = AsyncMock()
             success = await adapter._init_openclaw()
             assert success
@@ -932,7 +932,7 @@ class TestWhatsAppCoverage:
         adapter = WhatsAppAdapter("whatsapp", server, {"access_token": "tok"})
 
         # Mock successful OpenClaw connection
-        with patch("adapters.openclaw_adapter.OpenClawAdapter") as mock_oc_class:
+        with patch("megabot.adapters.openclaw_adapter.OpenClawAdapter") as mock_oc_class:
             mock_oc = AsyncMock()
             mock_oc_class.return_value = mock_oc
 
