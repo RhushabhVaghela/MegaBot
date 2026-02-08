@@ -8,7 +8,7 @@ Use ``from core.orchestrator import MegaBotOrchestrator`` (etc.) directly.
 
 from .config import Config, load_config
 from .interfaces import Message
-from .llm_providers import get_llm_provider, LLMProvider
+from .llm_providers import LLMProvider, get_llm_provider
 
 
 def __getattr__(name: str):

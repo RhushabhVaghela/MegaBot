@@ -17,10 +17,11 @@ import asyncio
 import logging
 import os
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from unittest.mock import Mock, MagicMock
+from datetime import datetime
+from typing import Any
+from unittest.mock import MagicMock, Mock
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ except ImportError:
             pass
 
 
-from adapters.messaging import PlatformMessage, MessageType, PlatformAdapter
+from adapters.messaging import MessageType, PlatformAdapter, PlatformMessage
 
 
 @dataclass
@@ -56,15 +57,15 @@ class DiscordMessage:
 
     id: int
     channel_id: int
-    guild_id: Optional[int]
+    guild_id: int | None
     author: str
     author_id: int
     content: str
     timestamp: datetime
-    embeds: List[Dict[str, Any]] = field(default_factory=list)
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    mentions: List[str] = field(default_factory=list)
-    reactions: List[Dict[str, Any]] = field(default_factory=list)
+    embeds: list[dict[str, Any]] = field(default_factory=list)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    mentions: list[str] = field(default_factory=list)
+    reactions: list[dict[str, Any]] = field(default_factory=list)
     is_dm: bool = False
 
     @classmethod
@@ -111,9 +112,9 @@ class DiscordAdapter(PlatformAdapter):
         platform_name: str,
         server: Any,
         token: str,
-        intents: Optional[discord.Intents] = None,
+        intents: discord.Intents | None = None,
         command_prefix: str = "!",
-        admin_user_ids: Optional[List[int]] = None,
+        admin_user_ids: list[int] | None = None,
     ):
         """
         Initialize the Discord adapter.
@@ -142,12 +143,12 @@ class DiscordAdapter(PlatformAdapter):
         self.tree = discord.app_commands.CommandTree(self.bot)
 
         self.is_initialized = False
-        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
+        self.message_cache: LRUCache[str, dict[str, Any]] = LRUCache(maxsize=1024)
 
-        self.message_handlers: List[Callable] = []
-        self.reaction_handlers: List[Callable] = []
-        self.command_handlers: Dict[str, Callable] = {}
-        self.error_handlers: List[Callable] = []
+        self.message_handlers: list[Callable] = []
+        self.reaction_handlers: list[Callable] = []
+        self.command_handlers: dict[str, Callable] = {}
+        self.error_handlers: list[Callable] = []
 
         self._setup_event_handlers()
 
@@ -318,13 +319,13 @@ class DiscordAdapter(PlatformAdapter):
         self,
         channel_id: str,
         content: str,
-        embed: Optional[Embed] = None,
-        embeds: Optional[List[Embed]] = None,
-        file: Optional[File] = None,
-        files: Optional[List[File]] = None,
-        reply_to: Optional[int] = None,
+        embed: Embed | None = None,
+        embeds: list[Embed] | None = None,
+        file: File | None = None,
+        files: list[File] | None = None,
+        reply_to: int | None = None,
         mention: bool = False,
-    ) -> Optional[discord.Message]:
+    ) -> discord.Message | None:
         """
         Send a message to a Discord channel.
 
@@ -347,7 +348,7 @@ class DiscordAdapter(PlatformAdapter):
                 logger.warning("[Discord] Channel %s not found", channel_id)
                 return None
 
-            kwargs: Dict[str, Any] = {"content": content}
+            kwargs: dict[str, Any] = {"content": content}
 
             if embed:
                 kwargs["embed"] = embed
@@ -377,14 +378,14 @@ class DiscordAdapter(PlatformAdapter):
         channel_id: str,
         title: str,
         description: str = "",
-        color: discord.Color = discord.Color.blue(),
-        fields: Optional[List[Dict[str, str]]] = None,
-        thumbnail_url: Optional[str] = None,
-        image_url: Optional[str] = None,
-        footer_text: Optional[str] = None,
-        author_name: Optional[str] = None,
-        author_icon_url: Optional[str] = None,
-    ) -> Optional[discord.Message]:
+        color: discord.Color | None = None,
+        fields: list[dict[str, str]] | None = None,
+        thumbnail_url: str | None = None,
+        image_url: str | None = None,
+        footer_text: str | None = None,
+        author_name: str | None = None,
+        author_icon_url: str | None = None,
+    ) -> discord.Message | None:
         """
         Send an embed message.
 
@@ -403,6 +404,8 @@ class DiscordAdapter(PlatformAdapter):
         Returns:
             Sent message or None
         """
+        if color is None:
+            color = discord.Color.blue()
         embed = Embed(title=title, description=description, color=color)
 
         if fields:
@@ -429,10 +432,10 @@ class DiscordAdapter(PlatformAdapter):
         guild_id: str,
         name: str,
         channel_type: str = "text",
-        topic: Optional[str] = None,
+        topic: str | None = None,
         nsfw: bool = False,
-        category_id: Optional[str] = None,
-    ) -> Optional[discord.TextChannel]:
+        category_id: str | None = None,
+    ) -> discord.TextChannel | None:
         """
         Create a new channel in a guild.
 
@@ -472,7 +475,7 @@ class DiscordAdapter(PlatformAdapter):
             logger.error("[Discord] Create channel error: %s", e)
             return None
 
-    async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
+    async def get_channel_info(self, channel_id: str) -> dict[str, Any] | None:
         """Get information about a channel"""
         try:
             channel = self.bot.get_channel(int(channel_id))
@@ -499,7 +502,7 @@ class DiscordAdapter(PlatformAdapter):
             logger.error("[Discord] Get channel info error: %s", e)
             return None
 
-    async def get_guild_info(self, guild_id: str) -> Optional[Dict[str, Any]]:
+    async def get_guild_info(self, guild_id: str) -> dict[str, Any] | None:
         """Get information about a guild"""
         try:
             guild = self.bot.get_guild(int(guild_id))
@@ -550,7 +553,7 @@ class DiscordAdapter(PlatformAdapter):
         channel_id: str,
         message_id: int,
         emoji: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> bool:
         """
         Remove a reaction from a message.
@@ -610,7 +613,7 @@ class DiscordAdapter(PlatformAdapter):
         channel_id: str,
         message_id: int,
         content: str,
-        embed: Optional[Embed] = None,
+        embed: Embed | None = None,
     ) -> bool:
         """
         Edit a message.
@@ -641,7 +644,7 @@ class DiscordAdapter(PlatformAdapter):
             logger.error("[Discord] Edit message error: %s", e)
             return False
 
-    async def get_user_info(self, user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_info(self, user_id: str) -> dict[str, Any] | None:
         """Get information about a user"""
         try:
             user = await self.bot.fetch_user(int(user_id))
@@ -675,7 +678,7 @@ class DiscordAdapter(PlatformAdapter):
         """Register an error handler"""
         self.error_handlers.append(handler)
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         """Send text message to Discord channel."""
         try:
             message = await self.send_message(chat_id, text)
@@ -690,9 +693,9 @@ class DiscordAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:
+    ) -> PlatformMessage | None:
         """Send media to Discord channel."""
         try:
             # For now, send as file attachment
@@ -706,12 +709,12 @@ class DiscordAdapter(PlatformAdapter):
             return None
 
     async def send_document(
-        self, chat_id: str, document_path: str, caption: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+        self, chat_id: str, document_path: str, caption: str | None = None
+    ) -> PlatformMessage | None:
         """Send document to Discord channel."""
         return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
-    async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
+    async def download_media(self, message_id: str, save_path: str) -> str | None:
         """Download media from Discord message.
 
         Searches cached channels for the message, then downloads the first
@@ -746,7 +749,7 @@ class DiscordAdapter(PlatformAdapter):
         """Add a slash command"""
         self.tree.add_command(command)
 
-    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, webhook_data: dict[str, Any]) -> PlatformMessage | None:
         """
         Handle incoming webhook data (for when Discord sends webhooks).
 

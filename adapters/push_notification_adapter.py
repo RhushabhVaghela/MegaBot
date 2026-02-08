@@ -19,15 +19,16 @@ import json
 import logging
 import os
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any
 
 try:
     import firebase_admin
-    from firebase_admin import credentials, messaging
     from firebase_admin import App as firebase_app
+    from firebase_admin import credentials, messaging
 
     _HAS_FIREBASE = True
 except ImportError:
@@ -74,23 +75,23 @@ class PushNotification:
     title: str
     body: str
     notification_type: NotificationType = NotificationType.MESSAGE
-    image_url: Optional[str] = None
-    icon: Optional[str] = None
-    sound: Optional[str] = None
-    badge: Optional[int] = None
-    tag: Optional[str] = None
-    color: Optional[str] = None
-    click_action: Optional[str] = None
-    channel_id: Optional[str] = None
-    ticker: Optional[str] = None
+    image_url: str | None = None
+    icon: str | None = None
+    sound: str | None = None
+    badge: int | None = None
+    tag: str | None = None
+    color: str | None = None
+    click_action: str | None = None
+    channel_id: str | None = None
+    ticker: str | None = None
     sticky: bool = False
     local_only: bool = False
     priority: Priority = Priority.HIGH
-    data: Dict[str, str] = field(default_factory=dict)
-    actions: List[Dict[str, Any]] = field(default_factory=list)
+    data: dict[str, str] = field(default_factory=dict)
+    actions: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"title": self.title, "body": self.body}
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"title": self.title, "body": self.body}
 
         if self.image_url:
             result["image"] = self.image_url
@@ -122,16 +123,16 @@ class PushNotification:
 class AndroidConfig:
     """Android-specific notification configuration"""
 
-    collapse_key: Optional[str] = None
+    collapse_key: str | None = None
     priority: Priority = Priority.HIGH
-    notification: Optional[PushNotification] = None
-    data: Dict[str, str] = field(default_factory=dict)
+    notification: PushNotification | None = None
+    data: dict[str, str] = field(default_factory=dict)
     direct_boot_ok: bool = False
-    restricted_package_name: Optional[str] = None
+    restricted_package_name: str | None = None
     timeout: int = 30
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {}
 
         if self.collapse_key:
             result["collapse_key"] = self.collapse_key
@@ -154,21 +155,21 @@ class ApnsConfig:
     """APNS-specific notification configuration"""
 
     bundle_id: str
-    badge: Optional[int] = None
-    sound: Optional[str] = None
-    category: Optional[str] = None
-    thread_id: Optional[str] = None
+    badge: int | None = None
+    sound: str | None = None
+    category: str | None = None
+    thread_id: str | None = None
     content_available: bool = False
     mutable_content: bool = False
     priority: int = 10
     apns_push_type: str = "alert"
-    collapse_id: Optional[str] = None
-    expiration: Optional[int] = None
-    topic: Optional[str] = None
-    custom_data: Dict[str, Any] = field(default_factory=dict)
+    collapse_id: str | None = None
+    expiration: int | None = None
+    topic: str | None = None
+    custom_data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "aps": {"content-available" if self.content_available else "alert": 1 if self.content_available else {}}
         }
 
@@ -202,13 +203,13 @@ class ApnsConfig:
 class WebpushConfig:
     """Web push configuration"""
 
-    notification: Optional[PushNotification] = None
-    data: Dict[str, str] = field(default_factory=dict)
-    headers: Dict[str, str] = field(default_factory=dict)
+    notification: PushNotification | None = None
+    data: dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
     ttl: int = 2419200
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {}
 
         if self.notification:
             result["notification"] = self.notification.to_dict()
@@ -227,14 +228,14 @@ class DeviceToken:
 
     token: str
     platform: Platform
-    user_id: Optional[str] = None
-    app_id: Optional[str] = None
+    user_id: str | None = None
+    app_id: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     last_active: datetime = field(default_factory=datetime.now)
     is_active: bool = True
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DeviceToken":
+    def from_dict(cls, data: dict[str, Any]) -> "DeviceToken":
         return cls(
             token=data.get("token", ""),
             platform=Platform(data.get("platform", "android")),
@@ -245,7 +246,7 @@ class DeviceToken:
             is_active=data.get("is_active", True),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "token": self.token,
             "platform": self.platform.value,
@@ -263,15 +264,15 @@ class NotificationChannel:
 
     id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     importance: int = 4
     enable_vibration: bool = True
     enable_lights: bool = True
     show_badge: bool = True
-    vibration_pattern: Optional[List[int]] = None
-    sound: Optional[str] = None
+    vibration_pattern: list[int] | None = None
+    sound: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "channel_id": self.id,
             "name": self.name,
@@ -290,10 +291,10 @@ class NotificationResult:
     """Result of sending a notification"""
 
     success: bool
-    message_id: Optional[str] = None
-    error: Optional[str] = None
-    errors: List[Dict[str, Any]] = field(default_factory=list)
-    canonical_token: Optional[bool] = None
+    message_id: str | None = None
+    error: str | None = None
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    canonical_token: bool | None = None
 
     @classmethod
     def from_firebase(cls, response: messaging.SendResponse) -> "NotificationResult":
@@ -332,16 +333,16 @@ class PushNotificationAdapter:
 
     def __init__(
         self,
-        fcm_credential_path: Optional[str] = None,
-        fcm_project_id: Optional[str] = None,
-        apns_key_path: Optional[str] = None,
-        apns_key_id: Optional[str] = None,
-        apns_bundle_id: Optional[str] = None,
-        apns_team_id: Optional[str] = None,
+        fcm_credential_path: str | None = None,
+        fcm_project_id: str | None = None,
+        apns_key_path: str | None = None,
+        apns_key_id: str | None = None,
+        apns_bundle_id: str | None = None,
+        apns_team_id: str | None = None,
         apns_sandbox: bool = True,
         token_storage_path: str = "./data/push_tokens.json",
         default_channel_id: str = "megabot_default",
-        admin_user_ids: Optional[List[str]] = None,
+        admin_user_ids: list[str] | None = None,
     ):
         """
         Initialize the push notification adapter.
@@ -369,15 +370,15 @@ class PushNotificationAdapter:
         self.default_channel_id = default_channel_id
         self.admin_user_ids = admin_user_ids or []
 
-        self._firebase_app: Optional[firebase_app] = None
+        self._firebase_app: firebase_app | None = None
         self._is_initialized = False
 
         self.device_tokens: LRUCache[str, DeviceToken] = LRUCache(maxsize=4096)
-        self.notification_channels: Dict[str, NotificationChannel] = {}
+        self.notification_channels: dict[str, NotificationChannel] = {}
 
-        self.message_handlers: List[Callable] = []
-        self.token_update_handlers: List[Callable] = []
-        self.error_handlers: List[Callable] = []
+        self.message_handlers: list[Callable] = []
+        self.token_update_handlers: list[Callable] = []
+        self.error_handlers: list[Callable] = []
 
     async def initialize(self) -> bool:
         """
@@ -435,7 +436,7 @@ class PushNotificationAdapter:
         """Load device tokens from storage"""
         try:
             if os.path.exists(self.token_storage_path):
-                with open(self.token_storage_path, "r") as f:
+                with open(self.token_storage_path) as f:
                     tokens_data = json.load(f)
                     for token_data in tokens_data:
                         token = DeviceToken.from_dict(token_data)
@@ -493,8 +494,8 @@ class PushNotificationAdapter:
         self,
         token: str,
         platform: Platform,
-        user_id: Optional[str] = None,
-        app_id: Optional[str] = None,
+        user_id: str | None = None,
+        app_id: str | None = None,
     ) -> bool:
         """
         Register a device token.
@@ -557,10 +558,10 @@ class PushNotificationAdapter:
         self,
         token: str,
         notification: PushNotification,
-        platform: Optional[Platform] = None,
-        android_config: Optional[AndroidConfig] = None,
-        apns_config: Optional[ApnsConfig] = None,
-        webpush_config: Optional[WebpushConfig] = None,
+        platform: Platform | None = None,
+        android_config: AndroidConfig | None = None,
+        apns_config: ApnsConfig | None = None,
+        webpush_config: WebpushConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """
@@ -613,10 +614,10 @@ class PushNotificationAdapter:
         self,
         user_id: str,
         notification: PushNotification,
-        platform: Optional[Platform] = None,
-        android_config: Optional[AndroidConfig] = None,
-        apns_config: Optional[ApnsConfig] = None,
-        webpush_config: Optional[WebpushConfig] = None,
+        platform: Platform | None = None,
+        android_config: AndroidConfig | None = None,
+        apns_config: ApnsConfig | None = None,
+        webpush_config: WebpushConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """
@@ -669,10 +670,10 @@ class PushNotificationAdapter:
     async def send_broadcast(
         self,
         notification: PushNotification,
-        topic: Optional[str] = None,
-        condition: Optional[str] = None,
-        android_config: Optional[AndroidConfig] = None,
-        apns_config: Optional[ApnsConfig] = None,
+        topic: str | None = None,
+        condition: str | None = None,
+        android_config: AndroidConfig | None = None,
+        apns_config: ApnsConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """
@@ -757,7 +758,7 @@ class PushNotificationAdapter:
         self,
         topic: str,
         notification: PushNotification,
-        android_config: Optional[AndroidConfig] = None,
+        android_config: AndroidConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """
@@ -801,7 +802,7 @@ class PushNotificationAdapter:
             logger.error("Send to topic failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
-    async def subscribe_to_topic(self, tokens: List[str], topic: str) -> bool:
+    async def subscribe_to_topic(self, tokens: list[str], topic: str) -> bool:
         """
         Subscribe devices to an FCM topic.
 
@@ -823,7 +824,7 @@ class PushNotificationAdapter:
             logger.error("Topic subscription failed: %s", e)
             return False
 
-    async def unsubscribe_from_topic(self, tokens: List[str], topic: str) -> bool:
+    async def unsubscribe_from_topic(self, tokens: list[str], topic: str) -> bool:
         """
         Unsubscribe devices from an FCM topic.
 
@@ -849,8 +850,8 @@ class PushNotificationAdapter:
         self,
         token: str,
         bundle_id: str,
-        topic: Optional[str] = None,
-        collapse_id: Optional[str] = None,
+        topic: str | None = None,
+        collapse_id: str | None = None,
     ) -> NotificationResult:
         """
         Send an APNS void (retract) notification.
@@ -889,7 +890,7 @@ class PushNotificationAdapter:
         self,
         token: str,
         notification: PushNotification,
-        config: Optional[AndroidConfig] = None,
+        config: AndroidConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """Send notification via FCM"""
@@ -940,7 +941,7 @@ class PushNotificationAdapter:
         self,
         token: str,
         notification: PushNotification,
-        config: Optional[ApnsConfig] = None,
+        config: ApnsConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """Send notification via APNS"""
@@ -983,7 +984,7 @@ class PushNotificationAdapter:
         self,
         token: str,
         notification: PushNotification,
-        config: Optional[WebpushConfig] = None,
+        config: WebpushConfig | None = None,
         dry_run: bool = False,
     ) -> NotificationResult:
         """Send notification via Web Push"""
@@ -1021,13 +1022,14 @@ class PushNotificationAdapter:
     async def _get_apns_jwt(self) -> str:
         """Generate APNS JWT token"""
         import time
+
         import jwt
 
         if not self.apns_key_path or not self.apns_key_id:
             return ""
 
         try:
-            with open(self.apns_key_path, "r") as f:
+            with open(self.apns_key_path) as f:
                 private_key = f.read()
         except Exception:
             return ""
@@ -1082,8 +1084,8 @@ class PushNotificationAdapter:
             return False
 
     async def get_active_tokens(
-        self, user_id: Optional[str] = None, platform: Optional[Platform] = None
-    ) -> List[DeviceToken]:
+        self, user_id: str | None = None, platform: Platform | None = None
+    ) -> list[DeviceToken]:
         """
         Get active device tokens.
 

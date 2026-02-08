@@ -9,9 +9,10 @@ import os
 import uuid
 
 logger = logging.getLogger(__name__)
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
 
 from core.resource_guard import LRUCache
 
@@ -42,7 +43,7 @@ except ImportError:
     SocketModeResponse = MagicMock()
 
 
-from adapters.messaging import PlatformMessage, MessageType, PlatformAdapter
+from adapters.messaging import MessageType, PlatformAdapter, PlatformMessage
 
 
 @dataclass
@@ -55,13 +56,13 @@ class SlackMessage:
     username: str
     text: str
     timestamp: datetime
-    thread_ts: Optional[str] = None
-    files: List[Dict[str, Any]] = field(default_factory=list)
-    reactions: List[Dict[str, Any]] = field(default_factory=list)
+    thread_ts: str | None = None
+    files: list[dict[str, Any]] = field(default_factory=list)
+    reactions: list[dict[str, Any]] = field(default_factory=list)
     is_dm: bool = False
 
     @classmethod
-    def from_event(cls, event: Dict[str, Any]) -> "SlackMessage":
+    def from_event(cls, event: dict[str, Any]) -> "SlackMessage":
         return cls(
             id=event.get("ts", ""),
             channel_id=event.get("channel", ""),
@@ -94,8 +95,8 @@ class SlackAdapter(PlatformAdapter):
         platform_name: str,
         server: Any,
         bot_token: str,
-        app_token: Optional[str] = None,
-        signing_secret: Optional[str] = None,
+        app_token: str | None = None,
+        signing_secret: str | None = None,
     ):
         """
         Initialize the Slack adapter.
@@ -113,16 +114,16 @@ class SlackAdapter(PlatformAdapter):
         self.signing_secret = signing_secret
 
         self.client = WebClient(token=bot_token)
-        self.socket_client: Optional[SocketModeClient] = None
+        self.socket_client: SocketModeClient | None = None
 
-        self.bot_user_id: Optional[str] = None
+        self.bot_user_id: str | None = None
         self.is_initialized = False
-        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
+        self.message_cache: LRUCache[str, dict[str, Any]] = LRUCache(maxsize=1024)
 
-        self.message_handlers: List[Callable] = []
-        self.reaction_handlers: List[Callable] = []
-        self.command_handlers: Dict[str, Callable] = {}
-        self.event_handlers: Dict[str, Callable] = {}
+        self.message_handlers: list[Callable] = []
+        self.reaction_handlers: list[Callable] = []
+        self.command_handlers: dict[str, Callable] = {}
+        self.event_handlers: dict[str, Callable] = {}
 
         self._setup_event_handlers()
 
@@ -199,7 +200,7 @@ class SlackAdapter(PlatformAdapter):
             response = SocketModeResponse(envelope_id=envelope_id)
             await asyncio.to_thread(self.socket_client.client.send_socket_mode_response, response)
 
-    async def _handle_event(self, event: Dict[str, Any]) -> None:
+    async def _handle_event(self, event: dict[str, Any]) -> None:
         """Handle Slack events"""
         event_type = event.get("type")
 
@@ -218,7 +219,7 @@ class SlackAdapter(PlatformAdapter):
             except Exception as e:
                 logger.error("[Slack] Event handler error: %s", e)
 
-    async def _handle_message_event(self, event: Dict[str, Any]) -> None:
+    async def _handle_message_event(self, event: dict[str, Any]) -> None:
         """Handle message events"""
         # Skip messages from the bot itself
         if event.get("user") == self.bot_user_id:
@@ -238,7 +239,7 @@ class SlackAdapter(PlatformAdapter):
             except Exception as e:
                 logger.error("[Slack] Message handler error: %s", e)
 
-    async def _handle_reaction_event(self, event: Dict[str, Any], action: str) -> None:
+    async def _handle_reaction_event(self, event: dict[str, Any], action: str) -> None:
         """Handle reaction events"""
         for handler in self.reaction_handlers:
             try:
@@ -248,7 +249,7 @@ class SlackAdapter(PlatformAdapter):
             except Exception as e:
                 logger.error("[Slack] Reaction handler error: %s", e)
 
-    async def _to_platform_message(self, event: Dict[str, Any]) -> PlatformMessage:
+    async def _to_platform_message(self, event: dict[str, Any]) -> PlatformMessage:
         """Convert Slack event to PlatformMessage"""
         text = event.get("text", "")
         msg_type = MessageType.TEXT
@@ -298,7 +299,7 @@ class SlackAdapter(PlatformAdapter):
             logger.warning("[Slack] Failed to look up username for %s: %s", user_id, e)
         return f"slack_user_{user_id}"
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         """Send text message to Slack channel."""
         try:
             kwargs = {
@@ -337,9 +338,9 @@ class SlackAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:
+    ) -> PlatformMessage | None:
         """Send media to Slack channel."""
         try:
             # Upload file first
@@ -377,12 +378,12 @@ class SlackAdapter(PlatformAdapter):
             return None
 
     async def send_document(
-        self, chat_id: str, document_path: str, caption: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+        self, chat_id: str, document_path: str, caption: str | None = None
+    ) -> PlatformMessage | None:
         """Send document to Slack channel."""
         return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
-    async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
+    async def download_media(self, message_id: str, save_path: str) -> str | None:
         """Download media from Slack message.
 
         Uses conversations.history to find the message, extracts the first
@@ -400,7 +401,7 @@ class SlackAdapter(PlatformAdapter):
                 return None
 
             for f in files_resp.get("files", []):
-                if f.get("id") == message_id or message_id in f.get("shares", {}).get("public", {}).keys():
+                if f.get("id") == message_id or message_id in f.get("shares", {}).get("public", {}):
                     download_url = f.get("url_private_download") or f.get("url_private")
                     if not download_url:
                         continue
@@ -495,7 +496,7 @@ class SlackAdapter(PlatformAdapter):
             logger.error("[Slack] Delete message error: %s", e)
             return False
 
-    async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
+    async def get_channel_info(self, channel_id: str) -> dict[str, Any] | None:
         """Get information about a channel"""
         try:
             response = await asyncio.to_thread(self.client.conversations_info, {"channel": channel_id})
@@ -518,7 +519,7 @@ class SlackAdapter(PlatformAdapter):
             logger.error("[Slack] Get channel info error: %s", e)
             return None
 
-    async def get_user_info(self, user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_info(self, user_id: str) -> dict[str, Any] | None:
         """Get information about a user"""
         try:
             response = await asyncio.to_thread(self.client.users_info, {"user": user_id})

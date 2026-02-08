@@ -1477,7 +1477,7 @@ def test_sanitize_output_empty(orchestrator):
 @pytest.mark.asyncio
 async def test_safe_create_task_runtime_error_fallback():
     """Lines 23-24: get_running_loop raises RuntimeError → falls back to get_event_loop."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1496,7 +1496,7 @@ async def test_safe_create_task_runtime_error_fallback():
 @pytest.mark.asyncio
 async def test_safe_create_task_set_name_success():
     """Lines 29-30: name provided → task.set_name(name) called successfully."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1510,7 +1510,7 @@ async def test_safe_create_task_set_name_success():
 @pytest.mark.asyncio
 async def test_safe_create_task_set_name_failure():
     """Lines 31-32: task.set_name raises → exception swallowed."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass
@@ -1533,7 +1533,7 @@ async def test_safe_create_task_set_name_failure():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_with_exception(caplog):
     """Lines 36-40: _on_done detects a task exception and logs it."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def fail():
         raise ValueError("boom")
@@ -1552,7 +1552,7 @@ async def test_safe_create_task_on_done_with_exception(caplog):
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_cancelled():
     """Lines 41-42: _on_done with CancelledError → swallowed silently."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def hang():
         await asyncio.sleep(999)
@@ -1570,8 +1570,8 @@ async def test_safe_create_task_on_done_cancelled():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_discard_fails():
     """Lines 48-49: _orchestrator_tasks.discard raises → swallowed."""
-    from core.orchestrator import _safe_create_task
-    import core.orchestrator as orch_mod
+    from core.task_utils import safe_create_task as _safe_create_task
+    import core.task_utils as task_utils_mod
 
     async def noop():
         pass
@@ -1581,9 +1581,9 @@ async def test_safe_create_task_on_done_discard_fails():
         def discard(self, elem):
             raise TypeError("bad discard")
 
-    original_tasks = orch_mod._orchestrator_tasks
+    original_tasks = task_utils_mod._tracked_tasks
     broken = BrokenSet(original_tasks)
-    with patch.object(orch_mod, "_orchestrator_tasks", broken):
+    with patch.object(task_utils_mod, "_tracked_tasks", broken):
         task = _safe_create_task(noop(), name="discard-fail")
         await task
         await asyncio.sleep(0.05)
@@ -2212,7 +2212,7 @@ async def test_shutdown_closes_underlying_coroutine_for_mock_task(orchestrator):
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_non_cancelled_exception():
     """Lines 43-44: t.exception() raises non-CancelledError -> prints error."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def failing_task():
         raise ValueError("something went wrong")
@@ -2225,7 +2225,7 @@ async def test_safe_create_task_on_done_non_cancelled_exception():
 @pytest.mark.asyncio
 async def test_safe_create_task_on_done_callback_error():
     """Lines 43-44: t.exception() itself raises a non-CancelledError."""
-    from core.orchestrator import _safe_create_task, _orchestrator_tasks
+    from core.task_utils import safe_create_task as _safe_create_task, _tracked_tasks as _orchestrator_tasks
 
     async def simple_task():
         return "done"
@@ -3182,7 +3182,7 @@ class TestOrchestratorCoverage:
 @pytest.mark.asyncio
 async def test_on_done_exception_from_task_exception_call():
     """Lines 43-44: t.exception() raises non-CancelledError -> prints error."""
-    from core.orchestrator import _safe_create_task
+    from core.task_utils import safe_create_task as _safe_create_task
 
     async def noop():
         pass

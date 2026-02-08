@@ -14,12 +14,11 @@ from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, WebSocket, Request, Query, Response  # type: ignore
+from fastapi import FastAPI, Query, Request, Response, WebSocket  # type: ignore
 from fastapi.responses import JSONResponse  # type: ignore
 from starlette.middleware.cors import CORSMiddleware  # type: ignore
 
 from core.config import load_config
-
 
 # ---------------------------------------------------------------------------
 # Module-level config (orchestrator lives in core.orchestrator ONLY)
@@ -61,10 +60,9 @@ async def lifespan(app: FastAPI):
     )
 
     # Startup
-    if not skip_startup:
-        if not orch_mod.orchestrator:  # pragma: no cover
-            orch_mod.orchestrator = orch_mod.MegaBotOrchestrator(config)
-            await orch_mod.orchestrator.start()
+    if not skip_startup and not orch_mod.orchestrator:  # pragma: no cover
+        orch_mod.orchestrator = orch_mod.MegaBotOrchestrator(config)
+        await orch_mod.orchestrator.start()
 
     yield
 
@@ -106,8 +104,8 @@ def _validate_twilio_signature(request: Request, form_data: dict) -> bool:
     If TWILIO_AUTH_TOKEN is not set, rejects all requests (fail-closed).
     """
     import base64
-    import hmac
     import hashlib
+    import hmac
 
     auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
     if not auth_token:

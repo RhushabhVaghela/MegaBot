@@ -1,10 +1,10 @@
 import asyncio
-import sqlite3
-import os
-import zlib
 import logging
-from typing import Optional
+import os
+import sqlite3
+import zlib
 from datetime import datetime
+
 from cryptography.fernet import Fernet  # type: ignore
 
 logger = logging.getLogger("megabot.memory.backup")
@@ -18,7 +18,7 @@ class MemoryBackupManager:
     blocked.
     """
 
-    def __init__(self, db_path: str, backup_dir: Optional[str] = None):
+    def __init__(self, db_path: str, backup_dir: str | None = None):
         self.db_path = db_path
         self.backup_dir = backup_dir or os.path.join(os.path.dirname(db_path), "backups")
         os.makedirs(self.backup_dir, exist_ok=True)
@@ -27,7 +27,7 @@ class MemoryBackupManager:
     # Sync helpers (run inside worker threads)
     # ------------------------------------------------------------------
 
-    def _create_backup_sync(self, encryption_key: Optional[str] = None) -> str:
+    def _create_backup_sync(self, encryption_key: str | None = None) -> str:
         """Blocking implementation of backup creation."""
         temp_db = f"{self.db_path}.tmp"
         try:
@@ -72,7 +72,7 @@ class MemoryBackupManager:
                 except OSError as e:
                     logger.debug("Failed to remove temp DB %s during backup cleanup: %s", temp_db, e)
 
-    def _restore_backup_sync(self, backup_file: str, encryption_key: Optional[str] = None) -> str:
+    def _restore_backup_sync(self, backup_file: str, encryption_key: str | None = None) -> str:
         """Blocking implementation of backup restore."""
         temp_db = f"{self.db_path}.restored"
         try:
@@ -192,11 +192,11 @@ class MemoryBackupManager:
     # Async public API (offloads to worker thread)
     # ------------------------------------------------------------------
 
-    async def create_backup(self, encryption_key: Optional[str] = None) -> str:
+    async def create_backup(self, encryption_key: str | None = None) -> str:
         """Create a compressed and encrypted backup of the memory database."""
         return await asyncio.to_thread(self._create_backup_sync, encryption_key)
 
-    async def restore_backup(self, backup_file: str, encryption_key: Optional[str] = None) -> str:
+    async def restore_backup(self, backup_file: str, encryption_key: str | None = None) -> str:
         """Restore database from an encrypted backup."""
         return await asyncio.to_thread(self._restore_backup_sync, backup_file, encryption_key)
 

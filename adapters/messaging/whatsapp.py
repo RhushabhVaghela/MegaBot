@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import uuid
-import asyncio
-from typing import Any, Dict, List, Optional
-from .server import PlatformAdapter, PlatformMessage, MessageType
+from typing import Any
 
 from core.resource_guard import LRUCache
+
+from .server import MessageType, PlatformAdapter, PlatformMessage
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class WhatsAppAdapter(PlatformAdapter):
     GRAPH_API_VERSION = "v17.0"
     GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
-    def __init__(self, platform_name: str, server: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, platform_name: str, server: Any, config: dict[str, Any] | None = None):
         super().__init__(platform_name, server)
         self.config = config or {}
         self.phone_number_id = self.config.get("phone_number_id", "")
@@ -117,10 +118,10 @@ class WhatsAppAdapter(PlatformAdapter):
         self,
         chat_id: str,
         text: str,
-        reply_to: Optional[str] = None,
+        reply_to: str | None = None,
         markup: bool = False,
         preview_url: bool = True,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send text message via OpenClaw or Business API."""
         try:
             content = self._format_text(text, markup=markup)
@@ -163,9 +164,9 @@ class WhatsAppAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send media message via OpenClaw or Business API."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -212,13 +213,13 @@ class WhatsAppAdapter(PlatformAdapter):
             return None
 
     async def send_document(
-        self, chat_id: str, document_path: str, caption: Optional[str] = None
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+        self, chat_id: str, document_path: str, caption: str | None = None
+    ) -> PlatformMessage | None:  # pragma: no cover
         return await self.send_media(chat_id, document_path, caption, MessageType.DOCUMENT)
 
     async def send_location(
         self, chat_id: str, latitude: float, longitude: float, **kwargs
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send location message."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -278,8 +279,8 @@ class WhatsAppAdapter(PlatformAdapter):
             return None
 
     async def send_contact(
-        self, chat_id: str, contact_info: Dict[str, Any]
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+        self, chat_id: str, contact_info: dict[str, Any]
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send contact card."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -324,7 +325,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
     async def send_template(
         self, chat_id: str, template_name: str, **kwargs
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send template message."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -368,9 +369,9 @@ class WhatsAppAdapter(PlatformAdapter):
         chat_id: str,
         title: str,
         body: str,
-        buttons: Optional[List[Dict[str, str]]] = None,
+        buttons: list[dict[str, str]] | None = None,
         **kwargs,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send interactive message with notification styling."""
         try:
             # Create a formatted message with notification styling
@@ -407,8 +408,8 @@ class WhatsAppAdapter(PlatformAdapter):
         header: str,
         body: str,
         button_text: str,
-        sections: List[Dict[str, Any]],
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+        sections: list[dict[str, Any]],
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send interactive list message."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -449,8 +450,8 @@ class WhatsAppAdapter(PlatformAdapter):
             return None
 
     async def send_reply_buttons(
-        self, chat_id: str, text: str, buttons: List[Dict[str, str]], **kwargs
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+        self, chat_id: str, text: str, buttons: list[dict[str, str]], **kwargs
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send reply buttons message."""
         try:
             msg_id = f"wa_{uuid.uuid4().hex[:16]}"
@@ -502,10 +503,10 @@ class WhatsAppAdapter(PlatformAdapter):
         chat_id: str,
         order_id: str,
         order_status: str,
-        items: List[Dict[str, Any]],
+        items: list[dict[str, Any]],
         total: str,
         **kwargs,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send order notification."""
         try:
             status_emoji = {
@@ -544,7 +545,7 @@ class WhatsAppAdapter(PlatformAdapter):
         status: str,
         description: str,
         **kwargs,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send payment notification."""
         try:
             config = {
@@ -573,11 +574,11 @@ class WhatsAppAdapter(PlatformAdapter):
         appointment_id: str,
         service_name: str,
         datetime_str: str,
-        location: Optional[str] = None,
-        provider_name: Optional[str] = None,
+        location: str | None = None,
+        provider_name: str | None = None,
         confirmation_buttons: bool = False,
         **kwargs,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send appointment reminder."""
         try:
             content = f"📅 *Appointment Reminder*\n\nService: {service_name}\nDate/Time: {datetime_str}"
@@ -599,7 +600,7 @@ class WhatsAppAdapter(PlatformAdapter):
             logger.error("send_appointment_reminder error: %s", e)
             return None
 
-    async def create_group(self, group_name: str, participants: List[str]) -> Optional[str]:
+    async def create_group(self, group_name: str, participants: list[str]) -> str | None:
         """Create a WhatsApp group. Note: Requires WhatsApp Business API with appropriate permissions."""
         try:
             if self._use_openclaw and self._openclaw:
@@ -629,7 +630,7 @@ class WhatsAppAdapter(PlatformAdapter):
         except Exception:
             return False
 
-    async def get_message_status(self, msg_id: str) -> Optional[Dict]:
+    async def get_message_status(self, msg_id: str) -> dict | None:
         """Get message delivery status."""
         try:
             if self.is_initialized and self.session:
@@ -640,7 +641,7 @@ class WhatsAppAdapter(PlatformAdapter):
         except Exception:
             return {"status": "unknown"}
 
-    async def handle_webhook(self, data: Dict) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, data: dict) -> PlatformMessage | None:
         """Handle incoming webhook from WhatsApp."""
         if not data or not data.get("entry"):
             return None
@@ -709,7 +710,7 @@ class WhatsAppAdapter(PlatformAdapter):
             logger.error("handle_webhook error: %s", e)
             return None
 
-    async def _send_with_retry(self, payload: Dict) -> Optional[Dict]:
+    async def _send_with_retry(self, payload: dict) -> dict | None:
         """Send message with retry logic for direct API."""
         if not self.session:
             return None
@@ -737,7 +738,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
     async def _send_via_openclaw(
         self, chat_id: str, content: str, msg_type: str
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send message via OpenClaw (WhatsApp Web)."""
         try:
             if not self._openclaw:
@@ -768,9 +769,9 @@ class WhatsAppAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str],
+        caption: str | None,
         media_type: MessageType,
-    ) -> Optional[PlatformMessage]:  # pragma: no cover
+    ) -> PlatformMessage | None:  # pragma: no cover
         """Send media via OpenClaw."""
         try:
             if not self._openclaw:
@@ -803,14 +804,15 @@ class WhatsAppAdapter(PlatformAdapter):
             logger.error("OpenClaw media send error: %s", e)
             return None
 
-    async def _upload_media(self, file_path: str, media_type: MessageType) -> Optional[str]:
+    async def _upload_media(self, file_path: str, media_type: MessageType) -> str | None:
         """Upload media to WhatsApp servers."""
         if not self.session:
             return None
         try:
-            import aiohttp
             import mimetypes
             import os
+
+            import aiohttp
 
             if not os.path.exists(file_path):
                 logger.error("Media file not found: %s", file_path)

@@ -1,20 +1,22 @@
 import asyncio
-import logging
-import websockets  # type: ignore
-import json
-import os
-import re
 import base64
 import hashlib
+import json
+import logging
+import os
+import re
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
+from typing import Any
+
+import aiofiles
+import websockets  # type: ignore
 from cryptography.fernet import Fernet  # type: ignore
 from cryptography.hazmat.primitives import hashes  # type: ignore
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # type: ignore
-import aiofiles
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +40,10 @@ class MediaAttachment:
     mime_type: str
     size: int
     data: bytes = field(repr=False)
-    caption: Optional[str] = None
-    thumbnail: Optional[bytes] = field(default=None, repr=False)
+    caption: str | None = None
+    thumbnail: bytes | None = field(default=None, repr=False)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "type": self.type.value,
             "filename": self.filename,
@@ -53,7 +55,7 @@ class MediaAttachment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "MediaAttachment":
+    def from_dict(cls, data: dict) -> "MediaAttachment":
         return cls(
             type=MessageType(data["type"]),
             filename=data["filename"],
@@ -72,16 +74,16 @@ class PlatformMessage:
     sender_id: str
     sender_name: str
     chat_id: str
-    chat_name: Optional[str] = None
+    chat_name: str | None = None
     content: str = ""
     message_type: MessageType = MessageType.TEXT
-    attachments: List[MediaAttachment] = field(default_factory=list)
+    attachments: list[MediaAttachment] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
-    reply_to: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    reply_to: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     is_encrypted: bool = False
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "platform": self.platform,
@@ -102,7 +104,7 @@ class PlatformMessage:
 class SecureWebSocket:
     password: str  # Always set after __init__ (or ValueError is raised)
 
-    def __init__(self, password: Optional[str] = None):
+    def __init__(self, password: str | None = None):
         resolved = password or os.environ.get("MEGABOT_WS_PASSWORD")
         if not resolved:
             raise ValueError(
@@ -143,7 +145,7 @@ class PlatformAdapter:
         self.platform_name = platform_name
         self.server = server
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         return PlatformMessage(
             id=str(uuid.uuid4()),
             platform=self.platform_name,
@@ -158,17 +160,17 @@ class PlatformAdapter:
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:
+    ) -> PlatformMessage | None:
         return None
 
     async def send_document(
-        self, chat_id: str, document_path: str, caption: Optional[str] = None
-    ) -> Optional[PlatformMessage]:
+        self, chat_id: str, document_path: str, caption: str | None = None
+    ) -> PlatformMessage | None:
         return None
 
-    async def download_media(self, message_id: str, save_path: str) -> Optional[str]:
+    async def download_media(self, message_id: str, save_path: str) -> str | None:
         return None
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
@@ -181,10 +183,10 @@ class MegaBotMessagingServer:
         self.host = host
         self.port = port
         self.enable_encryption = enable_encryption
-        self.clients: Dict[str, Any] = {}
-        self.platform_adapters: Dict[str, PlatformAdapter] = {}
-        self.message_handlers: List[Callable[[PlatformMessage], Any]] = []
-        self.on_connect: Optional[Callable[[str, str], Awaitable[None]]] = None
+        self.clients: dict[str, Any] = {}
+        self.platform_adapters: dict[str, PlatformAdapter] = {}
+        self.message_handlers: list[Callable[[PlatformMessage], Any]] = []
+        self.on_connect: Callable[[str, str], Awaitable[None]] | None = None
         self.secure_ws = SecureWebSocket() if enable_encryption else None
         self.media_storage_path = os.environ.get("MEGABOT_MEDIA_PATH", "./media")
         os.makedirs(self.media_storage_path, exist_ok=True)
@@ -229,7 +231,7 @@ class MegaBotMessagingServer:
         """Signal the server to stop accepting connections and shut down."""
         self._shutdown_event.set()
 
-    async def send_message(self, message: PlatformMessage, target_client: Optional[str] = None):
+    async def send_message(self, message: PlatformMessage, target_client: str | None = None):
         data = json.dumps(message.to_dict())
         if self.enable_encryption and self.secure_ws:
             data = self.secure_ws.encrypt(data)
@@ -286,7 +288,7 @@ class MegaBotMessagingServer:
         except Exception as e:
             logger.error("Error processing message from %s: %s", client_id, e)
 
-    async def _handle_platform_message(self, data: Dict):
+    async def _handle_platform_message(self, data: dict):
         message = PlatformMessage(
             id=data.get("id", str(uuid.uuid4())),
             platform=data.get("platform", "native"),
@@ -323,11 +325,11 @@ class MegaBotMessagingServer:
             except Exception as e:
                 logger.warning("Message handler error (from adapter): %s", e)
 
-    async def _handle_media_upload(self, data: Dict):
+    async def _handle_media_upload(self, data: dict):
         attachment = MediaAttachment.from_dict(data["attachment"])
         await self._save_media(attachment)
 
-    async def _handle_platform_connect(self, data: Dict):
+    async def _handle_platform_connect(self, data: dict):
         platform = str(data.get("platform", "unknown"))
         logger.info("Platform connection request: %s", platform)
         if platform == "telegram":
@@ -418,7 +420,7 @@ class MegaBotMessagingServer:
         if self.on_connect:
             await self.on_connect("", platform)
 
-    async def _handle_command(self, data: Dict):
+    async def _handle_command(self, data: dict):
         command = data.get("command")
         args = data.get("args", [])
         logger.info("Command: %s with args: %s", command, args)

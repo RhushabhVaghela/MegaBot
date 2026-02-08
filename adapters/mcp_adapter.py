@@ -2,19 +2,20 @@ import asyncio
 import json
 import logging
 import subprocess
-from typing import Any, List, Dict, Optional
+from typing import Any
+
 from core.interfaces import ToolInterface
 
 logger = logging.getLogger(__name__)
 
 
 class MCPAdapter(ToolInterface):
-    def __init__(self, server_config: Dict[str, Any]):
+    def __init__(self, server_config: dict[str, Any]):
         self.name = server_config["name"]
         self.command = server_config["command"]
         self.args = server_config.get("args", [])
         self.process = None
-        self.tools: List[Dict[str, Any]] = []
+        self.tools: list[dict[str, Any]] = []
         self._request_id = 0
 
     async def start(self):
@@ -56,21 +57,21 @@ class MCPAdapter(ToolInterface):
 
 
 class MCPManager:
-    def __init__(self, configs: List[Dict[str, Any]]):
+    def __init__(self, configs: list[dict[str, Any]]):
         self.servers = {cfg["name"]: MCPAdapter(cfg) for cfg in configs}
 
     async def start_all(self):
         for server in self.servers.values():
             await server.start()
 
-    def find_server_for_tool(self, tool_name: str) -> Optional[str]:
+    def find_server_for_tool(self, tool_name: str) -> str | None:
         """Find which MCP server provides the specified tool"""
         for server_name, adapter in self.servers.items():
             if any(t["name"] == tool_name for t in adapter.tools):
                 return server_name
         return None
 
-    async def call_tool(self, server_name: Optional[str], tool_name: str, params: Dict[str, Any]):
+    async def call_tool(self, server_name: str | None, tool_name: str, params: dict[str, Any]):
         if not server_name:
             server_name = self.find_server_for_tool(tool_name)
 

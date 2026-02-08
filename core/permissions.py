@@ -1,6 +1,5 @@
 import logging
 from enum import Enum
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class PermissionManager:
         except ValueError:
             self.default_level = PermissionLevel.ASK_EACH
 
-        self.overrides: Dict[str, PermissionLevel] = {}
+        self.overrides: dict[str, PermissionLevel] = {}
 
     def set_policy(self, scope: str, level: str):
         """Set a policy for a specific scope."""
@@ -67,7 +66,7 @@ class PermissionManager:
 
         return self.default_level
 
-    def is_authorized(self, scope: str) -> Optional[bool]:
+    def is_authorized(self, scope: str) -> bool | None:
         """
         Returns:
             True if AUTO
@@ -81,7 +80,7 @@ class PermissionManager:
             return False
         return None  # ASK_EACH
 
-    def load_from_config(self, config_dict: Dict):
+    def load_from_config(self, config_dict: dict):
         """Load policies from a configuration dictionary."""
         policies = config_dict.get("policies", {})
 

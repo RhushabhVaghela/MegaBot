@@ -17,10 +17,10 @@ IMPORTANT LIMITATIONS:
 
 import asyncio
 import logging
-import subprocess
 import platform
+import subprocess
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .server import PlatformAdapter, PlatformMessage
 
@@ -43,7 +43,7 @@ class IMessageAdapter(PlatformAdapter):
     for full list of limitations.
     """
 
-    def __init__(self, platform_name: str, server: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, platform_name: str, server: Any, config: dict[str, Any] | None = None):
         super().__init__(platform_name, server)
         self.config = config or {}
         self.is_macos = platform.system() == "Darwin"
@@ -55,7 +55,7 @@ class IMessageAdapter(PlatformAdapter):
                 platform.system(),
             )
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         """
         Send a text message via iMessage (macOS only).
 
@@ -123,8 +123,8 @@ class IMessageAdapter(PlatformAdapter):
         chat_id: str,
         media_url: str,
         media_type: str = "image",
-        caption: Optional[str] = None,
-    ) -> Optional[PlatformMessage]:
+        caption: str | None = None,
+    ) -> PlatformMessage | None:
         """
         Send media via iMessage.
 
@@ -146,7 +146,7 @@ class IMessageAdapter(PlatformAdapter):
         )
         return None
 
-    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, webhook_data: dict[str, Any]) -> PlatformMessage | None:
         """
         Handle incoming webhook data.
 

@@ -8,12 +8,13 @@ approval, and action approval/rejection workflows.
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket  # type: ignore
 
 from core.interfaces import Message
-from core.task_utils import safe_create_task as _safe_create_task, sanitize_action
+from core.task_utils import safe_create_task as _safe_create_task
+from core.task_utils import sanitize_action
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
@@ -91,7 +92,7 @@ async def handle_client(orchestrator: "MegaBotOrchestrator", websocket: WebSocke
 
 async def _handle_message(
     orchestrator: "MegaBotOrchestrator",
-    msg_data: Dict[str, Any],
+    msg_data: dict[str, Any],
     websocket: WebSocket,
 ) -> None:
     """Process an incoming 'message' type WebSocket payload."""
@@ -108,7 +109,7 @@ async def _handle_message(
 
 async def _handle_command(
     orchestrator: "MegaBotOrchestrator",
-    msg_data: Dict[str, Any],
+    msg_data: dict[str, Any],
     websocket: WebSocket,
 ) -> None:
     """Queue a shell command for approval."""

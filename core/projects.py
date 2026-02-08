@@ -1,6 +1,6 @@
 import shutil
 from pathlib import Path
-from typing import Optional
+
 
 class ProjectContext:
     def __init__(self, name: str, base_path: str):
@@ -33,7 +33,7 @@ class ProjectContext:
 class ProjectManager:
     def __init__(self, base_path: str):
         self.base_path = base_path
-        self.current_project: Optional[ProjectContext] = None
+        self.current_project: ProjectContext | None = None
 
     def create_project(self, name: str) -> ProjectContext:
         """Create a new project workspace"""

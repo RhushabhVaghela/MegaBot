@@ -7,15 +7,14 @@ proactive memory-lesson injection helper that both build paths depend on.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
 from core.interfaces import Message
-from core.resource_guard import can_allocate, InsufficientResourcesError
-from core.task_utils import safe_create_task as _safe_create_task
+from core.resource_guard import can_allocate
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
@@ -47,7 +46,7 @@ async def get_relevant_lessons(orchestrator: "MegaBotOrchestrator", prompt: str)
         )
         keywords = [k.strip() for k in str(keywords_raw).split(",") if k.strip()]
 
-        all_lessons: List[Dict[str, Any]] = []
+        all_lessons: list[dict[str, Any]] = []
         seen_content: set = set()
 
         direct_search = await orchestrator.memory.memory_search(query=prompt, type="learned_lesson", limit=5)
@@ -99,7 +98,7 @@ async def get_relevant_lessons(orchestrator: "MegaBotOrchestrator", prompt: str)
 async def run_autonomous_gateway_build(
     orchestrator: "MegaBotOrchestrator",
     message: Message,
-    original_data: Dict,
+    original_data: dict,
 ) -> None:
     """Autonomous build for gateway clients (relays back to gateway instead of UI websocket).
 
@@ -234,7 +233,7 @@ async def run_autonomous_build(
         },
     ]
 
-    messages: List[Dict[str, Any]] = [{"role": "user", "content": message.content}]
+    messages: list[dict[str, Any]] = [{"role": "user", "content": message.content}]
     max_steps = 10
 
     project = orchestrator.project_manager.current_project
@@ -267,9 +266,9 @@ async def run_autonomous_build(
                             loop = asyncio.get_running_loop()
                             future = loop.create_future()
 
-                            def on_executed(result):
-                                if not future.done():
-                                    future.set_result(result)
+                            def on_executed(result, _future=future):
+                                if not _future.done():
+                                    _future.set_result(result)
 
                             await orchestrator._handle_computer_tool(
                                 tool_input,

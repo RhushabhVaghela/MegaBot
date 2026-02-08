@@ -512,7 +512,7 @@ class TestAsyncDiscoveryScan:
 
                         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
                             # Patch safe_create_task to avoid actually starting tasks
-                            with patch("core.orchestrator._safe_create_task"):
+                            with patch("core.task_utils.safe_create_task"):
                                 await orc.start()
 
                             mock_to_thread.assert_called_once_with(mock_scan)

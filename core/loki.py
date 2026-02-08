@@ -1,11 +1,11 @@
 import asyncio
+import json
 import logging
 import re
-import json
 from datetime import datetime
-from typing import List, Dict
+
 from core.agents import SubAgent
-from core.resource_guard import can_allocate, InsufficientResourcesError
+from core.resource_guard import can_allocate
 from core.task_utils import safe_create_task
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ Instructions:
         )
         return str(distilled)
 
-    async def _run_parallel_review(self, code_results: List[str], memory_context: str = "") -> str:
+    async def _run_parallel_review(self, code_results: list[str], memory_context: str = "") -> str:
         """Spawn 3 specialized reviewers to critique the implementation"""
         logger.info("Starting Parallel Code Review...")
         reviewers = [
@@ -183,7 +183,7 @@ Instructions:
         reviews = await asyncio.gather(*coroutines)
         return "\n--- Combined Review ---\n" + "\n".join(reviews)
 
-    async def _debate_memory_conflict(self, review_summary: str, impl_results: List[str], memory_context: str) -> bool:
+    async def _debate_memory_conflict(self, review_summary: str, impl_results: list[str], memory_context: str) -> bool:
         """Mediate between a detected conflict and a potentially superior new implementation."""
         logger.info("Starting Conflict Mediation (The Debate)...")
 
@@ -227,7 +227,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             return True  # No remediation needed
         return False  # Remediation needed
 
-    async def _save_loki_macro(self, prd: str, tasks: List[Dict], results: List[str], status: str):
+    async def _save_loki_macro(self, prd: str, tasks: list[dict], results: list[str], status: str):
         """Save the entire execution as a reproducible macro in memU"""
         logger.info("Saving Loki Macro to Memory...")
         macro = {
@@ -246,7 +246,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             }
         )
 
-    async def _decompose_prd(self, prd: str, memory_context: str = "") -> List[Dict]:
+    async def _decompose_prd(self, prd: str, memory_context: str = "") -> list[dict]:
         """Convert PRD into actionable sub-tasks"""
         prompt = f"Decompose this PRD into specific, independent technical tasks:\n{prd}\n"
         if memory_context:
@@ -273,7 +273,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             }
         ]
 
-    async def _execute_parallel_tasks(self, tasks: List[Dict], memory_context: str = ""):
+    async def _execute_parallel_tasks(self, tasks: list[dict], memory_context: str = ""):
         """Run sub-agents in parallel"""
         from core.agents import SubAgent
 
@@ -311,7 +311,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
         return await asyncio.gather(*coroutines)
 
-    async def _run_security_audit(self, results: List[str], memory_context: str = "") -> str:
+    async def _run_security_audit(self, results: list[str], memory_context: str = "") -> str:
         """Specialized security review pass using Tirith Guard logic"""
         logger.info("Running Security Audit...")
         from adapters.security.tirith_guard import guard as tirith

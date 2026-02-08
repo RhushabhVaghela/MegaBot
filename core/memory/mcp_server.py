@@ -1,13 +1,13 @@
+import logging
 import os
 import sqlite3
-import logging
-from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
-from .chat_memory import ChatMemoryManager
-from .user_identity import UserIdentityManager
-from .knowledge_memory import KnowledgeMemoryManager
 from .backup_manager import MemoryBackupManager
+from .chat_memory import ChatMemoryManager
+from .knowledge_memory import KnowledgeMemoryManager
+from .user_identity import UserIdentityManager
 
 logger = logging.getLogger("megabot.memory")
 
@@ -22,7 +22,7 @@ class MemoryServer:
     Now uses modular components for better maintainability.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             # Store in the project root by default
             db_path = os.path.join(os.getcwd(), "megabot_memory.db")
@@ -91,12 +91,12 @@ class MemoryServer:
         platform: str,
         role: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Store a message in the chat history."""
         return await self.chat_memory.write(chat_id, platform, role, content, metadata)
 
-    async def chat_read(self, chat_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def chat_read(self, chat_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Retrieve recent chat history for a specific context."""
         return await self.chat_memory.read(chat_id, limit)
 
@@ -104,7 +104,7 @@ class MemoryServer:
         """Clean up old chat history for a specific chat_id."""
         return await self.chat_memory.forget(chat_id, max_history)
 
-    async def get_all_chat_ids(self) -> List[str]:
+    async def get_all_chat_ids(self) -> list[str]:
         """Retrieve all unique chat_ids from history."""
         return await self.chat_memory.get_all_chat_ids()
 
@@ -118,32 +118,32 @@ class MemoryServer:
         return await self.user_identity.get_unified_id(platform, platform_id)
 
     # Knowledge Memory Methods (delegated to KnowledgeMemoryManager)
-    async def memory_write(self, key: str, type: str, content: str, tags: Optional[List[str]] = None) -> str:
+    async def memory_write(self, key: str, type: str, content: str, tags: list[str] | None = None) -> str:
         """Record new knowledge or decisions."""
         return await self.knowledge_memory.write(key, type, content, tags)
 
-    async def memory_read(self, key: str) -> Optional[Dict[str, Any]]:
+    async def memory_read(self, key: str) -> dict[str, Any] | None:
         """Retrieve specific memory content by key."""
         return await self.knowledge_memory.read(key)
 
     async def memory_search(
         self,
-        query: Optional[str] = None,
-        type: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        limit: Optional[int] = None,
+        query: str | None = None,
+        type: str | None = None,
+        tags: list[str] | None = None,
+        limit: int | None = None,
         order_by: str = "updated_at DESC",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for memories by query, type, or tags."""
         return await self.knowledge_memory.search(query, type, tags, limit, order_by)
 
     # Backup Methods (delegated to MemoryBackupManager)
-    async def backup_database(self, encryption_key: Optional[str] = None) -> str:
+    async def backup_database(self, encryption_key: str | None = None) -> str:
         """Create a compressed and encrypted backup of the memory database."""
         return await self.backup_manager.create_backup(encryption_key)
 
     # Stats Methods (aggregated from all managers)
-    async def memory_stats(self) -> Dict[str, Any]:
+    async def memory_stats(self) -> dict[str, Any]:
         """View analytics on memory usage across all components."""
         try:
             chat_stats = await self.chat_memory.get_aggregate_stats()
@@ -162,7 +162,7 @@ class MemoryServer:
             return {"error": str(e)}
 
     # MCP Tool Dispatcher (updated to delegate to managers)
-    async def handle_tool_call(self, name: str, arguments: Dict[str, Any]) -> Any:
+    async def handle_tool_call(self, name: str, arguments: dict[str, Any]) -> Any:
         """Dispatcher for MCP-style tool calls."""
         # Chat memory tools
         if name == "chat_write":

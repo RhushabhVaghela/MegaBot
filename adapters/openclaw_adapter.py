@@ -1,18 +1,20 @@
 import asyncio
-import logging
-import websockets
 import json
-import uuid
+import logging
 import os
-from typing import Any, Optional
-from core.interfaces import MessagingInterface, Message
+import uuid
+from typing import Any
+
+import websockets
+
+from core.interfaces import Message, MessagingInterface
 from core.resource_guard import LRUCache
 
 logger = logging.getLogger(__name__)
 
 
 class OpenClawAdapter(MessagingInterface):
-    def __init__(self, host: str, port: int, auth_token: Optional[str] = None):
+    def __init__(self, host: str, port: int, auth_token: str | None = None):
         self.uri = f"wss://{host}:{port}"
         self.websocket = None
         self.on_event = None

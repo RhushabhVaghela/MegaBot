@@ -1,7 +1,7 @@
-import time
 import functools
-import logging
 import json
+import logging
+import time
 
 logger = logging.getLogger("megabot.instrumentation")
 

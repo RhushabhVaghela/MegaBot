@@ -3,8 +3,8 @@
 Adapters for integrating MegaBot with various messaging platforms and external services.
 """
 
-from .unified_gateway import UnifiedGateway, ConnectionType, ClientConnection
-from .messaging import MegaBotMessagingServer, PlatformMessage, MessageType
+from .messaging import MegaBotMessagingServer, MessageType, PlatformMessage
+from .unified_gateway import ClientConnection, ConnectionType, UnifiedGateway
 
 __all__ = [
     "UnifiedGateway",

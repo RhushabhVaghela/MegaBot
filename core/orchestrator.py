@@ -14,76 +14,72 @@ is re-exported at the bottom of this file so that existing import sites
 (``from core.orchestrator import app, health, ...``) continue to work.
 """
 
+import json
 import logging
 import os
-import sys
-import json
 import re
-from typing import Any, Dict, Optional, List
+import sys
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
-
-# Defensive task scheduling: centralised in core.task_utils so that
-# every module can import the same helper without circular deps.
-from core.task_utils import (
-    safe_create_task as _safe_create_task,
-    _tracked_tasks as _orchestrator_tasks,
-    sanitize_action as _sanitize_action,
-    sanitize_queue as _sanitize_queue,
-)  # noqa: F401
-
-
 from core.dependencies import (
-    register_service,
     register_factory,
+    register_service,
     register_singleton,
     resolve_service,
 )
 
+# Defensive task scheduling: centralised in core.task_utils so that
+# every module can import the same helper without circular deps.
+from core.task_utils import (
+    sanitize_action as _sanitize_action,
+)
+from core.task_utils import (
+    sanitize_queue as _sanitize_queue,
+)
 
 # Re-export for backward compat (websocket_handler etc. cannot import
 # directly from orchestrator without circular deps).
 _sanitize_action_compat = _sanitize_action
 
 
-from core.discovery import ModuleDiscovery
-from core.config import load_config, Config, AdapterConfig
-from core.interfaces import Message
-from core.llm_providers import get_llm_provider, LLMProvider
-from core.drivers import ComputerDriver
-from core.projects import ProjectManager
-from core.secrets import SecretManager
-from core.rag.pageindex import PageIndexRAG
-from core.loki import LokiMode
-from core.resource_guard import ResourceGuard
-from core.permissions import PermissionManager
-from core.memory.mcp_server import MemoryServer
-from adapters.openclaw_adapter import OpenClawAdapter
-from adapters.memu_adapter import MemUAdapter
 from adapters.mcp_adapter import MCPManager
+from adapters.memu_adapter import MemUAdapter
 from adapters.messaging import MegaBotMessagingServer
+from adapters.openclaw_adapter import OpenClawAdapter
 from adapters.unified_gateway import UnifiedGateway
-from adapters.security.tirith_guard import guard as tirith
-
-# Import extracted components
-from core.orchestrator_components import MessageHandler, HealthMonitor, BackgroundTasks
-from core.admin_handler import AdminHandler
-from core.message_router import MessageRouter
-from core.agent_coordinator import AgentCoordinator
-from core.logging_setup import attach_audit_file_handler
-
-# Shared constants (avoids circular import with websocket_handler)
-from core.constants import GREETING_TEXT  # noqa: F401
+from core import approval_workflows as _approval_workflows
+from core import build_session as _build_session
 
 # Extracted modules
 from core import lifecycle as _lifecycle
-from core import websocket_handler as _ws_handler
-from core import build_session as _build_session
 from core import openclaw_handler as _openclaw_handler
-from core import approval_workflows as _approval_workflows
+from core import websocket_handler as _ws_handler
+from core.admin_handler import AdminHandler
+from core.agent_coordinator import AgentCoordinator
+from core.config import AdapterConfig, Config
+
+# Shared constants (avoids circular import with websocket_handler)
+from core.constants import GREETING_TEXT  # noqa: F401
+from core.discovery import ModuleDiscovery
+from core.drivers import ComputerDriver
+from core.interfaces import Message
+from core.llm_providers import LLMProvider, get_llm_provider
+from core.logging_setup import attach_audit_file_handler
+from core.loki import LokiMode
+from core.memory.mcp_server import MemoryServer
+from core.message_router import MessageRouter
+
+# Import extracted components
+from core.orchestrator_components import BackgroundTasks, HealthMonitor, MessageHandler
+from core.permissions import PermissionManager
+from core.projects import ProjectManager
+from core.rag.pageindex import PageIndexRAG
+from core.resource_guard import ResourceGuard
+from core.secrets import SecretManager
 
 
 class MegaBotOrchestrator:
@@ -298,7 +294,7 @@ class MegaBotOrchestrator:
     # Messaging callbacks
     # ------------------------------------------------------------------
 
-    async def on_messaging_connect(self, client_id: Optional[str], platform: str):
+    async def on_messaging_connect(self, client_id: str | None, platform: str):
         """Handle new messaging platform connections."""
         logger.info("Greeting new connection: %s (%s)", platform, client_id or "all")
         greeting = Message(content=GREETING_TEXT, sender="MegaBot")
@@ -308,13 +304,13 @@ class MegaBotOrchestrator:
         self,
         text: str,
         sender_id: str,
-        chat_id: Optional[str] = None,
+        chat_id: str | None = None,
         platform: str = "native",
     ) -> bool:
         """Delegate to AdminHandler (kept for backward compatibility)."""
         return await self.admin_handler.handle_command(text, sender_id, chat_id, platform)
 
-    async def on_gateway_message(self, data: Dict):
+    async def on_gateway_message(self, data: dict):
         """Process messages received through the unified gateway."""
         await self.message_handler.process_gateway_message(data)
 
@@ -322,20 +318,20 @@ class MegaBotOrchestrator:
     # Business logic methods
     # ------------------------------------------------------------------
 
-    async def run_autonomous_gateway_build(self, message: Message, original_data: Dict):
+    async def run_autonomous_gateway_build(self, message: Message, original_data: dict):
         """Delegate to ``core.build_session.run_autonomous_gateway_build``."""
         await _build_session.run_autonomous_gateway_build(self, message, original_data)
 
-    def _to_platform_message(self, message: Message, chat_id: Optional[str] = None) -> Any:
+    def _to_platform_message(self, message: Message, chat_id: str | None = None) -> Any:
         """Delegate to MessageRouter to convert to PlatformMessage."""
         return self.message_router._to_platform_message(message, chat_id)
 
     async def send_platform_message(
         self,
         message: Message,
-        chat_id: Optional[str] = None,
+        chat_id: str | None = None,
         platform: str = "native",
-        target_client: Optional[str] = None,
+        target_client: str | None = None,
     ):  # pragma: no cover
         """Delegate to MessageRouter for sending platform messages."""
         return await self.message_router.send_platform_message(
@@ -362,7 +358,7 @@ class MegaBotOrchestrator:
             logger.error("Redaction-Verification: Error during check: %s", e)
             return False
 
-    async def _start_approval_escalation(self, action: Dict):
+    async def _start_approval_escalation(self, action: dict):
         """Delegate to ``core.approval_workflows.start_approval_escalation``."""
         await _approval_workflows.start_approval_escalation(self, action)
 
@@ -378,29 +374,29 @@ class MegaBotOrchestrator:
         """Delegate to ``core.build_session.run_autonomous_build``."""
         await _build_session.run_autonomous_build(self, message, websocket)
 
-    async def _spawn_sub_agent(self, tool_input: Dict) -> str:
+    async def _spawn_sub_agent(self, tool_input: dict) -> str:
         """Delegate sub-agent spawning to AgentCoordinator (keeps API stable)."""
         return await self.agent_coordinator._spawn_sub_agent(tool_input)
 
-    async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: Dict) -> str:
+    async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: dict) -> str:
         """Delegate sub-agent tool execution to AgentCoordinator (keeps API stable)."""
         return await self.agent_coordinator._execute_tool_for_sub_agent(agent_name, tool_call)
 
     async def _handle_computer_tool(
         self,
-        tool_input: Dict,
+        tool_input: dict,
         websocket: WebSocket,
         action_id: str,
-        callback: Optional[Any] = None,
+        callback: Any | None = None,
     ):
         """Delegate to ``core.approval_workflows.handle_computer_tool``."""
         await _approval_workflows.handle_computer_tool(self, tool_input, websocket, action_id, callback)
 
-    async def _llm_dispatch(self, prompt: str, context: Any, tools: Optional[List[Dict[str, Any]]] = None) -> Any:
+    async def _llm_dispatch(self, prompt: str, context: Any, tools: list[dict[str, Any]] | None = None) -> Any:
         """Unified tool selection logic using configured LLM provider."""
         return await self.llm.generate(prompt, context, tools=tools)
 
-    def _check_policy(self, data: Dict) -> str:
+    def _check_policy(self, data: dict) -> str:
         """Delegate to ``core.openclaw_handler.check_policy``."""
         return _openclaw_handler.check_policy(self, data)
 
@@ -468,16 +464,15 @@ orchestrator: Optional["MegaBotOrchestrator"] = None
 # so existing import sites continue to work unchanged.
 
 from core.app import (  # noqa: E402, F401
-    app,
-    lifespan,
-    ivr_callback,
-    root,
-    health,
-    websocket_endpoint,
     _validate_twilio_signature,
+    app,
     config,
+    health,
+    ivr_callback,
+    lifespan,
+    root,
+    websocket_endpoint,
 )
-
 
 if __name__ == "__main__":  # pragma: no cover
     import uvicorn  # type: ignore

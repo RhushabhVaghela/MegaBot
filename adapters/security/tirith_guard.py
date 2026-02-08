@@ -115,10 +115,7 @@ class TirithGuard:
 
         # Check for Right-to-Left Override (RLO) \u202E and other bi-di control chars
         # These can be used to hide extensions (e.g. exe.txt[RLO]cod.bat -> tab.doc.txt.exe)
-        if any(char in text for char in self._BIDI_CHARS):
-            return False
-
-        return True
+        return not any(char in text for char in self._BIDI_CHARS)
 
     def validate_command_input(self, text: str) -> bool:
         """Validate that *text* is safe to use as a command argument.

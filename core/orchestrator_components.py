@@ -3,15 +3,15 @@ Core orchestrator components extracted from monolithic orchestrator.
 Handles message routing, health monitoring, and system coordination.
 """
 
-import logging
-from collections import OrderedDict
-from typing import Dict, Any, List
 import asyncio
+import logging
 import os
+from collections import OrderedDict
+from typing import Any
 
 from core.dependencies import resolve_service
-from core.interfaces import Message
 from core.drivers import ComputerDriver
+from core.interfaces import Message
 from core.task_utils import safe_create_task
 
 logger = logging.getLogger(__name__)
@@ -26,10 +26,10 @@ class MessageHandler:
         # Each entry holds up to 10 messages (~2KB).  Without a cap the
         # dict grows indefinitely in long-running processes (PERF-05).
         self._MAX_CACHED_CONTEXTS = 1000
-        self.chat_contexts: OrderedDict[str, List[Dict]] = OrderedDict()
+        self.chat_contexts: OrderedDict[str, list[dict]] = OrderedDict()
         self._computer_driver = None  # Lazily cached DI resolution
 
-    async def process_gateway_message(self, data: Dict):
+    async def process_gateway_message(self, data: dict):
         """Handle messages incoming from the Unified Gateway"""
         logger.debug("Gateway Message: %s", data)
         msg_type = data.get("type")
@@ -43,7 +43,7 @@ class MessageHandler:
         if msg_type == "message":
             await self._handle_user_message(data, sender_id, chat_id, platform)
 
-    async def _handle_user_message(self, data: Dict, sender_id: str, chat_id: str, platform: str):
+    async def _handle_user_message(self, data: dict, sender_id: str, chat_id: str, platform: str):
         """Handle user messages with attachments and admin commands."""
         content = data.get("content", "")
         attachments = data.get("attachments", [])
@@ -52,16 +52,17 @@ class MessageHandler:
         await self._process_attachments(attachments, sender_id, content)
 
         # Check for Admin Command
-        if content.startswith("!"):
-            if await self.orchestrator.admin_handler.handle_command(content, sender_id, chat_id, platform):
-                # Notify success
-                resp = Message(
-                    content=f"Admin command executed: {content}",
-                    sender="System",
-                    metadata={"chat_id": chat_id},
-                )
-                await self.orchestrator.send_platform_message(resp, platform=platform)
-                return
+        if content.startswith("!") and await self.orchestrator.admin_handler.handle_command(
+            content, sender_id, chat_id, platform
+        ):
+            # Notify success
+            resp = Message(
+                content=f"Admin command executed: {content}",
+                sender="System",
+                metadata={"chat_id": chat_id},
+            )
+            await self.orchestrator.send_platform_message(resp, platform=platform)
+            return
 
         # Record in Persistent Memory
         await self.orchestrator.memory.chat_write(chat_id=chat_id, platform=platform, role="user", content=content)
@@ -89,7 +90,7 @@ class MessageHandler:
                 )
             )
 
-    async def _process_attachments(self, attachments: List[Dict], sender_id: str, content: str) -> str:
+    async def _process_attachments(self, attachments: list[dict], sender_id: str, content: str) -> str:
         """Process message attachments (images, audio) and return context."""
         vision_context = ""
         if self._computer_driver is None:
@@ -144,10 +145,10 @@ class HealthMonitor:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
         # Keep references to created tasks so they can be cancelled/awaited on shutdown
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
         # Track last known status and restart counts for monitored components
-        self.last_status: Dict[str, Any] = {}
-        self.restart_counts: Dict[str, int] = {}
+        self.last_status: dict[str, Any] = {}
+        self.restart_counts: dict[str, int] = {}
 
     async def shutdown(self):
         """Cancel and await any tasks started by BackgroundTasks."""
@@ -175,7 +176,7 @@ class HealthMonitor:
         self.last_status = {}
         self.restart_counts = {}  # component -> count
 
-    async def get_system_health(self) -> Dict[str, Any]:
+    async def get_system_health(self) -> dict[str, Any]:
         """Check the status of all system components"""
         health = {}
 
@@ -266,7 +267,7 @@ class BackgroundTasks:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
         # Track scheduled background tasks so they can be cancelled/awaited on shutdown
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
 
     async def shutdown(self):
         """Cancel and await all scheduled background tasks."""

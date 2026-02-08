@@ -1,8 +1,8 @@
-import uuid
 import asyncio
 import logging
-from typing import Any, Dict, Optional
-from .server import PlatformAdapter, PlatformMessage, MessageType
+from typing import Any
+
+from .server import MessageType, PlatformAdapter, PlatformMessage
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ RETRY_BASE_DELAY = 1.0
 
 
 class SMSAdapter(PlatformAdapter):
-    def __init__(self, platform: str, server: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, platform: str, server: Any, config: dict[str, Any] | None = None):
         super().__init__(platform, server)
         self.config = config or {}
         self.account_sid = self.config.get("twilio_account_sid")
@@ -26,8 +26,8 @@ class SMSAdapter(PlatformAdapter):
             logger.error("[SMS] Missing Twilio credentials")
             return False
         try:
-            from twilio.rest import Client
             from twilio.request_validator import RequestValidator
+            from twilio.rest import Client
 
             self.client = Client(self.account_sid, self.auth_token)
             self._request_validator = RequestValidator(self.auth_token)
@@ -37,13 +37,13 @@ class SMSAdapter(PlatformAdapter):
             logger.error("[SMS] Initialization failed: %s", e)
             return False
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         """Send an SMS with retry + exponential backoff."""
         if not self.client or not self.from_number:
             logger.error("[SMS] Client not initialized or missing from_number")
             return None
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(MAX_RETRIES):
             try:
                 loop = asyncio.get_running_loop()
@@ -79,9 +79,9 @@ class SMSAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_url: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:
+    ) -> PlatformMessage | None:
         """Send an MMS with a media URL. Twilio requires a publicly accessible URL."""
         if not self.client or not self.from_number:
             logger.error("[SMS] Client not initialized or missing from_number")
@@ -112,7 +112,7 @@ class SMSAdapter(PlatformAdapter):
             logger.error("[SMS] MMS send failed: %s", e)
             return None
 
-    async def handle_webhook(self, data: Dict, signature: str = "", url: str = "") -> Optional[PlatformMessage]:
+    async def handle_webhook(self, data: dict, signature: str = "", url: str = "") -> PlatformMessage | None:
         """Parse an incoming Twilio SMS/MMS webhook.
 
         If a request validator is available and *signature* / *url* are

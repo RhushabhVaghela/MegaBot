@@ -10,9 +10,11 @@ to register services while the event loop is running, switch to
 asyncio.Lock (and make the registration methods ``async``).
 """
 
-from typing import Any, Dict, Type, TypeVar, Callable
-from contextlib import contextmanager
 import threading
+from collections.abc import Callable
+from contextlib import contextmanager
+from typing import Any, TypeVar
+
 from core.config import Config
 
 T = TypeVar("T")
@@ -22,27 +24,27 @@ class DependencyContainer:
     """Simple dependency injection container with singleton and factory support."""
 
     def __init__(self):
-        self._services: Dict[Type, Any] = {}
-        self._factories: Dict[Type, Callable[[], Any]] = {}
-        self._singletons: Dict[Type, Any] = {}
+        self._services: dict[type, Any] = {}
+        self._factories: dict[type, Callable[[], Any]] = {}
+        self._singletons: dict[type, Any] = {}
         self._lock = threading.Lock()
 
-    def register(self, service_type: Type[T], implementation: T) -> None:
+    def register(self, service_type: type[T], implementation: T) -> None:
         """Register a service instance."""
         with self._lock:
             self._services[service_type] = implementation
 
-    def register_factory(self, service_type: Type[T], factory: Callable[[], T]) -> None:
+    def register_factory(self, service_type: type[T], factory: Callable[[], T]) -> None:
         """Register a factory function for creating service instances."""
         with self._lock:
             self._factories[service_type] = factory
 
-    def register_singleton(self, service_type: Type[T], implementation: T) -> None:
+    def register_singleton(self, service_type: type[T], implementation: T) -> None:
         """Register a singleton service instance."""
         with self._lock:
             self._singletons[service_type] = implementation
 
-    def resolve(self, service_type: Type[T]) -> T:
+    def resolve(self, service_type: type[T]) -> T:
         """Resolve a service instance.
 
         This method is intentionally lock-free for performance.
@@ -69,15 +71,11 @@ class DependencyContainer:
         try:
             return service_type()
         except TypeError:
-            raise ValueError(f"No registration found for service type: {service_type}")
+            raise ValueError(f"No registration found for service type: {service_type}") from None
 
-    def has_service(self, service_type: Type[T]) -> bool:
+    def has_service(self, service_type: type[T]) -> bool:
         """Check if a service is registered."""
-        return (
-            service_type in self._services
-            or service_type in self._factories
-            or service_type in self._singletons
-        )
+        return service_type in self._services or service_type in self._factories or service_type in self._singletons
 
     def clear(self) -> None:
         """Clear all registered services (useful for testing)."""
@@ -96,7 +94,7 @@ def get_container() -> DependencyContainer:
     return _container
 
 
-def inject(service_type: Type[T]) -> Callable:
+def inject(service_type: type[T]) -> Callable:
     """Decorator to inject dependencies into functions/classes."""
 
     def decorator(func_or_class):
@@ -108,11 +106,7 @@ def inject(service_type: Type[T]) -> Callable:
                 # Inject services before calling original __init__
                 annotations = getattr(func_or_class, "__annotations__", {})
                 for param_name, param_type in annotations.items():
-                    if (
-                        param_name != "return"
-                        and param_name not in kwargs
-                        and param_name not in ["self"]
-                    ):
+                    if param_name != "return" and param_name not in kwargs and param_name not in ["self"]:
                         try:
                             kwargs[param_name] = _container.resolve(param_type)
                         except ValueError:
@@ -152,22 +146,22 @@ def dependency_scope():
 
 
 # Service registration helpers
-def register_service(service_type: Type[T], implementation: T) -> None:
+def register_service(service_type: type[T], implementation: T) -> None:
     """Register a service instance."""
     _container.register(service_type, implementation)
 
 
-def register_factory(service_type: Type[T], factory: Callable[[], T]) -> None:
+def register_factory(service_type: type[T], factory: Callable[[], T]) -> None:
     """Register a service factory."""
     _container.register_factory(service_type, factory)
 
 
-def register_singleton(service_type: Type[T], implementation: T) -> None:
+def register_singleton(service_type: type[T], implementation: T) -> None:
     """Register a singleton service."""
     _container.register_singleton(service_type, implementation)
 
 
-def resolve_service(service_type: Type[T]) -> T:
+def resolve_service(service_type: type[T]) -> T:
     """Resolve a service instance."""
     return _container.resolve(service_type)
 

@@ -81,8 +81,14 @@ target-version = "py312"
 line-length = 120
 
 [tool.ruff.lint]
-# F = Pyflakes (unused imports, vars, etc), E741 = ambiguous variable names
-select = ["F", "E741"]
+# F = Pyflakes, E741 = ambiguous names, I = isort, UP = pyupgrade,
+# B = bugbear, SIM = simplify, C4 = comprehensions
+select = ["F", "E741", "I", "UP", "B", "SIM", "C4"]
+# UP041 = TimeoutError alias — runtime is Python 3.10 where asyncio.TimeoutError != TimeoutError
+# UP046/UP047 = PEP 695 type params — requires Python 3.12+ syntax, runtime is 3.10
+# SIM105 = contextlib.suppress — often less readable than explicit try/except for complex cleanup
+# SIM108 = ternary operator — multi-line ternaries hurt readability
+ignore = ["UP041", "UP046", "UP047", "SIM105", "SIM108"]
 
 [tool.ruff.lint.per-file-ignores]
 # Imports after dynamic api-credentials.py loading block are intentional

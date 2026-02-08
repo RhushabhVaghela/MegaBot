@@ -1,8 +1,7 @@
-import sqlite3
-import logging
 import asyncio
+import logging
+import sqlite3
 import threading
-from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger("megabot.memory.identity")
@@ -14,7 +13,7 @@ class UserIdentityManager:
     def __init__(
         self,
         db_path: str,
-        executor: Optional[ThreadPoolExecutor] = None,
+        executor: ThreadPoolExecutor | None = None,
     ):
         self.db_path = db_path
         self._executor = executor or ThreadPoolExecutor(max_workers=4, thread_name_prefix="identity_db")

@@ -1,8 +1,8 @@
 import base64
 import io
 import logging
+
 from PIL import Image, ImageFilter
-from typing import Dict, Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,9 @@ class ComputerDriver:
     async def execute(
         self,
         action: str,
-        coordinate: Optional[list] = None,
-        text: Optional[str] = None,
-        regions: Optional[List[Dict[str, int]]] = None,
+        coordinate: list | None = None,
+        text: str | None = None,
+        regions: list[dict[str, int]] | None = None,
     ) -> str:
         """Execute a computer action using pyautogui"""
         pg = self._get_pyautogui()
@@ -77,9 +77,8 @@ class ComputerDriver:
             elif action == "analyze_image":
                 if text:  # Assuming 'text' contains the base64 or path
                     return await self.analyze_image(text)
-            elif action == "blur_regions":
-                if text and regions:
-                    return self.blur_regions(text, regions)
+            elif action == "blur_regions" and text and regions:
+                return self.blur_regions(text, regions)
 
             return f"Action {action} not implemented or missing parameters"
         except Exception as e:
@@ -119,7 +118,7 @@ class ComputerDriver:
             }
         )
 
-    def blur_regions(self, image_base64: str, regions: List[Dict[str, int]]) -> str:
+    def blur_regions(self, image_base64: str, regions: list[dict[str, int]]) -> str:
         """Blur specific rectangular regions in an image"""
         img_data = base64.b64decode(image_base64)
         img = Image.open(io.BytesIO(img_data))

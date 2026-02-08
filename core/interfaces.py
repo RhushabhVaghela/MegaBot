@@ -1,4 +1,5 @@
-from typing import Any, Protocol, runtime_checkable, Optional
+from typing import Any, Protocol, runtime_checkable
+
 from pydantic import BaseModel
 
 
@@ -36,7 +37,7 @@ class VoiceInterface(Protocol):
         recipient_phone: str,
         script: str,
         ivr: bool = False,
-        action_id: Optional[str] = None,
+        action_id: str | None = None,
     ) -> str: ...
     async def transcribe_audio(self, audio_data: bytes) -> str: ...
     async def speak(self, text: str) -> bytes: ...

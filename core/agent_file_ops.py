@@ -22,7 +22,7 @@ import stat as _stat
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
@@ -57,7 +57,7 @@ def _audit(event: str, **data):
 # ---------------------------------------------------------------------------
 
 
-def validate_path(orchestrator: "MegaBotOrchestrator", p: str) -> Tuple[bool, str]:
+def validate_path(orchestrator: "MegaBotOrchestrator", p: str) -> tuple[bool, str]:
     """Validate *p* is inside the configured workspace and not a symlink.
 
     Returns ``(True, resolved_path_str)`` on success or
@@ -110,7 +110,7 @@ def safe_lstat(path_str: str):
 async def read_file(
     orchestrator: "MegaBotOrchestrator",
     agent_name: str,
-    tool_input: Dict,
+    tool_input: dict,
     read_limit: int,
 ) -> str:
     """Execute the ``read_file`` tool with workspace confinement and TOCTOU mitigation."""
@@ -156,7 +156,7 @@ async def read_file(
             return f"Security Error: read_file denied: possible symlink or permission error ({e})"
         # Fallback to safe builtin open as last resort
         try:
-            with open(resolved, "r", encoding="utf-8", errors="replace") as f:
+            with open(resolved, encoding="utf-8", errors="replace") as f:
                 data = f.read()
                 if len(data.encode("utf-8")) > read_limit:
                     return f"Security Error: read_file denied: file too large ({len(data.encode('utf-8'))} bytes)"
@@ -243,7 +243,7 @@ async def read_file(
 async def write_file(
     orchestrator: "MegaBotOrchestrator",
     agent_name: str,
-    tool_input: Dict,
+    tool_input: dict,
 ) -> str:
     """Execute the ``write_file`` tool with atomic writes and TOCTOU mitigation."""
     path = str(tool_input.get("path", ""))

@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import stat
-from typing import Dict, Optional
 
 logger = logging.getLogger("megabot.secrets")
 
@@ -10,7 +9,7 @@ logger = logging.getLogger("megabot.secrets")
 class SecretManager:
     def __init__(self, secrets_dir: str = "secrets"):
         self.secrets_dir = secrets_dir
-        self.secrets: Dict[str, str] = {}
+        self.secrets: dict[str, str] = {}
         self._load_from_env()
         self._load_from_files()
 
@@ -41,10 +40,10 @@ class SecretManager:
         for filename in os.listdir(self.secrets_dir):
             file_path = os.path.join(self.secrets_dir, filename)
             if os.path.isfile(file_path):
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     self.secrets[filename] = f.read().strip()
 
-    def get_secret(self, name: str) -> Optional[str]:
+    def get_secret(self, name: str) -> str | None:
         return self.secrets.get(name)
 
     # Maximum allowed length for a secret placeholder name to prevent

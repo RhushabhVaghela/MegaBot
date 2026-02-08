@@ -1,13 +1,11 @@
-import re
 import json
-from datetime import datetime
-from typing import Dict
-
-from core.agents import SubAgent
 import logging
+import re
+from datetime import datetime
 
-from core.agent_file_ops import _audit
 import core.agent_file_ops as _file_ops
+from core.agent_file_ops import _audit
+from core.agents import SubAgent
 from core.resource_guard import can_allocate
 
 logger = logging.getLogger("megabot.agent_coordinator")
@@ -32,7 +30,7 @@ class AgentCoordinator:
         # Always operate against orchestrator.sub_agents so external tests and
         # callsites that reassign the mapping continue to work.
 
-    async def _spawn_sub_agent(self, tool_input: Dict) -> str:
+    async def _spawn_sub_agent(self, tool_input: dict) -> str:
         """Spawn and orchestrate a sub-agent with Pre-flight Checks and Synthesis"""
         name = str(tool_input.get("name", "unknown"))
         task = str(tool_input.get("task", "unknown"))
@@ -192,7 +190,7 @@ class AgentCoordinator:
             logger.error("Failed to record memory lesson or parse synthesis: %s", e)
             return str(synthesis_raw)
 
-    async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: Dict) -> str:
+    async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: dict) -> str:
         """Execute a tool on behalf of a sub-agent with Domain Boundary enforcement"""
         agent = self.orchestrator.sub_agents.get(agent_name)
         if not agent:

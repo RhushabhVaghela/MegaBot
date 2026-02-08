@@ -21,13 +21,13 @@ import json
 import logging
 import os
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
-from dataclasses import dataclass, field
+from typing import Any
 
-from adapters.messaging import PlatformMessage, MessageType
-
+from adapters.messaging import MessageType, PlatformMessage
 from core.resource_guard import LRUCache
 
 logger = logging.getLogger(__name__)
@@ -59,12 +59,12 @@ class SignalGroupType(Enum):
 class SignalRecipient:
     """Signal recipient information"""
 
-    uuid: Optional[str] = None
-    number: Optional[str] = None
-    username: Optional[str] = None
+    uuid: str | None = None
+    number: str | None = None
+    username: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalRecipient":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalRecipient":
         return cls(
             uuid=data.get("uuid"),
             number=data.get("number"),
@@ -76,15 +76,15 @@ class SignalRecipient:
 class SignalAttachment:
     """Signal attachment information"""
 
-    id: Optional[str] = None
-    content_type: Optional[str] = None
-    filename: Optional[str] = None
-    size: Optional[int] = None
-    url: Optional[str] = None
-    thumbnail: Optional[str] = None
+    id: str | None = None
+    content_type: str | None = None
+    filename: str | None = None
+    size: int | None = None
+    url: str | None = None
+    thumbnail: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalAttachment":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalAttachment":
         return cls(
             id=data.get("id"),
             content_type=data.get("contentType"),
@@ -101,11 +101,11 @@ class SignalQuote:
 
     id: int
     author: str
-    text: Optional[str] = None
-    attachments: List[SignalAttachment] = field(default_factory=list)
+    text: str | None = None
+    attachments: list[SignalAttachment] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalQuote":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalQuote":
         return cls(
             id=data.get("id", 0),
             author=data.get("author", ""),
@@ -123,7 +123,7 @@ class SignalReaction:
     target_timestamp: int
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalReaction":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalReaction":
         return cls(
             emoji=data.get("emoji", ""),
             target_author=data.get("targetAuthor", ""),
@@ -139,16 +139,16 @@ class SignalMessage:
     source: str
     timestamp: int
     message_type: SignalMessageType = SignalMessageType.TEXT
-    content: Optional[str] = None
-    attachments: List[SignalAttachment] = field(default_factory=list)
-    group_info: Optional[Dict[str, Any]] = None
-    quote: Optional[SignalQuote] = None
-    reaction: Optional[SignalReaction] = None
+    content: str | None = None
+    attachments: list[SignalAttachment] = field(default_factory=list)
+    group_info: dict[str, Any] | None = None
+    quote: SignalQuote | None = None
+    reaction: SignalReaction | None = None
     is_receipt: bool = False
     is_unidentified: bool = False
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalMessage":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalMessage":
         msg_type_str = data.get("type", "text")
         if msg_type_str == "typing":
             msg_type = SignalMessageType.TYPING
@@ -187,16 +187,16 @@ class SignalGroup:
 
     id: str
     name: str
-    description: Optional[str] = None
-    members: List[str] = field(default_factory=list)
-    admins: List[str] = field(default_factory=list)
+    description: str | None = None
+    members: list[str] = field(default_factory=list)
+    admins: list[str] = field(default_factory=list)
     group_type: SignalGroupType = SignalGroupType.UNKNOWN
-    avatar: Optional[str] = None
-    created_at: Optional[int] = None
+    avatar: str | None = None
+    created_at: int | None = None
     is_archived: bool = False
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SignalGroup":
+    def from_dict(cls, data: dict[str, Any]) -> "SignalGroup":
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -227,11 +227,11 @@ class SignalAdapter:
         self,
         phone_number: str,
         socket_path: str = "/tmp/signal.socket",
-        config_path: Optional[str] = None,
+        config_path: str | None = None,
         signal_cli_path: str = "signal-cli",
         receive_mode: str = "socket",
         webhook_path: str = "/webhooks/signal",
-        admin_numbers: Optional[List[str]] = None,
+        admin_numbers: list[str] | None = None,
     ):
         """
         Initialize the Signal adapter.
@@ -253,21 +253,21 @@ class SignalAdapter:
         self.webhook_path = webhook_path
         self.admin_numbers = admin_numbers or []
 
-        self.process: Optional[asyncio.subprocess.Process] = None
-        self.reader_task: Optional[asyncio.Task] = None
+        self.process: asyncio.subprocess.Process | None = None
+        self.reader_task: asyncio.Task | None = None
         self.is_initialized = False
 
-        self.registered_numbers: List[str] = []
-        self.blocked_numbers: List[str] = []
-        self.groups: Dict[str, SignalGroup] = {}
+        self.registered_numbers: list[str] = []
+        self.blocked_numbers: list[str] = []
+        self.groups: dict[str, SignalGroup] = {}
 
-        self.message_cache: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=1024)
-        self.pending_messages: LRUCache[str, Dict[str, Any]] = LRUCache(maxsize=256)
+        self.message_cache: LRUCache[str, dict[str, Any]] = LRUCache(maxsize=1024)
+        self.pending_messages: LRUCache[str, dict[str, Any]] = LRUCache(maxsize=256)
 
-        self.message_handlers: List[Callable] = []
-        self.reaction_handlers: List[Callable] = []
-        self.receipt_handlers: List[Callable] = []
-        self.error_handlers: List[Callable] = []
+        self.message_handlers: list[Callable] = []
+        self.reaction_handlers: list[Callable] = []
+        self.receipt_handlers: list[Callable] = []
+        self.error_handlers: list[Callable] = []
 
     async def initialize(self) -> bool:
         """
@@ -382,7 +382,7 @@ class SignalAdapter:
         except asyncio.CancelledError:
             logger.debug("[Signal] Message reader cancelled")
 
-    async def _handle_message(self, data: Dict[str, Any]) -> None:
+    async def _handle_message(self, data: dict[str, Any]) -> None:
         """Handle incoming message from signal-cli"""
         try:
             envelope_id = data.get("envelopeId", str(uuid.uuid4()))
@@ -461,16 +461,16 @@ class SignalAdapter:
             },
         )
 
-    async def _send_json_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    async def _send_json_rpc(self, method: str, params: dict[str, Any]) -> Any:
         """Send JSON-RPC request to signal-cli"""
         if self.receive_mode == "socket":
             return await self._send_socket_rpc(method, params)
         else:
             return await self._send_stdout_rpc(method, params)
 
-    async def _send_socket_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    async def _send_socket_rpc(self, method: str, params: dict[str, Any]) -> Any:
         """Send JSON-RPC request via socket with retry and exponential backoff."""
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(MAX_RETRIES):
             writer = None
@@ -524,7 +524,7 @@ class SignalAdapter:
                 return None
 
             except asyncio.TimeoutError:
-                last_error = asyncio.TimeoutError(f"Socket RPC timeout for {method}")
+                last_error = TimeoutError(f"Socket RPC timeout for {method}")
                 logger.warning(
                     "[Signal] Socket RPC timeout for %s (attempt %d/%d)",
                     method,
@@ -569,9 +569,9 @@ class SignalAdapter:
         )
         return None
 
-    async def _send_stdout_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    async def _send_stdout_rpc(self, method: str, params: dict[str, Any]) -> Any:
         """Send JSON-RPC request via stdin/stdout with retry and exponential backoff."""
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -623,7 +623,7 @@ class SignalAdapter:
                 return None
 
             except asyncio.TimeoutError:
-                last_error = asyncio.TimeoutError(f"Stdout RPC timeout for {method}")
+                last_error = TimeoutError(f"Stdout RPC timeout for {method}")
                 logger.warning(
                     "[Signal] Stdout RPC timeout for %s (attempt %d/%d)",
                     method,
@@ -657,10 +657,10 @@ class SignalAdapter:
         self,
         recipient: str,
         message: str,
-        quote_message_id: Optional[str] = None,
-        mentions: Optional[List[str]] = None,
-        attachments: Optional[List[str]] = None,
-    ) -> Optional[str]:
+        quote_message_id: str | None = None,
+        mentions: list[str] | None = None,
+        attachments: list[str] | None = None,
+    ) -> str | None:
         """
         Send a text message to a recipient.
 
@@ -675,7 +675,7 @@ class SignalAdapter:
             Message ID or None on failure
         """
         try:
-            params: Dict[str, Any] = {"message": message, "recipient": recipient}
+            params: dict[str, Any] = {"message": message, "recipient": recipient}
 
             if quote_message_id:
                 try:
@@ -732,7 +732,7 @@ class SignalAdapter:
             logger.error("[Signal] Send reaction error: %s", e)
             return False
 
-    async def send_receipt(self, recipient: str, message_ids: List[str], receipt_type: str = "read") -> bool:
+    async def send_receipt(self, recipient: str, message_ids: list[str], receipt_type: str = "read") -> bool:
         """
         Send a delivery or read receipt.
 
@@ -768,10 +768,10 @@ class SignalAdapter:
     async def create_group(
         self,
         name: str,
-        members: List[str],
-        description: Optional[str] = None,
-        avatar_path: Optional[str] = None,
-    ) -> Optional[SignalGroup]:
+        members: list[str],
+        description: str | None = None,
+        avatar_path: str | None = None,
+    ) -> SignalGroup | None:
         """
         Create a new Signal group.
 
@@ -785,7 +785,7 @@ class SignalAdapter:
             Created group or None on failure
         """
         try:
-            params: Dict[str, Any] = {"name": name, "members": members}
+            params: dict[str, Any] = {"name": name, "members": members}
 
             if description:
                 params["description"] = description
@@ -814,13 +814,13 @@ class SignalAdapter:
     async def update_group(
         self,
         group_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        avatar_path: Optional[str] = None,
-        members_to_add: Optional[List[str]] = None,
-        members_to_remove: Optional[List[str]] = None,
-        set_admin: Optional[List[str]] = None,
-        remove_admin: Optional[List[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        avatar_path: str | None = None,
+        members_to_add: list[str] | None = None,
+        members_to_remove: list[str] | None = None,
+        set_admin: list[str] | None = None,
+        remove_admin: list[str] | None = None,
     ) -> bool:
         """
         Update group settings.
@@ -839,7 +839,7 @@ class SignalAdapter:
             True on success
         """
         try:
-            params: Dict[str, Any] = {"groupId": group_id}
+            params: dict[str, Any] = {"groupId": group_id}
 
             if name:
                 params["name"] = name
@@ -881,12 +881,12 @@ class SignalAdapter:
             logger.error("[Signal] Leave group error: %s", e)
             return False
 
-    async def get_groups(self) -> List[SignalGroup]:
+    async def get_groups(self) -> list[SignalGroup]:
         """Get list of all groups"""
         await self._load_groups()
         return list(self.groups.values())
 
-    async def get_group(self, group_id: str) -> Optional[SignalGroup]:
+    async def get_group(self, group_id: str) -> SignalGroup | None:
         """Get information about a specific group"""
         if group_id in self.groups:
             return self.groups[group_id]
@@ -921,7 +921,7 @@ class SignalAdapter:
         except Exception as e:
             logger.error("[Signal] Load contacts error: %s", e)
 
-    async def add_contact(self, number: str, name: Optional[str] = None) -> bool:
+    async def add_contact(self, number: str, name: str | None = None) -> bool:
         """
         Add a contact.
 
@@ -933,7 +933,7 @@ class SignalAdapter:
             True on success
         """
         try:
-            params: Dict[str, Any] = {"number": number}
+            params: dict[str, Any] = {"number": number}
             if name:
                 params["name"] = name
             result = await self._send_json_rpc("addContact", params)
@@ -957,9 +957,8 @@ class SignalAdapter:
         try:
             params = {"recipient": number}
             result = await self._send_json_rpc("block", params)
-            if result:
-                if number not in self.blocked_numbers:
-                    self.blocked_numbers.append(number)
+            if result and number not in self.blocked_numbers:
+                self.blocked_numbers.append(number)
             return bool(result)
         except Exception as e:
             logger.error("[Signal] Block contact error: %s", e)
@@ -996,7 +995,7 @@ class SignalAdapter:
             True if verification code sent
         """
         try:
-            params: Dict[str, Any] = {"number": self.phone_number}
+            params: dict[str, Any] = {"number": self.phone_number}
             if voice:
                 params["voice"] = True
             result = await self._send_json_rpc("register", params)
@@ -1025,9 +1024,9 @@ class SignalAdapter:
 
     async def send_profile(
         self,
-        name: Optional[str] = None,
-        avatar_path: Optional[str] = None,
-        about: Optional[str] = None,
+        name: str | None = None,
+        avatar_path: str | None = None,
+        about: str | None = None,
     ) -> bool:
         """
         Update and send profile.
@@ -1041,7 +1040,7 @@ class SignalAdapter:
             True on success
         """
         try:
-            params: Dict[str, Any] = {"number": self.phone_number}
+            params: dict[str, Any] = {"number": self.phone_number}
 
             if name:
                 params["name"] = name
@@ -1056,7 +1055,7 @@ class SignalAdapter:
             logger.error("[Signal] Update profile error: %s", e)
             return False
 
-    async def upload_attachment(self, file_path: str) -> Optional[str]:
+    async def upload_attachment(self, file_path: str) -> str | None:
         """
         Upload an attachment to Signal.
 
@@ -1074,7 +1073,7 @@ class SignalAdapter:
             logger.error("[Signal] Upload attachment error: %s", e)
             return None
 
-    async def send_note_to_self(self, message: str) -> Optional[str]:
+    async def send_note_to_self(self, message: str) -> str | None:
         """
         Send a note to yourself (Saved Messages).
 
@@ -1086,7 +1085,7 @@ class SignalAdapter:
         """
         return await self.send_message(recipient=self.phone_number, message=message)
 
-    async def mark_read(self, message_ids: List[str]) -> bool:
+    async def mark_read(self, message_ids: list[str]) -> bool:
         """
         Mark messages as read.
 
@@ -1114,7 +1113,7 @@ class SignalAdapter:
         """Register an error handler"""
         self.error_handlers.append(handler)
 
-    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, webhook_data: dict[str, Any]) -> PlatformMessage | None:
         """
         Handle incoming webhook from signal-cli-http-gateway.
 

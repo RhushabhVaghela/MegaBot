@@ -3,11 +3,9 @@ Admin command processing for MegaBot orchestrator.
 Handles administrative commands and system management.
 """
 
-from typing import Dict, Optional
-import asyncio
 import logging
-import shlex
 import os
+import shlex
 import tempfile
 from pathlib import Path
 
@@ -55,7 +53,7 @@ class AdminHandler:
         self,
         text: str,
         sender_id: str,
-        chat_id: Optional[str] = None,
+        chat_id: str | None = None,
         platform: str = "native",
     ) -> bool:
         """Process chat-based administrative commands"""
@@ -93,7 +91,7 @@ class AdminHandler:
 
         return False
 
-    async def _handle_approve(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_approve(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle approval commands."""
         action_id = parts[1] if len(parts) > 1 else (self.approval_queue[-1]["id"] if self.approval_queue else None)
         if action_id:
@@ -101,7 +99,7 @@ class AdminHandler:
             return True
         return False
 
-    async def _handle_reject(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_reject(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle rejection commands."""
         action_id = parts[1] if len(parts) > 1 else (self.approval_queue[-1]["id"] if self.approval_queue else None)
         if action_id:
@@ -109,7 +107,7 @@ class AdminHandler:
             return True
         return False
 
-    async def _handle_allow(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_allow(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle allow policy commands."""
         if len(parts) > 1:
             pattern = " ".join(parts[1:])
@@ -122,7 +120,7 @@ class AdminHandler:
                 return True
         return False
 
-    async def _handle_deny(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_deny(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle deny policy commands."""
         if len(parts) > 1:
             pattern = " ".join(parts[1:])
@@ -135,13 +133,13 @@ class AdminHandler:
                 return True
         return False
 
-    async def _handle_policies(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_policies(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         resp_text = f"Policies:\nAllow: {self.orchestrator.config.policies['allow']}\nDeny: {self.orchestrator.config.policies['deny']}"
         resp = Message(content=resp_text, sender="System", metadata={"chat_id": chat_id})
         safe_create_task(self.orchestrator.send_platform_message(resp))
         return True
 
-    async def _handle_mode(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_mode(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle mode switching commands."""
         if len(parts) > 1:
             self.orchestrator.mode = parts[1]
@@ -151,7 +149,7 @@ class AdminHandler:
             return True
         return False
 
-    async def _handle_history_clean(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_history_clean(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle history cleaning commands."""
         target_chat = parts[1] if len(parts) > 1 else chat_id
         if target_chat:
@@ -164,7 +162,7 @@ class AdminHandler:
             return True
         return False
 
-    async def _handle_link(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_link(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle identity linking commands."""
         if len(parts) > 1:
             target_name = parts[1]
@@ -177,7 +175,7 @@ class AdminHandler:
             return True
         return False
 
-    async def _handle_whoami(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_whoami(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle identity query commands."""
         unified = await self.orchestrator.memory.get_unified_id(platform, sender_id)
         resp = Message(
@@ -187,14 +185,14 @@ class AdminHandler:
         safe_create_task(self.orchestrator.send_platform_message(resp, chat_id=chat_id, platform=platform))
         return True
 
-    async def _handle_backup(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_backup(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle backup commands."""
         res = await self.orchestrator.memory.backup_database()
         resp = Message(content=f"💾 Backup Triggered: {res}", sender="System")
         safe_create_task(self.orchestrator.send_platform_message(resp, chat_id=chat_id, platform=platform))
         return True
 
-    async def _handle_briefing(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_briefing(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle voice briefing commands."""
         admin_phone = getattr(self.orchestrator.config.system, "admin_phone", None)
         if not admin_phone or not self.orchestrator.adapters["messaging"].voice_adapter:
@@ -213,14 +211,14 @@ class AdminHandler:
         safe_create_task(self.orchestrator.send_platform_message(resp, chat_id=chat_id, platform=platform))
         return True
 
-    async def _handle_rag_rebuild(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_rag_rebuild(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle RAG rebuild commands."""
         await self.orchestrator.rag.build_index(force_rebuild=True)
         resp = Message(content="🏗️ RAG Index rebuilt and cached.", sender="System")
         safe_create_task(self.orchestrator.send_platform_message(resp, chat_id=chat_id, platform=platform))
         return True
 
-    async def _handle_health(self, parts: list, sender_id: str, chat_id: Optional[str], platform: str) -> bool:
+    async def _handle_health(self, parts: list, sender_id: str, chat_id: str | None, platform: str) -> bool:
         """Handle health check commands."""
         health = await self.orchestrator.health_monitor.get_system_health()
         health_text = "🩺 **System Health:**\n"
@@ -266,7 +264,7 @@ class AdminHandler:
                 except Exception as e:
                     logger.error("Denial callback failed: %s", e)
 
-    async def _execute_approved_action(self, action: Dict):
+    async def _execute_approved_action(self, action: dict):
         """Execute an approved action based on its type."""
         action_type = action.get("type", "")
         payload = action.get("payload", {})
@@ -345,7 +343,7 @@ class AdminHandler:
                     return msg
 
                 if operation == "read":
-                    with open(resolved, "r") as f:
+                    with open(resolved) as f:
                         return f.read()
                 elif operation == "write":
                     # Atomic write: write to temp file then rename to avoid
@@ -396,8 +394,8 @@ class AdminHandler:
                 name = payload.get("name")
                 code = payload.get("code")
                 try:
-                    from features.dash_data.agent import DashDataAgent
                     from core.interfaces import Message as MsgType
+                    from features.dash_data.agent import DashDataAgent
 
                     temp_agent = DashDataAgent(self.orchestrator.llm, self.orchestrator)
                     output = await temp_agent.execute_python_analysis(name, code)
@@ -501,5 +499,5 @@ class AdminHandler:
 
             # 3. Make the call
             await self.orchestrator.adapters["messaging"].voice_adapter.make_call(phone, script)
-        except Exception as e:
+        except Exception:
             logger.error("Voice briefing failed", exc_info=True)

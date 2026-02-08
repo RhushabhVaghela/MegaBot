@@ -1,14 +1,16 @@
-import uuid
 import asyncio
 import logging
+import uuid
+from typing import Any
+
 import aiohttp
-from typing import Any, Dict, List, Optional
-from .server import PlatformAdapter, PlatformMessage, MessageType
+
+from .server import MessageType, PlatformAdapter, PlatformMessage
 
 logger = logging.getLogger(__name__)
 
 # Map MessageType to Telegram API method names
-_MEDIA_METHOD: Dict[MessageType, str] = {
+_MEDIA_METHOD: dict[MessageType, str] = {
     MessageType.IMAGE: "sendPhoto",
     MessageType.VIDEO: "sendVideo",
     MessageType.AUDIO: "sendAudio",
@@ -16,7 +18,7 @@ _MEDIA_METHOD: Dict[MessageType, str] = {
     MessageType.STICKER: "sendSticker",
 }
 
-_MEDIA_FIELD: Dict[MessageType, str] = {
+_MEDIA_FIELD: dict[MessageType, str] = {
     MessageType.IMAGE: "photo",
     MessageType.VIDEO: "video",
     MessageType.AUDIO: "audio",
@@ -40,11 +42,11 @@ class TelegramAdapter(PlatformAdapter):
         if not self.session:
             self.session = aiohttp.ClientSession()
 
-    async def _make_request(self, method: str, data: Optional[Dict] = None, retries: int = MAX_RETRIES) -> Any:
+    async def _make_request(self, method: str, data: dict | None = None, retries: int = MAX_RETRIES) -> Any:
         """Make a request to the Telegram Bot API with exponential backoff retry."""
         await self._ensure_session()
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(retries):
             try:
                 async with self.session.post(f"{self.api_url}/{method}", json=data) as resp:
@@ -66,7 +68,7 @@ class TelegramAdapter(PlatformAdapter):
                     desc = result.get("description", "Unknown error")
                     logger.error("[Telegram] API error %d: %s", resp.status, desc)
                     return None
-            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            except (TimeoutError, aiohttp.ClientError) as exc:
                 last_error = exc
                 delay = RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
@@ -87,7 +89,7 @@ class TelegramAdapter(PlatformAdapter):
         chat_id: str,
         field_name: str,
         file_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
     ) -> Any:
         """Upload a local file to Telegram using multipart form data."""
         await self._ensure_session()
@@ -97,7 +99,7 @@ class TelegramAdapter(PlatformAdapter):
             data.add_field("chat_id", chat_id)
             if caption:
                 data.add_field("caption", caption)
-            fh = open(file_path, "rb")
+            fh = open(file_path, "rb")  # noqa: SIM115
             data.add_field(field_name, fh, filename=file_path.split("/")[-1])
 
             async with self.session.post(f"{self.api_url}/{method}", data=data) as resp:
@@ -113,7 +115,7 @@ class TelegramAdapter(PlatformAdapter):
             if fh is not None:
                 fh.close()
 
-    async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
+    async def send_text(self, chat_id: str, text: str, reply_to: str | None = None) -> PlatformMessage | None:
         res = await self._make_request("sendMessage", {"chat_id": chat_id, "text": text})
         return PlatformMessage(
             id=str(res.get("message_id") if res else uuid.uuid4()),
@@ -129,16 +131,16 @@ class TelegramAdapter(PlatformAdapter):
         self,
         chat_id: str,
         media_path: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         media_type: MessageType = MessageType.IMAGE,
-    ) -> Optional[PlatformMessage]:
+    ) -> PlatformMessage | None:
         """Send a media file (image, video, audio, document) to a Telegram chat."""
         method = _MEDIA_METHOD.get(media_type, "sendDocument")
         field = _MEDIA_FIELD.get(media_type, "document")
 
         # If media_path looks like a URL, send via JSON (Telegram downloads it)
         if media_path.startswith("http://") or media_path.startswith("https://"):
-            payload: Dict[str, Any] = {"chat_id": chat_id, field: media_path}
+            payload: dict[str, Any] = {"chat_id": chat_id, field: media_path}
             if caption:
                 payload["caption"] = caption
             res = await self._make_request(method, payload)
@@ -160,8 +162,8 @@ class TelegramAdapter(PlatformAdapter):
     async def send_photo(self, chat_id: str, photo: str, **kwargs):
         return await self._make_request("sendPhoto", {"chat_id": chat_id, "photo": photo, **kwargs})
 
-    async def send_document(self, chat_id: str, document_path: str, caption: Optional[str] = None, **kwargs):
-        payload: Dict[str, Any] = {"chat_id": chat_id, "document": document_path}
+    async def send_document(self, chat_id: str, document_path: str, caption: str | None = None, **kwargs):
+        payload: dict[str, Any] = {"chat_id": chat_id, "document": document_path}
         if caption:
             payload["caption"] = caption
         payload.update(kwargs)
@@ -178,7 +180,7 @@ class TelegramAdapter(PlatformAdapter):
             },
         )
 
-    async def send_poll(self, chat_id: str, question: str, options: List[str], **kwargs):
+    async def send_poll(self, chat_id: str, question: str, options: list[str], **kwargs):
         return await self._make_request(
             "sendPoll",
             {"chat_id": chat_id, "question": question, "options": options, **kwargs},
@@ -225,7 +227,7 @@ class TelegramAdapter(PlatformAdapter):
     async def unban_chat_member(self, chat_id: str, user_id: int, **kwargs):
         return bool(await self._make_request("unbanChatMember", {"chat_id": chat_id, "user_id": user_id, **kwargs}))
 
-    async def restrict_chat_member(self, chat_id: str, user_id: int, permissions: Dict, **kwargs):
+    async def restrict_chat_member(self, chat_id: str, user_id: int, permissions: dict, **kwargs):
         return bool(
             await self._make_request(
                 "restrictChatMember",
@@ -284,7 +286,7 @@ class TelegramAdapter(PlatformAdapter):
         except Exception:
             return False
 
-    async def handle_webhook(self, data: Dict) -> Optional[PlatformMessage]:
+    async def handle_webhook(self, data: dict) -> PlatformMessage | None:
         """Parse incoming Telegram update into a PlatformMessage.
 
         Handles text messages, photos, videos, audio, voice, documents,

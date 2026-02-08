@@ -1,5 +1,4 @@
 import logging
-from typing import List, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class SubAgent:
         self.max_steps = 5
         self.plan = []
 
-    async def generate_plan(self) -> List[str]:
+    async def generate_plan(self) -> list[str]:
         """Ask the LLM to generate a step-by-step plan for the task"""
         prompt = f"As a {self.role}, create a step-by-step plan to achieve this task: {self.task}. Return only the steps as a list."
         response = await self.parent.llm.generate(
@@ -55,7 +54,7 @@ class SubAgent:
         context = f"You are a specialized sub-agent.\nName: {self.name}\nRole: {self.role}\nBoundaries: {self.ROLE_BOUNDARIES[self.role]}\nParent Goal: {self.task}\nPlanned Steps: {self.plan}"
         messages = [{"role": "user", "content": f"Perform the following task: {self.task}"}]
 
-        for step in range(self.max_steps):
+        for _step in range(self.max_steps):
             try:
                 # Sub-agents use the parent's LLM but can have restricted tools
                 response = await self.parent.llm.generate(
@@ -97,7 +96,7 @@ class SubAgent:
 
         return "Sub-agent reached max steps without final answer."
 
-    def _get_sub_tools(self) -> List[Dict]:
+    def _get_sub_tools(self) -> list[dict]:
         """Define tools available to sub-agents based on role boundaries"""
         all_tools = [
             {

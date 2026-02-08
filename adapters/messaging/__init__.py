@@ -1,19 +1,20 @@
 import logging
 
+import aiofiles
+import websockets
+
+from .imessage import IMessageAdapter
 from .server import (
-    MegaBotMessagingServer,
-    PlatformMessage,
-    MessageType,
     MediaAttachment,
+    MegaBotMessagingServer,
+    MessageType,
     PlatformAdapter,
+    PlatformMessage,
     SecureWebSocket,
 )
-from .whatsapp import WhatsAppAdapter
-from .telegram import TelegramAdapter
-from .imessage import IMessageAdapter
 from .sms import SMSAdapter
-import websockets
-import aiofiles
+from .telegram import TelegramAdapter
+from .whatsapp import WhatsAppAdapter
 
 logger = logging.getLogger(__name__)
 

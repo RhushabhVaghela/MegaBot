@@ -1,17 +1,19 @@
-import os
 import asyncio
-import random
-import logging
-import aiohttp  # type: ignore
 import json
+import logging
+import os
+import random
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List, Set
+from typing import Any
+
+import aiohttp  # type: ignore
+
 from core.instrumentation import track_telemetry
 
 logger = logging.getLogger(__name__)
 
 # HTTP status codes that are safe to retry
-_RETRYABLE_STATUSES: Set[int] = {429, 500, 502, 503, 504}
+_RETRYABLE_STATUSES: set[int] = {429, 500, 502, 503, 504}
 _MAX_RETRIES = 3
 _BASE_DELAY = 1.0  # seconds
 
@@ -20,7 +22,7 @@ class LLMProvider(ABC):
     """Abstract base class for all LLM providers."""
 
     def __init__(self) -> None:
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     def _get_session(self) -> aiohttp.ClientSession:
         """Get or create a persistent aiohttp session (connection pooling)."""
@@ -38,9 +40,9 @@ class LLMProvider(ABC):
         self,
         url: str,
         *,
-        headers: Optional[Dict[str, str]] = None,
-        json_payload: Optional[Dict[str, Any]] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        headers: dict[str, str] | None = None,
+        json_payload: dict[str, Any] | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
     ) -> aiohttp.ClientResponse:
         """Execute a POST request with exponential backoff retry on transient errors.
 
@@ -48,7 +50,7 @@ class LLMProvider(ABC):
         checking status and reading the body.
         """
         session = self._get_session()
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
 
         for attempt in range(_MAX_RETRIES + 1):
             try:
@@ -83,7 +85,7 @@ class LLMProvider(ABC):
                 )
                 await asyncio.sleep(delay)
 
-            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            except (TimeoutError, aiohttp.ClientError) as exc:
                 last_exc = exc
                 if attempt == _MAX_RETRIES:
                     raise
@@ -105,18 +107,18 @@ class LLMProvider(ABC):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         pass  # pragma: no cover
 
     async def reason(
         self,
         prompt: str,
-        context: Optional[Any] = None,
-        search_tool: Optional[Any] = None,
+        context: Any | None = None,
+        search_tool: Any | None = None,
     ) -> str:
         """
         Deep reasoning pattern: <think>-<search>-<answer>.
@@ -147,7 +149,7 @@ class LLMProvider(ABC):
 class OpenAICompatibleProvider(LLMProvider):
     """Base class for any provider that supports the OpenAI Chat Completions API format."""
 
-    def __init__(self, model: str, api_key: Optional[str], base_url: str):
+    def __init__(self, model: str, api_key: str | None, base_url: str):
         super().__init__()
         self.model = model
         self.api_key = api_key
@@ -156,10 +158,10 @@ class OpenAICompatibleProvider(LLMProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         if not self.api_key:
             return f"{self.__class__.__name__} API key missing"
@@ -199,7 +201,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
 
 class OpenAIProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "gpt-4-turbo", api_key: Optional[str] = None):
+    def __init__(self, model: str = "gpt-4-turbo", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("OPENAI_API_KEY"),
@@ -208,7 +210,7 @@ class OpenAIProvider(OpenAICompatibleProvider):
 
 
 class GroqProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "llama3-70b-8192", api_key: Optional[str] = None):
+    def __init__(self, model: str = "llama3-70b-8192", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("GROQ_API_KEY"),
@@ -217,7 +219,7 @@ class GroqProvider(OpenAICompatibleProvider):
 
 
 class DeepSeekProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "deepseek-chat", api_key: Optional[str] = None):
+    def __init__(self, model: str = "deepseek-chat", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("DEEPSEEK_API_KEY"),
@@ -226,7 +228,7 @@ class DeepSeekProvider(OpenAICompatibleProvider):
 
 
 class XAIProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "grok-beta", api_key: Optional[str] = None):
+    def __init__(self, model: str = "grok-beta", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("XAI_API_KEY"),
@@ -238,7 +240,7 @@ class PerplexityProvider(OpenAICompatibleProvider):
     def __init__(
         self,
         model: str = "llama-3-sonar-large-32k-online",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             model=model,
@@ -248,7 +250,7 @@ class PerplexityProvider(OpenAICompatibleProvider):
 
 
 class CerebrasProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "llama3.1-70b", api_key: Optional[str] = None):
+    def __init__(self, model: str = "llama3.1-70b", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("CEREBRAS_API_KEY"),
@@ -257,7 +259,7 @@ class CerebrasProvider(OpenAICompatibleProvider):
 
 
 class SambaNovaProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "llama3-70b", api_key: Optional[str] = None):
+    def __init__(self, model: str = "llama3-70b", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("SAMBANOVA_API_KEY"),
@@ -269,7 +271,7 @@ class FireworksProvider(OpenAICompatibleProvider):
     def __init__(
         self,
         model: str = "accounts/fireworks/models/llama-v3p1-70b-instruct",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             model=model,
@@ -282,7 +284,7 @@ class DeepInfraProvider(OpenAICompatibleProvider):
     def __init__(
         self,
         model: str = "meta-llama/Meta-Llama-3-70B-Instruct",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             model=model,
@@ -292,7 +294,7 @@ class DeepInfraProvider(OpenAICompatibleProvider):
 
 
 class LMStudioProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "local-model", base_url: Optional[str] = None):
+    def __init__(self, model: str = "local-model", base_url: str | None = None):
         super().__init__(
             model=model,
             api_key="lm-studio",  # LM Studio doesn't require a real key
@@ -301,7 +303,7 @@ class LMStudioProvider(OpenAICompatibleProvider):
 
 
 class LlamaCppProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "local-model", base_url: Optional[str] = None):
+    def __init__(self, model: str = "local-model", base_url: str | None = None):
         super().__init__(
             model=model,
             api_key="llama-cpp",  # llama.cpp doesn't require a real key
@@ -310,7 +312,7 @@ class LlamaCppProvider(OpenAICompatibleProvider):
 
 
 class VLLMProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, model: str, api_key: str | None = None, base_url: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("VLLM_API_KEY", "vllm-key"),
@@ -319,7 +321,7 @@ class VLLMProvider(OpenAICompatibleProvider):
 
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, model: str = "llama3", url: Optional[str] = None):
+    def __init__(self, model: str = "llama3", url: str | None = None):
         super().__init__()
         self.model = model
         self.url = url or os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
@@ -327,10 +329,10 @@ class OllamaProvider(LLMProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> str:
         # Simplified for messages support
         if messages:
@@ -359,7 +361,7 @@ class OllamaProvider(LLMProvider):
 
 
 class AnthropicProvider(LLMProvider):
-    def __init__(self, model: str = "claude-3-5-sonnet-20240620", api_key: Optional[str] = None):
+    def __init__(self, model: str = "claude-3-5-sonnet-20240620", api_key: str | None = None):
         super().__init__()
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
@@ -367,10 +369,10 @@ class AnthropicProvider(LLMProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         if not self.api_key:
             return "Anthropic API key missing"
@@ -418,7 +420,7 @@ class AnthropicProvider(LLMProvider):
 
 
 class GeminiProvider(LLMProvider):
-    def __init__(self, model: str = "gemini-1.5-pro", api_key: Optional[str] = None):
+    def __init__(self, model: str = "gemini-1.5-pro", api_key: str | None = None):
         super().__init__()
         self.model = model
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
@@ -426,10 +428,10 @@ class GeminiProvider(LLMProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         if not self.api_key:
             return "Gemini API key missing"
@@ -485,7 +487,7 @@ class GeminiProvider(LLMProvider):
 
 
 class MistralProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "mistral-large-latest", api_key: Optional[str] = None):
+    def __init__(self, model: str = "mistral-large-latest", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("MISTRAL_API_KEY"),
@@ -494,7 +496,7 @@ class MistralProvider(OpenAICompatibleProvider):
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
-    def __init__(self, model: str = "anthropic/claude-3.5-sonnet", api_key: Optional[str] = None):
+    def __init__(self, model: str = "anthropic/claude-3.5-sonnet", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("OPENROUTER_API_KEY"),
@@ -504,10 +506,10 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         # OpenRouter expects some extra headers for their rankings
         if not self.api_key:
@@ -556,7 +558,7 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
     The base_url is typically the GitHub Copilot API endpoint.
     """
 
-    def __init__(self, model: str = "gpt-4", api_key: Optional[str] = None):
+    def __init__(self, model: str = "gpt-4", api_key: str | None = None):
         super().__init__(
             model=model,
             api_key=api_key or os.environ.get("GITHUB_TOKEN"),
@@ -566,10 +568,10 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
     @track_telemetry
     async def generate(
         self,
-        prompt: Optional[str] = None,
-        context: Optional[Any] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        prompt: str | None = None,
+        context: Any | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> Any:
         if not self.api_key:
             return "GitHub Token missing (GITHUB_TOKEN env var required)"
@@ -611,7 +613,7 @@ class GitHubCopilotProvider(OpenAICompatibleProvider):
             return f"GitHub Copilot connection failed: {e}"
 
 
-def get_llm_provider(config: Dict[str, Any]) -> LLMProvider:
+def get_llm_provider(config: dict[str, Any]) -> LLMProvider:
     provider_type = config.get("provider", "ollama").lower()
     model = config.get("model")
 

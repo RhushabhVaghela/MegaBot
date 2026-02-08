@@ -1,10 +1,10 @@
-import sqlite3
+import asyncio
 import json
 import logging
-from typing import List, Optional, Dict, Any
-import asyncio
+import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 logger = logging.getLogger("megabot.memory.chat")
 
@@ -60,7 +60,7 @@ class ChatMemoryManager:
         platform: str,
         role: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Store a message in the chat history."""
         try:
@@ -92,7 +92,7 @@ class ChatMemoryManager:
         )
         conn.commit()
 
-    async def read(self, chat_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def read(self, chat_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Retrieve recent chat history for a specific context."""
         try:
             loop = asyncio.get_running_loop()
@@ -172,7 +172,7 @@ class ChatMemoryManager:
             return True
         return False
 
-    async def get_all_chat_ids(self) -> List[str]:
+    async def get_all_chat_ids(self) -> list[str]:
         """Retrieve all unique chat_ids from history."""
         try:
             loop = asyncio.get_running_loop()
@@ -181,13 +181,13 @@ class ChatMemoryManager:
             logger.error(f"Error getting chat IDs: {e}")
             return []
 
-    def _sync_get_all_chat_ids(self) -> List[str]:
+    def _sync_get_all_chat_ids(self) -> list[str]:
         """Synchronous get all chat IDs operation."""
         conn = self._get_connection()
         cursor = conn.execute("SELECT DISTINCT chat_id FROM chat_history")
         return [r[0] for r in cursor.fetchall()]
 
-    async def get_chat_stats(self, chat_id: str) -> Dict[str, Any]:
+    async def get_chat_stats(self, chat_id: str) -> dict[str, Any]:
         """Get statistics for a specific chat."""
         try:
             loop = asyncio.get_running_loop()
@@ -196,7 +196,7 @@ class ChatMemoryManager:
             logger.error(f"Error getting chat stats for {chat_id}: {e}")
             return {"error": str(e)}
 
-    def _sync_get_chat_stats(self, chat_id: str) -> Dict[str, Any]:
+    def _sync_get_chat_stats(self, chat_id: str) -> dict[str, Any]:
         """Synchronous get chat stats operation."""
         conn = self._get_connection()
         cursor = conn.execute(
@@ -211,7 +211,7 @@ class ChatMemoryManager:
             "newest_message": newest,
         }
 
-    async def get_aggregate_stats(self) -> Dict[str, Any]:
+    async def get_aggregate_stats(self) -> dict[str, Any]:
         """Get aggregate statistics across all chats."""
         try:
             loop = asyncio.get_running_loop()
@@ -220,7 +220,7 @@ class ChatMemoryManager:
             logger.error(f"Error getting aggregate chat stats: {e}")
             return {"error": str(e)}
 
-    def _sync_get_aggregate_stats(self) -> Dict[str, Any]:
+    def _sync_get_aggregate_stats(self) -> dict[str, Any]:
         """Synchronous aggregate stats operation."""
         conn = self._get_connection()
         total = conn.execute("SELECT COUNT(*) FROM chat_history").fetchone()[0]

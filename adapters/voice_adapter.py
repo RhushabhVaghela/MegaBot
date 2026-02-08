@@ -6,7 +6,7 @@ Provides integration with telephony services (Twilio) for voice calls.
 import asyncio
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 from xml.sax.saxutils import escape as xml_escape
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class VoiceAdapter(VoiceInterface):
         account_sid: str,
         auth_token: str,
         from_number: str,
-        callback_url: Optional[str] = None,
+        callback_url: str | None = None,
     ):
         """
         Initialize the Voice adapter.
@@ -75,7 +75,7 @@ class VoiceAdapter(VoiceInterface):
         recipient_phone: str,
         script: str,
         ivr: bool = False,
-        action_id: Optional[str] = None,
+        action_id: str | None = None,
     ) -> str:
         """
         Initiate a phone call.
@@ -160,7 +160,8 @@ class VoiceAdapter(VoiceInterface):
             import openai  # noqa: F811
 
             client = openai.OpenAI()
-            import tempfile, os
+            import os
+            import tempfile
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(audio_data)
@@ -208,7 +209,7 @@ class VoiceAdapter(VoiceInterface):
         logger.warning("[Voice] No TTS service configured. Returning empty audio.")
         return b""
 
-    async def get_call_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
+    async def get_call_logs(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get recent call logs from Twilio.
 
         Args:

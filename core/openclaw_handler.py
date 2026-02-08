@@ -6,11 +6,12 @@ that gates system/shell commands.
 
 import logging
 import uuid
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from core.interfaces import Message
-from core.task_utils import safe_create_task as _safe_create_task, sanitize_action as _sanitize_action
 from core.constants import GREETING_TEXT
+from core.interfaces import Message
+from core.task_utils import safe_create_task as _safe_create_task
+from core.task_utils import sanitize_action as _sanitize_action
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 
 
-def check_policy(orchestrator: "MegaBotOrchestrator", data: Dict) -> str:
+def check_policy(orchestrator: "MegaBotOrchestrator", data: dict) -> str:
     """Check if an action is pre-approved or pre-denied based on policies.
 
     Args:
@@ -63,7 +64,7 @@ def check_policy(orchestrator: "MegaBotOrchestrator", data: Dict) -> str:
 # ------------------------------------------------------------------
 
 
-async def on_openclaw_event(orchestrator: "MegaBotOrchestrator", data: Dict) -> None:
+async def on_openclaw_event(orchestrator: "MegaBotOrchestrator", data: dict) -> None:
     """Handle events from the OpenClaw adapter.
 
     Routes events based on their ``method`` field:

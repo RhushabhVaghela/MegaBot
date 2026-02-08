@@ -24,7 +24,7 @@ import subprocess
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, TypeVar, Generic
+from typing import Any, Generic, TypeVar
 
 import psutil
 
@@ -61,7 +61,7 @@ class InsufficientResourcesError(RuntimeError):
         requested_ram_mb: float = 0,
         available_ram_mb: float = 0,
         requested_vram_mb: float = 0,
-        available_vram_mb: Optional[float] = None,
+        available_vram_mb: float | None = None,
     ):
         super().__init__(message)
         self.requested_ram_mb = requested_ram_mb
@@ -83,10 +83,10 @@ class ResourceSnapshot:
     ram_used_mb: float
     ram_available_mb: float
     ram_percent: float
-    vram_total_mb: Optional[float] = None
-    vram_used_mb: Optional[float] = None
-    vram_available_mb: Optional[float] = None
-    vram_percent: Optional[float] = None
+    vram_total_mb: float | None = None
+    vram_used_mb: float | None = None
+    vram_available_mb: float | None = None
+    vram_percent: float | None = None
     timestamp: float = field(default_factory=time.time)
 
     @property
@@ -95,7 +95,7 @@ class ResourceSnapshot:
         return max(0.0, self.ram_available_mb - RAM_BUFFER_MB)
 
     @property
-    def vram_headroom_mb(self) -> Optional[float]:
+    def vram_headroom_mb(self) -> float | None:
         """How much VRAM can be allocated before hitting the buffer."""
         if self.vram_available_mb is None:
             return None
@@ -107,7 +107,7 @@ class ResourceSnapshot:
 # ---------------------------------------------------------------------------
 
 
-def _query_vram() -> Optional[Dict[str, float]]:
+def _query_vram() -> dict[str, float] | None:
     """Query VRAM via ``nvidia-smi``.  Returns None if unavailable."""
     try:
         result = subprocess.run(
@@ -186,22 +186,21 @@ def can_allocate(ram_mb: float = 0, vram_mb: float = 0, *, raise_on_failure: boo
             )
         return False
 
-    if vram_mb > 0 and snap.vram_headroom_mb is not None:
-        if snap.vram_headroom_mb < vram_mb:
-            logger.warning(
-                "VRAM allocation denied: requested %.0f MB but only %.0f MB headroom (buffer=%d MB)",
-                vram_mb,
-                snap.vram_headroom_mb,
-                VRAM_BUFFER_MB,
+    if vram_mb > 0 and snap.vram_headroom_mb is not None and snap.vram_headroom_mb < vram_mb:
+        logger.warning(
+            "VRAM allocation denied: requested %.0f MB but only %.0f MB headroom (buffer=%d MB)",
+            vram_mb,
+            snap.vram_headroom_mb,
+            VRAM_BUFFER_MB,
+        )
+        if raise_on_failure:
+            raise InsufficientResourcesError(
+                f"VRAM allocation denied: requested {vram_mb:.0f} MB but only "
+                f"{snap.vram_headroom_mb:.0f} MB headroom (buffer={VRAM_BUFFER_MB} MB)",
+                requested_vram_mb=vram_mb,
+                available_vram_mb=snap.vram_headroom_mb,
             )
-            if raise_on_failure:
-                raise InsufficientResourcesError(
-                    f"VRAM allocation denied: requested {vram_mb:.0f} MB but only "
-                    f"{snap.vram_headroom_mb:.0f} MB headroom (buffer={VRAM_BUFFER_MB} MB)",
-                    requested_vram_mb=vram_mb,
-                    available_vram_mb=snap.vram_headroom_mb,
-                )
-            return False
+        return False
 
     return True
 
@@ -291,8 +290,8 @@ class LRUCache(Generic[KT, VT]):
 
 def _apply_buffer_overrides(
     *,
-    ram_buffer_mb: Optional[int] = None,
-    vram_buffer_mb: Optional[int] = None,
+    ram_buffer_mb: int | None = None,
+    vram_buffer_mb: int | None = None,
 ) -> None:
     """Update module-level buffer constants.
 
@@ -337,12 +336,12 @@ class ResourceGuard:
         self,
         *,
         interval: float = _CHECK_INTERVAL_SECONDS,
-        ram_buffer_mb: Optional[int] = None,
-        vram_buffer_mb: Optional[int] = None,
+        ram_buffer_mb: int | None = None,
+        vram_buffer_mb: int | None = None,
     ):
         self._interval = interval
-        self._task: Optional[asyncio.Task] = None
-        self._latest: Optional[ResourceSnapshot] = None
+        self._task: asyncio.Task | None = None
+        self._latest: ResourceSnapshot | None = None
         self._warning_issued_ram = False
         self._warning_issued_vram = False
 
@@ -355,7 +354,7 @@ class ResourceGuard:
             _apply_buffer_overrides(vram_buffer_mb=vram_buffer_mb)
 
     @property
-    def latest(self) -> Optional[ResourceSnapshot]:
+    def latest(self) -> ResourceSnapshot | None:
         """Most recent snapshot (None if ``start()`` hasn't been called)."""
         return self._latest
 
@@ -416,7 +415,7 @@ class ResourceGuard:
 
             await asyncio.sleep(self._interval)
 
-    def health_dict(self) -> Dict[str, Any]:
+    def health_dict(self) -> dict[str, Any]:
         """Return a dict suitable for inclusion in system health responses."""
         snap = self._latest
         if snap is None:
@@ -428,7 +427,7 @@ class ResourceGuard:
         elif snap.ram_headroom_mb < 1024:  # less than 1 GB headroom
             status = "warning"
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "status": status,
             "ram_used_mb": round(snap.ram_used_mb),
             "ram_available_mb": round(snap.ram_available_mb),

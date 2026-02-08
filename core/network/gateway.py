@@ -3,12 +3,13 @@ import hashlib
 import json
 import logging
 import os
-import subprocess
 import ssl
+import subprocess
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any
 
 import websockets
 from websockets.legacy.server import WebSocketServerProtocol
@@ -29,10 +30,10 @@ class ClientConnection:
     ip_address: str
     connected_at: datetime
     authenticated: bool = False
-    user_agent: Optional[str] = None
-    country: Optional[str] = None
+    user_agent: str | None = None
+    country: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "client_id": self.client_id,
             "connection_type": self.connection_type.value,
@@ -56,13 +57,13 @@ class UnifiedGateway:
         enable_cloudflare: bool = False,
         enable_vpn: bool = False,
         enable_direct_https: bool = False,
-        cloudflare_tunnel_id: Optional[str] = None,
-        tailscale_auth_key: Optional[str] = None,
-        ssl_cert_path: Optional[str] = None,
-        ssl_key_path: Optional[str] = None,
-        public_domain: Optional[str] = None,
-        on_message: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
-        auth_token: Optional[str] = None,
+        cloudflare_tunnel_id: str | None = None,
+        tailscale_auth_key: str | None = None,
+        ssl_cert_path: str | None = None,
+        ssl_key_path: str | None = None,
+        public_domain: str | None = None,
+        on_message: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        auth_token: str | None = None,
         **kwargs,
     ):
         self.megabot_host = megabot_server_host
@@ -79,19 +80,19 @@ class UnifiedGateway:
         self.auth_token = auth_token or os.environ.get("MEGABOT_GATEWAY_TOKEN")
 
         self.local_server = None
-        self.cloudflare_process: Optional[subprocess.Popen] = None
-        self.tailscale_process: Optional[subprocess.Popen] = None
+        self.cloudflare_process: subprocess.Popen | None = None
+        self.tailscale_process: subprocess.Popen | None = None
         self.https_server = None
-        self.clients: Dict[str, ClientConnection] = {}
-        self.health_status: Dict[str, bool] = {
+        self.clients: dict[str, ClientConnection] = {}
+        self.health_status: dict[str, bool] = {
             ConnectionType.LOCAL.value: True,
             ConnectionType.CLOUDFLARE.value: False,
             ConnectionType.VPN.value: False,
             ConnectionType.DIRECT.value: False,
         }
-        self.rate_limits: Dict[str, Dict[str, List[datetime]]] = {ct.value: {} for ct in ConnectionType}
+        self.rate_limits: dict[str, dict[str, list[datetime]]] = {ct.value: {} for ct in ConnectionType}
         self.logger = logging.getLogger(__name__)
-        self._health_task: Optional[asyncio.Task] = None
+        self._health_task: asyncio.Task | None = None
 
     async def start(self):
         await self._start_local_server()
@@ -273,7 +274,7 @@ class UnifiedGateway:
         self.is_active = False
         self.logger.info("[Gateway] Services stopped.")
 
-    def get_connection_info(self) -> Dict[str, Any]:
+    def get_connection_info(self) -> dict[str, Any]:
         return {
             "health": dict(self.health_status),
             "active_connections": len(self.clients),
@@ -460,7 +461,7 @@ class UnifiedGateway:
                 return ConnectionType.LOCAL
         return ConnectionType.LOCAL
 
-    async def _handle_websocket(self, websocket, path="", forced_type: Optional[ConnectionType] = None):
+    async def _handle_websocket(self, websocket, path="", forced_type: ConnectionType | None = None):
         conn_type = forced_type or self._detect_connection_type(websocket)
         ip = "unknown"
         if getattr(websocket, "remote_address", None):
@@ -558,7 +559,7 @@ class UnifiedGateway:
                 ws.__aiter__().__anext__(),
                 timeout=self._AUTH_TIMEOUT_SECONDS,
             )
-        except (asyncio.TimeoutError, StopAsyncIteration, Exception):
+        except (TimeoutError, StopAsyncIteration, Exception):
             return False
 
         # Extract text payload
@@ -626,7 +627,7 @@ class UnifiedGateway:
         except Exception:
             await self._send_error(conn, "Internal error")
 
-    async def _forward_to_megabot(self, data: Dict[str, Any]):
+    async def _forward_to_megabot(self, data: dict[str, Any]):
         if self.on_message:
             await self.on_message(data)
 
@@ -663,7 +664,7 @@ class UnifiedGateway:
         )
         return self.local_server
 
-    async def send_message(self, client_id: str, message: Dict[str, Any]) -> bool:
+    async def send_message(self, client_id: str, message: dict[str, Any]) -> bool:
         """Send a message back to a specific connected client"""
         if client_id not in self.clients:
             self.logger.warning("Attempted to send to unknown client: %s", client_id)

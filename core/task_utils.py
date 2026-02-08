@@ -11,15 +11,14 @@ Import ``safe_create_task`` from this module instead of using
 
 import asyncio
 import logging
-from typing import Optional, Set
 
 logger = logging.getLogger(__name__)
 
 # Global set of all tracked tasks — prevents GC while running.
-_tracked_tasks: Set[asyncio.Task] = set()
+_tracked_tasks: set[asyncio.Task] = set()
 
 
-def safe_create_task(coro, name: Optional[str] = None) -> asyncio.Task:
+def safe_create_task(coro, name: str | None = None) -> asyncio.Task:
     """Schedule *coro* as an asyncio Task with error logging.
 
     The task is added to ``_tracked_tasks`` and removed automatically
@@ -56,7 +55,7 @@ def safe_create_task(coro, name: Optional[str] = None) -> asyncio.Task:
     return task
 
 
-def get_tracked_tasks() -> Set[asyncio.Task]:
+def get_tracked_tasks() -> set[asyncio.Task]:
     """Return a snapshot of all currently tracked tasks."""
     return set(_tracked_tasks)
 

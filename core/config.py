@@ -1,9 +1,10 @@
 import logging
 import os
 import re
+from typing import Any
+
 import yaml
 from pydantic import BaseModel, ConfigDict, Field  # type: ignore
-from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def load_api_credentials():
     if not os.path.exists(cred_path):
         return
     try:
-        with open(cred_path, "r", encoding="utf-8") as fh:
+        with open(cred_path, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -62,24 +63,24 @@ class LLMConfig(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
-    groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
-    deepseek_api_key: Optional[str] = Field(default=None, alias="DEEPSEEK_API_KEY")
-    xai_api_key: Optional[str] = Field(default=None, alias="XAI_API_KEY")
-    perplexity_api_key: Optional[str] = Field(default=None, alias="PERPLEXITY_API_KEY")
-    cerebras_api_key: Optional[str] = Field(default=None, alias="CEREBRAS_API_KEY")
-    sambanova_api_key: Optional[str] = Field(default=None, alias="SAMBANOVA_API_KEY")
-    fireworks_api_key: Optional[str] = Field(default=None, alias="FIREWORKS_API_KEY")
-    deepinfra_api_key: Optional[str] = Field(default=None, alias="DEEPINFRA_API_KEY")
-    anthropic_api_key: Optional[str] = Field(default=None, alias="ANTHROPIC_API_KEY")
-    gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
-    mistral_api_key: Optional[str] = Field(default=None, alias="MISTRAL_API_KEY")
-    openrouter_api_key: Optional[str] = Field(default=None, alias="OPENROUTER_API_KEY")
-    github_token: Optional[str] = Field(default=None, alias="GITHUB_TOKEN")
-    lm_studio_url: Optional[str] = Field(default=None, alias="LM_STUDIO_URL")
-    llama_cpp_url: Optional[str] = Field(default=None, alias="LLAMA_CPP_URL")
-    vllm_url: Optional[str] = Field(default=None, alias="VLLM_URL")
-    vllm_api_key: Optional[str] = Field(default=None, alias="VLLM_API_KEY")
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    deepseek_api_key: str | None = Field(default=None, alias="DEEPSEEK_API_KEY")
+    xai_api_key: str | None = Field(default=None, alias="XAI_API_KEY")
+    perplexity_api_key: str | None = Field(default=None, alias="PERPLEXITY_API_KEY")
+    cerebras_api_key: str | None = Field(default=None, alias="CEREBRAS_API_KEY")
+    sambanova_api_key: str | None = Field(default=None, alias="SAMBANOVA_API_KEY")
+    fireworks_api_key: str | None = Field(default=None, alias="FIREWORKS_API_KEY")
+    deepinfra_api_key: str | None = Field(default=None, alias="DEEPINFRA_API_KEY")
+    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
+    mistral_api_key: str | None = Field(default=None, alias="MISTRAL_API_KEY")
+    openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
+    github_token: str | None = Field(default=None, alias="GITHUB_TOKEN")
+    lm_studio_url: str | None = Field(default=None, alias="LM_STUDIO_URL")
+    llama_cpp_url: str | None = Field(default=None, alias="LLAMA_CPP_URL")
+    vllm_url: str | None = Field(default=None, alias="VLLM_URL")
+    vllm_api_key: str | None = Field(default=None, alias="VLLM_API_KEY")
 
 
 class SecurityConfig(BaseModel):
@@ -87,7 +88,7 @@ class SecurityConfig(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    megabot_backup_key: Optional[str] = Field(default=None, alias="MEGABOT_BACKUP_KEY")
+    megabot_backup_key: str | None = Field(default=None, alias="MEGABOT_BACKUP_KEY")
     megabot_encryption_salt: str = Field(default="", alias="MEGABOT_ENCRYPTION_SALT")
     megabot_media_path: str = Field(default="./media", alias="MEGABOT_MEDIA_PATH")
 
@@ -119,7 +120,7 @@ class AdapterConfig(BaseModel):
     database_url: str = "sqlite:///megabot.db"
     vector_db: str = "pgvector"
     servers: list[dict] = []
-    web_search: Dict[str, Any] = {}
+    web_search: dict[str, Any] = {}
     auth_token: str = ""  # From environment variable
     encryption_key: str = ""  # For WebSocket encryption
 
@@ -155,7 +156,7 @@ class SystemConfig(BaseModel):
     messaging_port: int = 18790
     telemetry: bool = False
     default_mode: str = "plan"
-    admin_phone: Optional[str] = None
+    admin_phone: str | None = None
     dnd_start: int = 22  # 10 PM
     dnd_end: int = 7  # 7 AM
     resources: ResourceConfig = Field(default_factory=ResourceConfig)
@@ -163,10 +164,10 @@ class SystemConfig(BaseModel):
 
 class Config(BaseModel):
     system: SystemConfig
-    adapters: Dict[str, AdapterConfig]
-    paths: Dict[str, str]
-    policies: Dict[str, Any] = {"allow": [], "deny": []}
-    admins: List[str] = []  # List of authorized sender IDs (e.g. your phone number)
+    adapters: dict[str, AdapterConfig]
+    paths: dict[str, str]
+    policies: dict[str, Any] = {"allow": [], "deny": []}
+    admins: list[str] = []  # List of authorized sender IDs (e.g. your phone number)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
@@ -230,7 +231,7 @@ def load_config(path: str = "mega-config.yaml") -> Config:
         default_config.save(path)
         return default_config
 
-    with open(path, "r") as f:
+    with open(path) as f:
         data = yaml.safe_load(f) or {}
 
     config = Config(**data)

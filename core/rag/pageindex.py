@@ -1,8 +1,8 @@
+import json
 import logging
 import os
 import re
-import json
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,10 @@ class PageIndexRAG:
     and LLM-guided navigation to reason over a codebase.
     """
 
-    def __init__(self, root_dir: str, llm: Optional[Any] = None):
+    def __init__(self, root_dir: str, llm: Any | None = None):
         self.root_dir = root_dir
         self.llm = llm
-        self.index: Dict[str, Any] = {}
+        self.index: dict[str, Any] = {}
         self.index_path = os.path.join(root_dir, ".megabot_index.json")
 
     async def build_index(self, force_rebuild: bool = False):
@@ -25,7 +25,7 @@ class PageIndexRAG:
         if not force_rebuild and os.path.exists(self.index_path):
             try:
                 logger.info("RAG: Loading cached index from %s...", self.index_path)
-                with open(self.index_path, "r") as f:
+                with open(self.index_path) as f:
                     self.index = json.load(f)
                 return
             except Exception as e:
@@ -61,7 +61,7 @@ class PageIndexRAG:
                 if file.endswith((".md", ".py", ".js", ".ts", ".txt", ".yaml", ".yml", ".json")):
                     file_path = os.path.join(root, file)
                     try:
-                        with open(file_path, "r", encoding="utf-8") as f:
+                        with open(file_path, encoding="utf-8") as f:
                             content = f.read()
 
                         current["files"][file] = {
@@ -75,7 +75,7 @@ class PageIndexRAG:
         # but the way I structured build_index previously was a bit different.
         # Let's keep it consistent.
 
-    def _extract_symbols(self, content: str, filename: str) -> List[str]:
+    def _extract_symbols(self, content: str, filename: str) -> list[str]:
         if filename.endswith(".py"):
             return re.findall(r"^(?:class|def)\s+([a-zA-Z_][a-zA-Z0-9_]*)", content, re.MULTILINE)
         if filename.endswith((".js", ".ts")):
@@ -160,7 +160,7 @@ class PageIndexRAG:
         except Exception as e:
             return f"Reasoning RAG failed: {e}. Falling back to keywords.\n" + self._keyword_navigation(query)
 
-    def _get_collapsed_index(self, max_depth=2) -> Dict:
+    def _get_collapsed_index(self, max_depth=2) -> dict:
         """Returns a simplified version of the index for LLM context."""
 
         def collapse(d, depth):
@@ -181,7 +181,7 @@ class PageIndexRAG:
             return f"Error: File {rel_path} not found."
 
         try:
-            with open(abs_path, "r", encoding="utf-8") as f:
+            with open(abs_path, encoding="utf-8") as f:
                 # Read first 100 lines for context
                 lines = f.readlines()
                 return "".join(lines[:100])

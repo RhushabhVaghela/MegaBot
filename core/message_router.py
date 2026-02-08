@@ -1,7 +1,6 @@
-import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from core.interfaces import Message
 from core.task_utils import safe_create_task
@@ -20,10 +19,11 @@ class MessageRouter:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
 
-    def _to_platform_message(self, message: Message, chat_id: Optional[str] = None) -> Any:
+    def _to_platform_message(self, message: Message, chat_id: str | None = None) -> Any:
         """Convert core Message to PlatformMessage for native messaging"""
-        from adapters.messaging import MediaAttachment, PlatformMessage, MessageType
         import uuid
+
+        from adapters.messaging import MediaAttachment, MessageType, PlatformMessage
 
         target_chat = chat_id or message.metadata.get("chat_id", "broadcast")
 
@@ -52,9 +52,9 @@ class MessageRouter:
     async def send_platform_message(
         self,
         message: Message,
-        chat_id: Optional[str] = None,
+        chat_id: str | None = None,
         platform: str = "native",
-        target_client: Optional[str] = None,
+        target_client: str | None = None,
     ):  # pragma: no cover
         """Send a message to a platform and record it in history.
 

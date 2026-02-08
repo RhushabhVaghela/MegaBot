@@ -1,7 +1,8 @@
 import logging
-import sys
 import os
-from core.interfaces import MessagingInterface, Message
+import sys
+
+from core.interfaces import Message, MessagingInterface
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ class NanobotAdapter(MessagingInterface):
     def __init__(self, nanobot_path: str, telegram_token: str = "", whatsapp_token: str = ""):
         # 1. Try checking if nanobot is already installed as a package
         try:
-            from nanobot.core import MarketAnalyzer, RoutineEngine, Messenger
+            from nanobot.core import MarketAnalyzer, Messenger, RoutineEngine
 
             logger.info("Successfully loaded nanobot from installed packages")
             found_path = True
@@ -29,8 +30,8 @@ class NanobotAdapter(MessagingInterface):
                     try:
                         from nanobot.core import (
                             MarketAnalyzer,
-                            RoutineEngine,
                             Messenger,
+                            RoutineEngine,
                         )  # pragma: no cover
 
                         self.nanobot_path = path  # pragma: no cover

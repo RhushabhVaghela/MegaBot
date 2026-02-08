@@ -8,14 +8,15 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
 from core.interfaces import Message
-from core.task_utils import safe_create_task as _safe_create_task, sanitize_action as _sanitize_action
+from core.task_utils import safe_create_task as _safe_create_task
+from core.task_utils import sanitize_action as _sanitize_action
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 # ------------------------------------------------------------------
 
 
-async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action: Dict) -> None:
+async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action: dict) -> None:
     """Escalate via Voice Call if approval is not received within 5 minutes.
 
     Checks DND hours (static config) and dynamic calendar events before
@@ -99,10 +100,10 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
 
 async def handle_computer_tool(
     orchestrator: "MegaBotOrchestrator",
-    tool_input: Dict,
+    tool_input: dict,
     websocket: WebSocket,
     action_id: str,
-    callback: Optional[Any] = None,
+    callback: Any | None = None,
 ) -> None:
     """Handle Anthropic Computer Use tool calls with Approval Interlock.
 

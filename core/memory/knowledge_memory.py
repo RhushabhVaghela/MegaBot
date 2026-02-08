@@ -1,10 +1,10 @@
-import sqlite3
-import json
-import logging
-from typing import List, Optional, Dict, Any
 import asyncio
 import concurrent.futures
+import json
+import logging
+import sqlite3
 import threading
+from typing import Any
 
 logger = logging.getLogger("megabot.memory.knowledge")
 
@@ -29,7 +29,7 @@ class KnowledgeMemoryManager:
     def __init__(
         self,
         db_path: str,
-        executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
+        executor: concurrent.futures.ThreadPoolExecutor | None = None,
     ):
         self.db_path = db_path
         # Accept a shared executor or create a private one
@@ -75,7 +75,7 @@ class KnowledgeMemoryManager:
             except Exception as e:
                 logger.debug("Error closing knowledge_memory DB connection: %s", e)
 
-    async def write(self, key: str, type: str, content: str, tags: Optional[List[str]] = None) -> str:
+    async def write(self, key: str, type: str, content: str, tags: list[str] | None = None) -> str:
         """Record new knowledge or decisions."""
         tags_json = json.dumps(tags or [])
         try:
@@ -99,7 +99,7 @@ class KnowledgeMemoryManager:
         conn.commit()
         return "Memory written successfully"
 
-    async def read(self, key: str) -> Optional[Dict[str, Any]]:
+    async def read(self, key: str) -> dict[str, Any] | None:
         """Retrieve specific memory content by key."""
         try:
             loop = asyncio.get_running_loop()
@@ -108,7 +108,7 @@ class KnowledgeMemoryManager:
             logger.error(f"Error reading memory '{key}': {e}")
             return None
 
-    def _sync_read(self, key: str) -> Optional[Dict[str, Any]]:
+    def _sync_read(self, key: str) -> dict[str, Any] | None:
         """Synchronous read operation."""
         conn = self._get_connection()
         cursor = conn.execute("SELECT * FROM memories WHERE key = ?", (key,))
@@ -126,12 +126,12 @@ class KnowledgeMemoryManager:
 
     async def search(
         self,
-        query: Optional[str] = None,
-        type: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        limit: Optional[int] = None,
+        query: str | None = None,
+        type: str | None = None,
+        tags: list[str] | None = None,
+        limit: int | None = None,
         order_by: str = "updated_at DESC",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for memories by query, type, or tags with advanced filtering."""
         try:
             loop = asyncio.get_running_loop()
@@ -142,12 +142,12 @@ class KnowledgeMemoryManager:
 
     def _sync_search(
         self,
-        query: Optional[str],
-        type: Optional[str],
-        tags: Optional[List[str]],
-        limit: Optional[int],
+        query: str | None,
+        type: str | None,
+        tags: list[str] | None,
+        limit: int | None,
         order_by: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Synchronous search operation."""
         sql = "SELECT * FROM memories WHERE 1=1"
         params: list = []
@@ -211,7 +211,7 @@ class KnowledgeMemoryManager:
         conn.commit()
         return cursor.rowcount > 0
 
-    async def update_tags(self, key: str, tags: List[str]) -> bool:
+    async def update_tags(self, key: str, tags: list[str]) -> bool:
         """Update tags for an existing memory."""
         tags_json = json.dumps(tags)
         try:
@@ -231,7 +231,7 @@ class KnowledgeMemoryManager:
         conn.commit()
         return True
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """View analytics on memory usage."""
         try:
             loop = asyncio.get_running_loop()
@@ -240,7 +240,7 @@ class KnowledgeMemoryManager:
             logger.error(f"Error getting memory stats: {e}")
             return {"error": str(e)}
 
-    def _sync_get_stats(self) -> Dict[str, Any]:
+    def _sync_get_stats(self) -> dict[str, Any]:
         """Synchronous get stats operation."""
         conn = self._get_connection()
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
