@@ -186,9 +186,7 @@ Fourth line
         page_index.llm = AsyncMock()
         page_index.llm.generate.return_value = '["src/main.py"]'
 
-        with patch.object(
-            page_index, "get_file_context", new_callable=AsyncMock
-        ) as mock_context:
+        with patch.object(page_index, "get_file_context", new_callable=AsyncMock) as mock_context:
             mock_context.return_value = "file content"
             result = await page_index.navigate("find calculator")
 
@@ -290,34 +288,30 @@ Fourth line
 
 
 @pytest.mark.asyncio
-async def test_build_index_cache_errors(page_index, temp_dir):
+async def test_build_index_cache_errors(page_index, temp_dir, caplog):
     """Test cache load and save errors in build_index (lines 28-29, 42-43)"""
+    import logging
+
     page_index.index_path = os.path.join(temp_dir, "error_index.json")
 
     # 1. Load cache error (lines 28-29)
     with open(page_index.index_path, "w") as f:
         f.write("invalid json")
 
-    with patch("builtins.print") as mock_print:
+    with caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"):
         # Should build from scratch if cache load fails
         await page_index.build_index(force_rebuild=False)
-        assert any(
-            "RAG: Failed to load cache:" in str(arg)
-            for call in mock_print.call_args_list
-            for arg in call.args
-        )
+        assert any("RAG: Failed to load cache:" in r.message for r in caplog.records)
+
+    caplog.clear()
 
     # 2. Save cache error (lines 42-43)
     # Re-build to trigger save
     with patch("os.path.exists", return_value=False):
         with patch("builtins.open", side_effect=Exception("Save error")):
-            with patch("builtins.print") as mock_print:
+            with caplog.at_level(logging.DEBUG, logger="core.rag.pageindex"):
                 await page_index.build_index(force_rebuild=True)
-                assert any(
-                    "RAG: Failed to save cache:" in str(arg)
-                    for call in mock_print.call_args_list
-                    for arg in call.args
-                )
+                assert any("RAG: Failed to save cache:" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio

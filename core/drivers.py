@@ -1,7 +1,10 @@
 import base64
 import io
+import logging
 from PIL import Image, ImageFilter
 from typing import Dict, Optional, List
+
+logger = logging.getLogger(__name__)
 
 
 class ComputerDriver:
@@ -21,22 +24,22 @@ class ComputerDriver:
                 FAILSAFE = True
 
                 def moveTo(self, x, y):
-                    print(f"Headless Mock: Moving mouse to ({x}, {y})")
+                    logger.debug("Headless Mock: Moving mouse to (%s, %s)", x, y)
 
                 def click(self):
-                    print("Headless Mock: Clicking")
+                    logger.debug("Headless Mock: Clicking")
 
                 def rightClick(self):
-                    print("Headless Mock: Right-clicking")
+                    logger.debug("Headless Mock: Right-clicking")
 
                 def write(self, text):
-                    print(f"Headless Mock: Typing '{text}'")
+                    logger.debug("Headless Mock: Typing '%s'", text)
 
                 def press(self, key):
-                    print(f"Headless Mock: Pressing '{key}'")
+                    logger.debug("Headless Mock: Pressing '%s'", key)
 
                 def screenshot(self):
-                    print("Headless Mock: Taking screenshot")
+                    logger.debug("Headless Mock: Taking screenshot")
                     return Image.new("RGB", (1024, 768), (0, 0, 0))
 
             return MockPyAutoGUI()
@@ -104,7 +107,7 @@ class ComputerDriver:
         except Exception as e:
             return _json.dumps({"error": f"Failed to decode image: {e}", "bounding_boxes": []})
 
-        print("[ComputerDriver] analyze_image: vision model not configured, returning image metadata only.")
+        logger.warning("[ComputerDriver] analyze_image: vision model not configured, returning image metadata only.")
         return _json.dumps(
             {
                 "description": "Vision model not configured. Returning metadata only.",

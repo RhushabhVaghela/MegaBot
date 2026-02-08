@@ -1,5 +1,8 @@
+import logging
 from enum import Enum
 from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class PermissionLevel(Enum):
@@ -32,8 +35,8 @@ class PermissionManager:
         """Set a policy for a specific scope."""
         try:
             self.overrides[scope] = PermissionLevel(level.upper())
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("Invalid permission level %r for scope %r: %s", level, scope, e)
 
     def get_effective_level(self, scope: str) -> PermissionLevel:
         """Determine the effective permission level for a scope."""
@@ -50,11 +53,7 @@ class PermissionManager:
         # Only apply this to shell commands or ensure exact word boundary
         target_cmd = scope[6:] if scope.startswith("shell.") else scope
         for override_scope, level in self.overrides.items():
-            override_cmd = (
-                override_scope[6:]
-                if override_scope.startswith("shell.")
-                else override_scope
-            )
+            override_cmd = override_scope[6:] if override_scope.startswith("shell.") else override_scope
             # Check if target command matches or starts with override + space
             if target_cmd == override_cmd or target_cmd.startswith(override_cmd + " "):
                 return level
@@ -95,8 +94,6 @@ class PermissionManager:
         # Set default if specified
         if "default_permission" in config_dict:
             try:
-                self.default_level = PermissionLevel(
-                    config_dict["default_permission"].upper()
-                )
-            except ValueError:
-                pass
+                self.default_level = PermissionLevel(config_dict["default_permission"].upper())
+            except ValueError as e:
+                logger.warning("Invalid default_permission %r in config: %s", config_dict["default_permission"], e)

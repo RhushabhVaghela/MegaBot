@@ -5,8 +5,11 @@ proactive memory-lesson injection helper that both build paths depend on.
 """
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
@@ -83,7 +86,7 @@ async def get_relevant_lessons(orchestrator: "MegaBotOrchestrator", prompt: str)
             formatted += f"{prefix}{lesson['content']}\n"
         return formatted
     except Exception as e:  # pragma: no cover
-        print(f"Lesson injection failed: {e}")
+        logger.error("Lesson injection failed: %s", e)
         return ""
 
 
@@ -294,7 +297,7 @@ async def run_autonomous_build(
                 break
 
         except Exception as e:
-            print(f"Autonomous build error at step {step}: {e}")
+            logger.error("Autonomous build error at step %s: %s", step, e)
             await websocket.send_json({"type": "status", "content": f"Error: {str(e)}"})
             break
 

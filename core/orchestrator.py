@@ -14,11 +14,14 @@ is re-exported at the bottom of this file so that existing import sites
 (``from core.orchestrator import app, health, ...``) continue to work.
 """
 
+import logging
 import os
 import sys
 import json
 import re
 from typing import Any, Dict, Optional, List
+
+logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
@@ -133,8 +136,8 @@ class MegaBotOrchestrator:
             if enable_env or (not is_ci and not looks_like_pytest):
                 audit_path = self.config.paths.get("audit_log", "logs/audit.log")
                 attach_audit_file_handler(audit_path)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to attach audit file handler: %s", e)
 
         # Register core services with DI container
         register_service(Config, config)
@@ -281,7 +284,7 @@ class MegaBotOrchestrator:
 
     async def on_messaging_connect(self, client_id: Optional[str], platform: str):
         """Handle new messaging platform connections."""
-        print(f"Greeting new connection: {platform} ({client_id or 'all'})")
+        logger.info("Greeting new connection: %s (%s)", platform, client_id or "all")
         greeting = Message(content=GREETING_TEXT, sender="MegaBot")
         await self.send_platform_message(greeting, platform=platform, target_client=client_id)
 
@@ -334,13 +337,13 @@ class MegaBotOrchestrator:
             remaining_sensitive = analysis.get("sensitive_regions", [])
 
             if remaining_sensitive:
-                print(f"Redaction-Verification: FAILED. Found {len(remaining_sensitive)} remaining areas.")
+                logger.warning("Redaction-Verification: FAILED. Found %d remaining areas.", len(remaining_sensitive))
                 return False
 
-            print("Redaction-Verification: PASSED.")
+            logger.info("Redaction-Verification: PASSED.")
             return True
         except Exception as e:  # pragma: no cover
-            print(f"Redaction-Verification: Error during check: {e}")
+            logger.error("Redaction-Verification: Error during check: %s", e)
             return False
 
     async def _start_approval_escalation(self, action: Dict):
@@ -428,7 +431,7 @@ class MegaBotOrchestrator:
                     }
                 )
             except Exception as e:
-                print(f"Failed to notify client of queue update: {e}")
+                logger.error("Failed to notify client of queue update: %s", e)
                 self.clients.discard(client)
 
 

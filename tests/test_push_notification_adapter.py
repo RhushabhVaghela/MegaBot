@@ -890,8 +890,10 @@ class TestPushNotificationAdapterBranches:
                         mock_init.assert_called_once_with(None, {"projectId": "test-project"})
 
     @pytest.mark.asyncio
-    async def test_initialize_fcm_app_initialization_exception(self, adapter):
+    async def test_initialize_fcm_app_initialization_exception(self, adapter, caplog):
         """Test _initialize_fcm with firebase app initialization exception"""
+        import logging
+
         adapter.fcm_credential_path = "/valid/path.json"
         adapter.fcm_project_id = "test-project"
 
@@ -904,9 +906,9 @@ class TestPushNotificationAdapterBranches:
                     "adapters.push_notification_adapter.firebase_admin.initialize_app",
                     side_effect=Exception("App init error"),
                 ):
-                    with patch("builtins.print") as mock_print:
+                    with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
                         adapter._initialize_fcm()
-                        mock_print.assert_called_with("[Push] FCM initialization warning: App init error")
+                        assert any("FCM initialization warning: App init error" in r.message for r in caplog.records)
 
     def test_create_default_channels(self, adapter):
         """Test _create_default_channels creates expected channels"""
@@ -945,8 +947,10 @@ class TestPushNotificationAdapterBranches:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_send_webpush_exception_handling(self, adapter):
+    async def test_send_webpush_exception_handling(self, adapter, caplog):
         """Test _send_webpush with internal exceptions"""
+        import logging
+
         adapter._firebase_app = MagicMock()
         notif = create_notification("T", "B")
 
@@ -954,11 +958,11 @@ class TestPushNotificationAdapterBranches:
             "adapters.push_notification_adapter.messaging.send",
             side_effect=Exception("WebPush failed"),
         ):
-            with patch("builtins.print") as mock_print:
+            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
                 res = await adapter._send_webpush("t", notif)
                 assert res.success is False
                 assert "WebPush failed" in res.error
-                mock_print.assert_called_with("[Push] WebPush send failed: WebPush failed")
+                assert any("WebPush send failed: WebPush failed" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_unsubscribe_from_topic_partial_success(self, adapter):
@@ -984,8 +988,10 @@ class TestPushNotificationAdapterBranches:
                 assert result == ""
 
     @pytest.mark.asyncio
-    async def test_delete_notification_channel_exception_handling(self, adapter):
+    async def test_delete_notification_channel_exception_handling(self, adapter, caplog):
         """Test delete_notification_channel with exception"""
+        import logging
+
         # Mock the notification_channels dict to raise exception on deletion
         original_dict = adapter.notification_channels
         mock_dict = MagicMock()
@@ -994,10 +1000,10 @@ class TestPushNotificationAdapterBranches:
         adapter.notification_channels = mock_dict
 
         try:
-            with patch("builtins.print") as mock_print:
+            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
                 result = await adapter.delete_notification_channel("test")
                 assert result is False
-                mock_print.assert_called_with("[Push] Channel deletion failed: Deletion error")
+                assert any("Channel deletion failed: Deletion error" in r.message for r in caplog.records)
         finally:
             # Restore original dict
             adapter.notification_channels = original_dict
@@ -1028,8 +1034,10 @@ class TestPushNotificationAdapterBranches:
             mock_subscribe.assert_called_once_with(["token1", "token2"], "test_topic")
 
     @pytest.mark.asyncio
-    async def test_create_notification_channel_exception_handling(self, adapter):
+    async def test_create_notification_channel_exception_handling(self, adapter, caplog):
         """Test create_notification_channel with exception"""
+        import logging
+
         # Mock the notification_channels dict to raise exception on assignment
         original_dict = adapter.notification_channels
         mock_dict = MagicMock()
@@ -1038,10 +1046,10 @@ class TestPushNotificationAdapterBranches:
 
         try:
             channel = NotificationChannel(id="c1", name="N")
-            with patch("builtins.print") as mock_print:
+            with caplog.at_level(logging.DEBUG, logger="adapters.push_notification_adapter"):
                 result = await adapter.create_notification_channel(channel)
                 assert result is False
-                mock_print.assert_called_with("[Push] Channel creation failed: Creation error")
+                assert any("Channel creation failed: Creation error" in r.message for r in caplog.records)
         finally:
             # Restore original dict
             adapter.notification_channels = original_dict

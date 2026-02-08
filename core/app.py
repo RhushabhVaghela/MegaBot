@@ -7,9 +7,12 @@ lives in ``core.orchestrator`` — route handlers access it lazily via
 ``core.orchestrator.orchestrator = mock`` are honoured automatically.
 """
 
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, WebSocket, Request, Query, Response  # type: ignore
 from fastapi.responses import JSONResponse  # type: ignore
@@ -108,12 +111,12 @@ def _validate_twilio_signature(request: Request, form_data: dict) -> bool:
 
     auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
     if not auth_token:
-        print("[IVR] TWILIO_AUTH_TOKEN not set — rejecting request (fail-closed)")
+        logger.warning("[IVR] TWILIO_AUTH_TOKEN not set — rejecting request (fail-closed)")
         return False
 
     signature = request.headers.get("X-Twilio-Signature", "")
     if not signature:
-        print("[IVR] Missing X-Twilio-Signature header")
+        logger.warning("[IVR] Missing X-Twilio-Signature header")
         return False
 
     url = str(request.url)

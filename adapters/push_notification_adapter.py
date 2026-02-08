@@ -16,6 +16,7 @@ Features:
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -37,6 +38,8 @@ except ImportError:
     _HAS_FIREBASE = False
 
 from core.resource_guard import LRUCache
+
+logger = logging.getLogger(__name__)
 
 
 class Platform(Enum):
@@ -384,7 +387,7 @@ class PushNotificationAdapter:
             True if initialization successful
         """
         if not _HAS_FIREBASE:
-            print("[Push] firebase-admin not installed — push notifications unavailable")
+            logger.warning("firebase-admin not installed — push notifications unavailable")
             return False
         try:
             self._initialize_fcm()
@@ -392,11 +395,11 @@ class PushNotificationAdapter:
             self._create_default_channels()
 
             self._is_initialized = True
-            print("[Push] Adapter initialized")
+            logger.info("Adapter initialized")
             return True
 
         except Exception as e:
-            print(f"[Push] Initialization failed: {e}")
+            logger.error("Initialization failed: %s", e)
             return False
 
     def shutdown(self) -> None:
@@ -410,7 +413,7 @@ class PushNotificationAdapter:
                 pass
             self._firebase_app = None
         self._is_initialized = False
-        print("[Push] Adapter shutdown complete")
+        logger.info("Adapter shutdown complete")
 
     def _initialize_fcm(self) -> None:
         """Initialize Firebase Cloud Messaging"""
@@ -422,11 +425,11 @@ class PushNotificationAdapter:
 
             try:
                 self._firebase_app = firebase_admin.initialize_app(cred, {"projectId": self.fcm_project_id})
-                print(f"[Push] FCM initialized with project: {self.fcm_project_id}")
+                logger.info("FCM initialized with project: %s", self.fcm_project_id)
             except Exception as e:
-                print(f"[Push] FCM initialization warning: {e}")
+                logger.warning("FCM initialization warning: %s", e)
         else:
-            print("[Push] No FCM credentials provided, FCM disabled")
+            logger.warning("No FCM credentials provided, FCM disabled")
 
     def _load_tokens(self) -> None:
         """Load device tokens from storage"""
@@ -437,9 +440,9 @@ class PushNotificationAdapter:
                     for token_data in tokens_data:
                         token = DeviceToken.from_dict(token_data)
                         self.device_tokens[token.token] = token
-                print(f"[Push] Loaded {len(self.device_tokens)} device tokens")
+                logger.info("Loaded %d device tokens", len(self.device_tokens))
         except Exception as e:
-            print(f"[Push] Failed to load tokens: {e}")
+            logger.error("Failed to load tokens: %s", e)
 
     def _save_tokens(self) -> None:
         """Save device tokens to storage"""
@@ -449,7 +452,7 @@ class PushNotificationAdapter:
             with open(self.token_storage_path, "w") as f:
                 json.dump(tokens_data, f)
         except Exception as e:
-            print(f"[Push] Failed to save tokens: {e}")
+            logger.error("Failed to save tokens: %s", e)
 
     def _create_default_channels(self) -> None:
         """Create default notification channels"""
@@ -515,12 +518,12 @@ class PushNotificationAdapter:
                 try:
                     handler("registered", token)
                 except Exception as e:
-                    print(f"[Push] Token handler error: {e}")
+                    logger.error("Token handler error: %s", e)
 
             return True
 
         except Exception as e:
-            print(f"[Push] Token registration failed: {e}")
+            logger.error("Token registration failed: %s", e)
             return False
 
     async def unregister_token(self, token: str) -> bool:
@@ -542,12 +545,12 @@ class PushNotificationAdapter:
                     try:
                         handler("unregistered", token)
                     except Exception as e:
-                        print(f"[Push] Token handler error: {e}")
+                        logger.error("Token handler error: %s", e)
 
             return True
 
         except Exception as e:
-            print(f"[Push] Token unregistration failed: {e}")
+            logger.error("Token unregistration failed: %s", e)
             return False
 
     async def send_to_token(
@@ -603,7 +606,7 @@ class PushNotificationAdapter:
                 return NotificationResult(success=False, error=f"Unknown platform: {platform}")
 
         except Exception as e:
-            print(f"[Push] Send to token failed: {e}")
+            logger.error("Send to token failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def send_to_user(
@@ -660,7 +663,7 @@ class PushNotificationAdapter:
             )
 
         except Exception as e:
-            print(f"[Push] Send to user failed: {e}")
+            logger.error("Send to user failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def send_broadcast(
@@ -747,7 +750,7 @@ class PushNotificationAdapter:
             )
 
         except Exception as e:
-            print(f"[Push] Broadcast failed: {e}")
+            logger.error("Broadcast failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def send_to_topic(
@@ -795,7 +798,7 @@ class PushNotificationAdapter:
             return NotificationResult(success=True, message_id=response)
 
         except Exception as e:
-            print(f"[Push] Send to topic failed: {e}")
+            logger.error("Send to topic failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def subscribe_to_topic(self, tokens: List[str], topic: str) -> bool:
@@ -817,7 +820,7 @@ class PushNotificationAdapter:
             return response.success_count == len(tokens)
 
         except Exception as e:
-            print(f"[Push] Topic subscription failed: {e}")
+            logger.error("Topic subscription failed: %s", e)
             return False
 
     async def unsubscribe_from_topic(self, tokens: List[str], topic: str) -> bool:
@@ -839,7 +842,7 @@ class PushNotificationAdapter:
             return response.success_count == len(tokens)
 
         except Exception as e:
-            print(f"[Push] Topic unsubscription failed: {e}")
+            logger.error("Topic unsubscription failed: %s", e)
             return False
 
     async def send_apns_void(
@@ -879,7 +882,7 @@ class PushNotificationAdapter:
             return NotificationResult(success=response.status_code == 204)
 
         except Exception as e:
-            print(f"[Push] APNS void failed: {e}")
+            logger.error("APNS void failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def _send_fcm(
@@ -973,7 +976,7 @@ class PushNotificationAdapter:
             return NotificationResult(success=True, message_id=response)
 
         except Exception as e:
-            print(f"[Push] APNS send failed: {e}")
+            logger.error("APNS send failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     async def _send_webpush(
@@ -1008,7 +1011,7 @@ class PushNotificationAdapter:
             return NotificationResult(success=True, message_id=response)
 
         except Exception as e:
-            print(f"[Push] WebPush send failed: {e}")
+            logger.error("WebPush send failed: %s", e)
             return NotificationResult(success=False, error=str(e))
 
     def _to_fcm_priority(self, priority: Priority) -> str:
@@ -1057,7 +1060,7 @@ class PushNotificationAdapter:
             self.notification_channels[channel.id] = channel
             return True
         except Exception as e:
-            print(f"[Push] Channel creation failed: {e}")
+            logger.error("Channel creation failed: %s", e)
             return False
 
     async def delete_notification_channel(self, channel_id: str) -> bool:
@@ -1075,7 +1078,7 @@ class PushNotificationAdapter:
                 del self.notification_channels[channel_id]
             return True
         except Exception as e:
-            print(f"[Push] Channel deletion failed: {e}")
+            logger.error("Channel deletion failed: %s", e)
             return False
 
     async def get_active_tokens(
@@ -1124,7 +1127,7 @@ class PushNotificationAdapter:
             return removed
 
         except Exception as e:
-            print(f"[Push] Token cleanup failed: {e}")
+            logger.error("Token cleanup failed: %s", e)
             return 0
 
     def register_message_handler(self, handler: Callable) -> None:

@@ -457,3 +457,69 @@ class TestTelegramAdapter:
         result = await telegram_adapter._make_request("testMethod", {"param": "value"}, retries=1)
 
         assert result is None
+
+
+class TestTelegramUploadMedia:
+    """Tests for _upload_media file handle cleanup (Phase 6B-3 security fix)."""
+
+    @pytest.mark.asyncio
+    async def test_upload_media_closes_file_on_success(self, telegram_adapter, tmp_path):
+        """Test that the file handle is closed after a successful upload."""
+        test_file = tmp_path / "test.jpg"
+        test_file.write_bytes(b"fake image data")
+
+        mock_session = MagicMock()
+        telegram_adapter.session = mock_session
+
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.json = AsyncMock(return_value={"ok": True, "result": {"file_id": "abc"}})
+
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session.post.return_value = mock_cm
+
+        mock_fh = MagicMock()
+        mock_fh.close = MagicMock()
+
+        with patch("builtins.open", return_value=mock_fh) as mock_open:
+            result = await telegram_adapter._upload_media(
+                "sendPhoto", "chat123", "photo", str(test_file), caption="test"
+            )
+
+            mock_open.assert_called_once_with(str(test_file), "rb")
+            mock_fh.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_upload_media_closes_file_on_exception(self, telegram_adapter, tmp_path):
+        """Test that the file handle is closed even when an exception occurs."""
+        test_file = tmp_path / "test.jpg"
+        test_file.write_bytes(b"fake image data")
+
+        mock_session = MagicMock()
+        telegram_adapter.session = mock_session
+
+        # Make post() raise an exception
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("Network error"))
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session.post.return_value = mock_cm
+
+        mock_fh = MagicMock()
+        mock_fh.close = MagicMock()
+
+        with patch("builtins.open", return_value=mock_fh):
+            result = await telegram_adapter._upload_media("sendPhoto", "chat123", "photo", str(test_file))
+
+            assert result is None
+            # File handle must still be closed via finally block
+            mock_fh.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_upload_media_no_close_when_open_fails(self, telegram_adapter):
+        """Test that no close is attempted when open() itself fails."""
+        with patch("builtins.open", side_effect=FileNotFoundError("no such file")):
+            result = await telegram_adapter._upload_media("sendPhoto", "chat123", "photo", "/nonexistent/file.jpg")
+            # Should return None (caught by except block), no crash
+            assert result is None

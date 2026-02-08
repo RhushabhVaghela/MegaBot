@@ -8,6 +8,7 @@ import asyncio
 import logging
 import shlex
 import os
+import tempfile
 from pathlib import Path
 
 from core.interfaces import Message
@@ -347,8 +348,21 @@ class AdminHandler:
                     with open(resolved, "r") as f:
                         return f.read()
                 elif operation == "write":
-                    with open(resolved, "w") as f:
-                        f.write(content)
+                    # Atomic write: write to temp file then rename to avoid
+                    # partial writes on crash/interrupt.
+                    dir_path = resolved.parent
+                    fd, tmp_path = tempfile.mkstemp(dir=str(dir_path), suffix=".tmp")
+                    try:
+                        with os.fdopen(fd, "w") as f:
+                            f.write(content)
+                        os.replace(tmp_path, str(resolved))
+                    except BaseException:
+                        # Clean up temp file on any failure
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
+                        raise
                     return f"File written: {resolved}"
                 else:
                     return f"❌ Unknown file operation: {operation}"

@@ -35,8 +35,8 @@ def safe_create_task(coro, name: Optional[str] = None) -> asyncio.Task:
     try:
         if name:
             task.set_name(name)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to set task name %r: %s", name, e)
 
     def _on_done(t: asyncio.Task):
         try:
@@ -45,7 +45,7 @@ def safe_create_task(coro, name: Optional[str] = None) -> asyncio.Task:
                 task_name = getattr(t, "get_name", lambda: repr(t))()
                 logger.error("[task_error] %s: %s", task_name, exc, exc_info=exc)
         except asyncio.CancelledError:
-            pass
+            logger.debug("Task cancelled: %s", getattr(t, "get_name", lambda: repr(t))())
         except Exception as cb_err:
             logger.error("[task_callback_error] %s", cb_err)
         finally:

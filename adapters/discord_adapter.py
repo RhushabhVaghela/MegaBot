@@ -14,12 +14,15 @@ Features:
 """
 
 import asyncio
+import logging
 import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from unittest.mock import Mock, MagicMock
+
+logger = logging.getLogger(__name__)
 
 from core.resource_guard import LRUCache
 
@@ -153,7 +156,7 @@ class DiscordAdapter(PlatformAdapter):
 
         @self.bot.event
         async def on_ready():
-            print(f"[Discord] Bot logged in as {self.bot.user}")
+            logger.info("[Discord] Bot logged in as %s", self.bot.user)
             await self.tree.sync()
 
         @self.bot.event
@@ -182,7 +185,7 @@ class DiscordAdapter(PlatformAdapter):
                     else:
                         handler(reaction, user, "add")
                 except Exception as e:
-                    print(f"[Discord] Reaction handler error: {e}")
+                    logger.error("[Discord] Reaction handler error: %s", e)
 
         @self.bot.event
         async def on_reaction_remove(reaction: discord.Reaction, user: discord.User):
@@ -196,7 +199,7 @@ class DiscordAdapter(PlatformAdapter):
                     else:
                         handler(reaction, user, "remove")
                 except Exception as e:
-                    print(f"[Discord] Reaction handler error: {e}")
+                    logger.error("[Discord] Reaction handler error: %s", e)
 
     async def _handle_command(self, message: discord.Message) -> None:
         """Handle bot commands"""
@@ -214,7 +217,7 @@ class DiscordAdapter(PlatformAdapter):
                 else:
                     self.command_handlers[command](message, args)
             except Exception as e:
-                print(f"[Discord] Command handler error: {e}")
+                logger.error("[Discord] Command handler error: %s", e)
                 await message.reply(f"Error executing command: {e}")
 
     async def _handle_message(self, message: discord.Message) -> None:
@@ -228,7 +231,7 @@ class DiscordAdapter(PlatformAdapter):
                 else:
                     handler(platform_msg)
             except Exception as e:
-                print(f"[Discord] Message handler error: {e}")
+                logger.error("[Discord] Message handler error: %s", e)
 
     async def _to_platform_message(self, message: discord.Message) -> PlatformMessage:
         """Convert Discord message to PlatformMessage"""
@@ -301,7 +304,7 @@ class DiscordAdapter(PlatformAdapter):
             self.is_initialized = True
             return True
         except Exception as e:
-            print(f"[Discord] Initialization failed: {e}")
+            logger.error("[Discord] Initialization failed: %s", e)
             return False
 
     async def shutdown(self) -> None:
@@ -309,7 +312,7 @@ class DiscordAdapter(PlatformAdapter):
         if self.bot:
             await self.bot.close()
         self.is_initialized = False
-        print("[Discord] Adapter shutdown complete")
+        logger.info("[Discord] Adapter shutdown complete")
 
     async def send_message(
         self,
@@ -341,7 +344,7 @@ class DiscordAdapter(PlatformAdapter):
         try:
             channel = self.bot.get_channel(int(channel_id))
             if not channel:
-                print(f"[Discord] Channel {channel_id} not found")
+                logger.warning("[Discord] Channel %s not found", channel_id)
                 return None
 
             kwargs: Dict[str, Any] = {"content": content}
@@ -361,12 +364,12 @@ class DiscordAdapter(PlatformAdapter):
                     reply_msg = await channel.fetch_message(reply_to)
                     kwargs["reference"] = reply_msg
                 except discord.NotFound:
-                    print(f"[Discord] Reply message {reply_to} not found")
+                    logger.warning("[Discord] Reply message %s not found", reply_to)
 
             return await channel.send(**kwargs)
 
         except Exception as e:
-            print(f"[Discord] Send message error: {e}")
+            logger.error("[Discord] Send message error: %s", e)
             return None
 
     async def send_embed(
@@ -466,7 +469,7 @@ class DiscordAdapter(PlatformAdapter):
             )
 
         except Exception as e:
-            print(f"[Discord] Create channel error: {e}")
+            logger.error("[Discord] Create channel error: %s", e)
             return None
 
     async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
@@ -493,7 +496,7 @@ class DiscordAdapter(PlatformAdapter):
             return info
 
         except Exception as e:
-            print(f"[Discord] Get channel info error: {e}")
+            logger.error("[Discord] Get channel info error: %s", e)
             return None
 
     async def get_guild_info(self, guild_id: str) -> Optional[Dict[str, Any]]:
@@ -514,7 +517,7 @@ class DiscordAdapter(PlatformAdapter):
             }
 
         except Exception as e:
-            print(f"[Discord] Get guild info error: {e}")
+            logger.error("[Discord] Get guild info error: %s", e)
             return None
 
     async def add_reaction(self, channel_id: str, message_id: int, emoji: str) -> bool:
@@ -539,7 +542,7 @@ class DiscordAdapter(PlatformAdapter):
             return True
 
         except Exception as e:
-            print(f"[Discord] Add reaction error: {e}")
+            logger.error("[Discord] Add reaction error: %s", e)
             return False
 
     async def remove_reaction(
@@ -575,7 +578,7 @@ class DiscordAdapter(PlatformAdapter):
             return True
 
         except Exception as e:
-            print(f"[Discord] Remove reaction error: {e}")
+            logger.error("[Discord] Remove reaction error: %s", e)
             return False
 
     async def delete_message(self, channel_id: str, message_id: int) -> bool:
@@ -599,7 +602,7 @@ class DiscordAdapter(PlatformAdapter):
             return True
 
         except Exception as e:
-            print(f"[Discord] Delete message error: {e}")
+            logger.error("[Discord] Delete message error: %s", e)
             return False
 
     async def edit_message(
@@ -635,7 +638,7 @@ class DiscordAdapter(PlatformAdapter):
             return True
 
         except Exception as e:
-            print(f"[Discord] Edit message error: {e}")
+            logger.error("[Discord] Edit message error: %s", e)
             return False
 
     async def get_user_info(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -653,7 +656,7 @@ class DiscordAdapter(PlatformAdapter):
             }
 
         except Exception as e:
-            print(f"[Discord] Get user info error: {e}")
+            logger.error("[Discord] Get user info error: %s", e)
             return None
 
     def register_message_handler(self, handler: Callable) -> None:
@@ -680,7 +683,7 @@ class DiscordAdapter(PlatformAdapter):
                 return await self._to_platform_message(message)
             return None
         except Exception as e:
-            print(f"[Discord] Send text error: {e}")
+            logger.error("[Discord] Send text error: %s", e)
             return None
 
     async def send_media(
@@ -699,7 +702,7 @@ class DiscordAdapter(PlatformAdapter):
                 return await self._to_platform_message(message)
             return None
         except Exception as e:
-            print(f"[Discord] Send media error: {e}")
+            logger.error("[Discord] Send media error: %s", e)
             return None
 
     async def send_document(
@@ -728,15 +731,15 @@ class DiscordAdapter(PlatformAdapter):
                     attachment = message.attachments[0]
                     await attachment.save(save_path)
                     return save_path
-            print(f"[Discord] Message {message_id} not found in any channel")
+            logger.warning("[Discord] Message %s not found in any channel", message_id)
             return None
         except Exception as e:
-            print(f"[Discord] Download media error: {e}")
+            logger.error("[Discord] Download media error: %s", e)
             return None
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
         """Initiate a call (not supported by Discord API)."""
-        print(f"[Discord] Call initiation not supported for {chat_id}")
+        logger.warning("[Discord] Call initiation not supported for %s", chat_id)
         return False
 
     def add_slash_command(self, command: discord.app_commands.Command) -> None:

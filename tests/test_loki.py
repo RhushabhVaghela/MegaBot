@@ -300,16 +300,18 @@ class TestLokiMode:
             assert result[0]["name"] == "Developer"
 
     @pytest.mark.asyncio
-    async def test_run_security_audit_secret_leak(self, loki_mode):
+    async def test_run_security_audit_secret_leak(self, loki_mode, caplog):
         """Test _run_security_audit with secret leak warning (line 341)"""
+        import logging
+
         results = ["api_key = 'sk-12345'"]
 
         with patch("adapters.security.tirith_guard.guard.validate", return_value=True):
-            with patch("builtins.print") as mock_print:
+            with caplog.at_level(logging.DEBUG, logger="core.loki"):
                 result = await loki_mode._run_security_audit(results)
                 assert "Passed" in result
-                # Check for warning print
-                mock_print.assert_any_call("⚠️ SECURITY WARNING: Potential secret leak detected (pattern: api[_-]?key)")
+                # Check for warning log
+                assert any("SECURITY WARNING: Potential secret leak detected" in r.message for r in caplog.records)
 
 
 class TestDeployProduct:

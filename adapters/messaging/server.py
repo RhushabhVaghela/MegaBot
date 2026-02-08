@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import websockets  # type: ignore
 import json
 import os
@@ -14,6 +15,8 @@ from cryptography.fernet import Fernet  # type: ignore
 from cryptography.hazmat.primitives import hashes  # type: ignore
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # type: ignore
 import aiofiles
+
+logger = logging.getLogger(__name__)
 
 
 class MessageType(Enum):
@@ -169,7 +172,7 @@ class PlatformAdapter:
         return None
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
-        print(f"[{self.platform_name}] Initiating {'video' if is_video else 'voice'} call to {chat_id}")
+        logger.info("Initiating %s call to %s", "video" if is_video else "voice", chat_id)
         return True
 
 
@@ -198,20 +201,20 @@ class MegaBotMessagingServer:
             from adapters.memu_adapter import MemUAdapter
 
             self.memu_adapter = MemUAdapter(memu_path, db_url)
-            print("memU adapter initialized successfully")
+            logger.info("memU adapter initialized successfully")
         except Exception as e:
-            print(f"Failed to initialize memU: {e}")
+            logger.error("Failed to initialize memU: %s", e)
 
     async def initialize_voice(self, account_sid: str, auth_token: str, from_number: str):
         try:
             from adapters.voice_adapter import VoiceAdapter
 
             self.voice_adapter = VoiceAdapter(account_sid, auth_token, from_number)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("[Voice] Failed to initialize voice adapter: %s", e)
 
     async def start(self):
-        print(f"Starting Messaging Server on ws://{self.host}:{self.port}")
+        logger.info("Starting Messaging Server on ws://%s:%s", self.host, self.port)
         async with websockets.serve(self._handle_client, self.host, self.port):
             await self._shutdown_event.wait()
         # Gracefully close remaining client connections
@@ -219,9 +222,8 @@ class MegaBotMessagingServer:
             try:
                 await ws.close()
             except Exception:
-                pass
-        self.clients.clear()
-        print("Messaging Server shut down.")
+                logger.debug("Failed to close WebSocket for client %s during shutdown", client_id)
+        logger.info("Messaging Server shut down.")
 
     async def shutdown(self):
         """Signal the server to stop accepting connections and shut down."""
@@ -240,7 +242,7 @@ class MegaBotMessagingServer:
             try:
                 await self.clients[client_id].send(data)
             except Exception as e:
-                print(f"Failed to send to {client_id}: {e}")
+                logger.error("Failed to send to %s: %s", client_id, e)
                 if client_id in self.clients:
                     del self.clients[client_id]
 
@@ -260,7 +262,7 @@ class MegaBotMessagingServer:
         except Exception as e:
             # Log unexpected errors; ConnectionClosed is expected on disconnect
             if "ConnectionClosed" not in type(e).__name__:
-                print(f"[Server] WebSocket handler error for {client_id}: {e}")
+                logger.error("WebSocket handler error for %s: %s", client_id, e)
         finally:
             if client_id in self.clients:
                 del self.clients[client_id]
@@ -280,9 +282,9 @@ class MegaBotMessagingServer:
             elif msg_type == "command":
                 await self._handle_command(data)
             else:
-                print(f"Unknown message type: {msg_type}")
+                logger.warning("Unknown message type: %s", msg_type)
         except Exception as e:
-            print(f"Error processing message from {client_id}: {e}")
+            logger.error("Error processing message from %s: %s", client_id, e)
 
     async def _handle_platform_message(self, data: Dict):
         message = PlatformMessage(
@@ -307,8 +309,8 @@ class MegaBotMessagingServer:
                     await handler(message)
                 else:
                     handler(message)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Message handler error: %s", e)
 
     async def _handle_platform_message_from_adapter(self, message: PlatformMessage):
         """Standard handler for messages coming from PlatformAdapters/Signal"""
@@ -318,8 +320,8 @@ class MegaBotMessagingServer:
                     await handler(message)
                 else:
                     handler(message)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Message handler error (from adapter): %s", e)
 
     async def _handle_media_upload(self, data: Dict):
         attachment = MediaAttachment.from_dict(data["attachment"])
@@ -327,7 +329,7 @@ class MegaBotMessagingServer:
 
     async def _handle_platform_connect(self, data: Dict):
         platform = str(data.get("platform", "unknown"))
-        print(f"Platform connection request: {platform}")
+        logger.info("Platform connection request: %s", platform)
         if platform == "telegram":
             from .telegram import TelegramAdapter
 
@@ -335,25 +337,25 @@ class MegaBotMessagingServer:
             if token:
                 adapter = TelegramAdapter(token, self)
                 self.platform_adapters[platform] = adapter
-                print("Initialized Telegram adapter")
+                logger.info("Initialized Telegram adapter")
         elif platform == "whatsapp":
             from .whatsapp import WhatsAppAdapter
 
             adapter = WhatsAppAdapter(platform, self, data.get("config", {}))
             self.platform_adapters[platform] = adapter
-            print("Initialized WhatsApp adapter")
+            logger.info("Initialized WhatsApp adapter")
         elif platform == "imessage":
             from .imessage import IMessageAdapter
 
             adapter = IMessageAdapter(platform, self)
             self.platform_adapters[platform] = adapter
-            print("Initialized iMessage adapter")
+            logger.info("Initialized iMessage adapter")
         elif platform == "sms":
             from .sms import SMSAdapter
 
             adapter = SMSAdapter(platform, self, data.get("config", {}))
             self.platform_adapters[platform] = adapter
-            print("Initialized SMS adapter")
+            logger.info("Initialized SMS adapter")
         elif platform == "signal":
             from adapters.signal_adapter import SignalAdapter
 
@@ -389,14 +391,14 @@ class MegaBotMessagingServer:
                 # Hook Signal message handler back to this server
                 adapter.register_message_handler(self._handle_platform_message_from_adapter)
                 asyncio.create_task(adapter.initialize())
-                print(f"Initialized Signal adapter for {phone}")
+                logger.info("Initialized Signal adapter for %s", phone)
         elif platform == "discord":
             token = data.get("credentials", {}).get("token")
             if token:
                 from adapters.discord_adapter import DiscordAdapter
 
                 self.platform_adapters[platform] = DiscordAdapter(platform, self, token)
-                print("Initialized Discord adapter")
+                logger.info("Initialized Discord adapter")
         elif platform == "slack":
             from adapters.slack_adapter import SlackAdapter
 
@@ -409,17 +411,17 @@ class MegaBotMessagingServer:
                     app_token=credentials.get("app_token"),
                     signing_secret=data.get("config", {}).get("signing_secret"),
                 )
-                print("Initialized Slack adapter")
+                logger.info("Initialized Slack adapter")
         else:
             self.platform_adapters[platform] = PlatformAdapter(platform, self)
-            print(f"Initialized generic adapter for unknown platform: {platform}")
+            logger.info("Initialized generic adapter for unknown platform: %s", platform)
         if self.on_connect:
             await self.on_connect("", platform)
 
     async def _handle_command(self, data: Dict):
         command = data.get("command")
         args = data.get("args", [])
-        print(f"Command: {command} with args: {args}")
+        logger.info("Command: %s with args: %s", command, args)
 
     async def _save_media(self, attachment: MediaAttachment) -> str:
         file_hash = hashlib.sha256(attachment.data).hexdigest()[:16]

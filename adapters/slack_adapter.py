@@ -4,8 +4,11 @@ Provides integration with Slack using slack-sdk
 """
 
 import asyncio
+import logging
 import os
 import uuid
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
@@ -149,7 +152,7 @@ class SlackAdapter(PlatformAdapter):
 
             if response.get("ok"):
                 self.bot_user_id = response.get("user_id")
-                print(f"[Slack] Bot authenticated as {self.bot_user_id}")
+                logger.info("[Slack] Bot authenticated as %s", self.bot_user_id)
 
                 # Initialize socket mode if app token provided
                 if self.app_token:
@@ -158,11 +161,11 @@ class SlackAdapter(PlatformAdapter):
                 self.is_initialized = True
                 return True
             else:
-                print(f"[Slack] Authentication failed: {response.get('error')}")
+                logger.error("[Slack] Authentication failed: %s", response.get("error"))
                 return False
 
         except Exception as e:
-            print(f"[Slack] Initialization error: {e}")
+            logger.error("[Slack] Initialization error: %s", e)
             return False
 
     async def _init_socket_mode(self) -> None:
@@ -180,7 +183,7 @@ class SlackAdapter(PlatformAdapter):
             await self._handle_socket_request(req)
 
         await asyncio.to_thread(self.socket_client.client.connect)
-        print("[Slack] Socket Mode initialized")
+        logger.info("[Slack] Socket Mode initialized")
 
     async def _handle_socket_request(self, req: SocketModeRequest) -> None:
         """Handle incoming Socket Mode requests"""
@@ -213,7 +216,7 @@ class SlackAdapter(PlatformAdapter):
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                print(f"[Slack] Event handler error: {e}")
+                logger.error("[Slack] Event handler error: %s", e)
 
     async def _handle_message_event(self, event: Dict[str, Any]) -> None:
         """Handle message events"""
@@ -233,7 +236,7 @@ class SlackAdapter(PlatformAdapter):
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                print(f"[Slack] Message handler error: {e}")
+                logger.error("[Slack] Message handler error: %s", e)
 
     async def _handle_reaction_event(self, event: Dict[str, Any], action: str) -> None:
         """Handle reaction events"""
@@ -243,7 +246,7 @@ class SlackAdapter(PlatformAdapter):
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                print(f"[Slack] Reaction handler error: {e}")
+                logger.error("[Slack] Reaction handler error: %s", e)
 
     async def _to_platform_message(self, event: Dict[str, Any]) -> PlatformMessage:
         """Convert Slack event to PlatformMessage"""
@@ -291,8 +294,8 @@ class SlackAdapter(PlatformAdapter):
             response = await asyncio.to_thread(self.client.users_info, {"user": user_id})
             if response.get("ok"):
                 return response["user"]["name"]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[Slack] Failed to look up username for %s: %s", user_id, e)
         return f"slack_user_{user_id}"
 
     async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
@@ -323,11 +326,11 @@ class SlackAdapter(PlatformAdapter):
                     metadata={"slack_ts": ts},
                 )
 
-            print(f"[Slack] Send failed: {response.get('error')}")
+            logger.error("[Slack] Send failed: %s", response.get("error"))
             return None
 
         except Exception as e:
-            print(f"[Slack] Send text error: {e}")
+            logger.error("[Slack] Send text error: %s", e)
             return None
 
     async def send_media(
@@ -370,7 +373,7 @@ class SlackAdapter(PlatformAdapter):
             return None
 
         except Exception as e:
-            print(f"[Slack] Send media error: {e}")
+            logger.error("[Slack] Send media error: %s", e)
             return None
 
     async def send_document(
@@ -393,7 +396,7 @@ class SlackAdapter(PlatformAdapter):
             # We need channel context; search recent file shares
             files_resp = await asyncio.to_thread(self.client.files_list, count=20)
             if not files_resp.get("ok"):
-                print(f"[Slack] Could not list files: {files_resp.get('error')}")
+                logger.error("[Slack] Could not list files: %s", files_resp.get("error"))
                 return None
 
             for f in files_resp.get("files", []):
@@ -413,15 +416,15 @@ class SlackAdapter(PlatformAdapter):
                         fp.write(data)
                     return save_path
 
-            print(f"[Slack] No downloadable file found for {message_id}")
+            logger.warning("[Slack] No downloadable file found for %s", message_id)
             return None
         except Exception as e:
-            print(f"[Slack] Download media error: {e}")
+            logger.error("[Slack] Download media error: %s", e)
             return None
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
         """Initiate a call (not supported by Slack API)."""
-        print(f"[Slack] Call initiation not supported for {chat_id}")
+        logger.warning("[Slack] Call initiation not supported for %s", chat_id)
         return False
 
     async def add_reaction(self, channel_id: str, message_ts: str, emoji: str) -> bool:
@@ -444,7 +447,7 @@ class SlackAdapter(PlatformAdapter):
             return response.get("ok", False)
 
         except Exception as e:
-            print(f"[Slack] Add reaction error: {e}")
+            logger.error("[Slack] Add reaction error: %s", e)
             return False
 
     async def remove_reaction(self, channel_id: str, message_ts: str, emoji: str) -> bool:
@@ -467,7 +470,7 @@ class SlackAdapter(PlatformAdapter):
             return response.get("ok", False)
 
         except Exception as e:
-            print(f"[Slack] Remove reaction error: {e}")
+            logger.error("[Slack] Remove reaction error: %s", e)
             return False
 
     async def delete_message(self, channel_id: str, message_ts: str) -> bool:
@@ -489,7 +492,7 @@ class SlackAdapter(PlatformAdapter):
             return response.get("ok", False)
 
         except Exception as e:
-            print(f"[Slack] Delete message error: {e}")
+            logger.error("[Slack] Delete message error: %s", e)
             return False
 
     async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
@@ -512,7 +515,7 @@ class SlackAdapter(PlatformAdapter):
             return None
 
         except Exception as e:
-            print(f"[Slack] Get channel info error: {e}")
+            logger.error("[Slack] Get channel info error: %s", e)
             return None
 
     async def get_user_info(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -534,7 +537,7 @@ class SlackAdapter(PlatformAdapter):
             return None
 
         except Exception as e:
-            print(f"[Slack] Get user info error: {e}")
+            logger.error("[Slack] Get user info error: %s", e)
             return None
 
     def register_message_handler(self, handler: Callable) -> None:
@@ -558,7 +561,7 @@ class SlackAdapter(PlatformAdapter):
         if self.socket_client:
             await asyncio.to_thread(self.socket_client.client.disconnect)
         self.is_initialized = False
-        print("[Slack] Adapter shutdown complete")
+        logger.info("[Slack] Adapter shutdown complete")
 
     def _generate_id(self) -> str:
         """Generate unique message ID"""

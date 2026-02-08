@@ -72,8 +72,8 @@ class KnowledgeMemoryManager:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error closing knowledge_memory DB connection: %s", e)
 
     async def write(self, key: str, type: str, content: str, tags: Optional[List[str]] = None) -> str:
         """Record new knowledge or decisions."""

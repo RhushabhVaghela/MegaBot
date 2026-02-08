@@ -7,6 +7,7 @@ import asyncio
 import json
 import base64
 import os
+import logging
 from datetime import datetime
 from unittest.mock import AsyncMock, patch, MagicMock, Mock
 import websockets
@@ -1608,11 +1609,11 @@ class TestMegaBotMessagingServer:
         assert "127.0.0.1:12345" not in server.clients
 
     @pytest.mark.asyncio
-    async def test_process_message_invalid_json(self, server):
+    async def test_process_message_invalid_json(self, server, caplog):
         """Test processing invalid JSON message"""
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.messaging.server"):
             await server._process_message("client1", "invalid json")
-            mock_print.assert_called()
+            assert any("Error processing message from client1" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_process_message_encrypted(self, encrypted_server):
@@ -1625,12 +1626,12 @@ class TestMegaBotMessagingServer:
             mock_handle.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_process_message_unknown_type(self):
+    async def test_process_message_unknown_type(self, caplog):
         """Test processing message with unknown type"""
         server = MegaBotMessagingServer(enable_encryption=False)
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.messaging.server"):
             await server._process_message("client1", '{"type": "unknown"}')
-            mock_print.assert_any_call("Unknown message type: unknown")
+            assert any("Unknown message type: unknown" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_handle_platform_message(self, server):
@@ -1703,43 +1704,43 @@ class TestMegaBotMessagingServer:
             mock_save.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_platform_connect_whatsapp(self, server):
+    async def test_handle_platform_connect_whatsapp(self, server, caplog):
         """Test platform connect for WhatsApp"""
         connect_data = {"platform": "whatsapp", "config": {"phone_number_id": "123"}}
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "whatsapp" in server.platform_adapters
-            mock_print.assert_called()
+            assert any("Initialized WhatsApp adapter" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_handle_platform_connect_telegram(self, server):
+    async def test_handle_platform_connect_telegram(self, server, caplog):
         """Test platform connect for Telegram"""
         connect_data = {"platform": "telegram", "credentials": {"token": "test_token"}}
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "telegram" in server.platform_adapters
-            mock_print.assert_called()
+            assert any("Initialized Telegram adapter" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_handle_platform_connect_unknown(self, server):
+    async def test_handle_platform_connect_unknown(self, server, caplog):
         """Test platform connect for unknown platform"""
         connect_data = {"platform": "unknown", "config": {}}
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
             await server._handle_platform_connect(connect_data)
             assert "unknown" in server.platform_adapters
-            mock_print.assert_called()
+            assert any("Initialized generic adapter for unknown platform: unknown" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_handle_command(self, server):
+    async def test_handle_command(self, server, caplog):
         """Test command handling"""
         command_data = {"command": "test_command", "args": ["arg1", "arg2"]}
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.INFO, logger="adapters.messaging.server"):
             await server._handle_command(command_data)
-            mock_print.assert_called_with("Command: test_command with args: ['arg1', 'arg2']")
+            assert any("Command: test_command with args: ['arg1', 'arg2']" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_save_media(self, server):
@@ -1813,7 +1814,7 @@ class TestMegaBotMessagingServer:
         mock_client2.send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_message_client_error(self, server):
+    async def test_send_message_client_error(self, server, caplog):
         """Test handling client send errors"""
         message = PlatformMessage(
             id="test_id",
@@ -1828,9 +1829,9 @@ class TestMegaBotMessagingServer:
         mock_client.send = AsyncMock(side_effect=Exception("Send failed"))
         server.clients = {"client1": mock_client}
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.messaging.server"):
             await server.send_message(message)
-            mock_print.assert_called_with("Failed to send to client1: Send failed")
+            assert any("Failed to send to client1: Send failed" in r.message for r in caplog.records)
 
 
 class TestMainFunction:
@@ -2027,15 +2028,15 @@ class TestWhatsAppAdapterErrorHandling:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_shutdown_session_close_error(self, wa_adapter):
+    async def test_shutdown_session_close_error(self, wa_adapter, caplog):
         """Test shutdown when session close fails"""
         mock_session = MagicMock()
         mock_session.close = AsyncMock(side_effect=Exception("Close error"))
         wa_adapter.session = mock_session
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.messaging.whatsapp"):
             await wa_adapter.shutdown()
-            mock_print.assert_called()
+            assert any("Error during shutdown: Close error" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_send_text_with_session_initialized(self, wa_adapter):

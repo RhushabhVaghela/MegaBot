@@ -278,8 +278,10 @@ class ResourceGuard:
         self._task.cancel()
         try:
             await self._task
-        except (asyncio.CancelledError, Exception):
-            pass
+        except asyncio.CancelledError:
+            logger.debug("ResourceGuard task cancelled during stop")
+        except Exception as e:
+            logger.debug("ResourceGuard task raised during stop: %s", e)
         self._task = None
         logger.info("ResourceGuard stopped")
 

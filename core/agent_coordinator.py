@@ -68,7 +68,7 @@ class AgentCoordinator:
         agent = AgentCls(name, role, task, self.orchestrator)
 
         # 1. Pre-flight Check: Planning & Validation
-        print(f"Sub-Agent {name}: Generating plan...")
+        logger.info("Sub-Agent %s: Generating plan...", name)
         plan = await agent.generate_plan()
 
         # Validate plan against project policies
@@ -84,8 +84,8 @@ class AgentCoordinator:
             try:
                 if name in self.orchestrator.sub_agents:
                     del self.orchestrator.sub_agents[name]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to remove unvalidated sub-agent %s during pre-flight block: %s", name, e)
             logger.warning(
                 "Pre-flight validation blocked sub-agent %s: %s",
                 name,
@@ -103,18 +103,18 @@ class AgentCoordinator:
                 # Set attributes directly into instance dict to avoid typing complaints
                 agent.__dict__["_coordinator_managed"] = True
                 agent.__dict__["_active"] = True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to set coordinator attributes on agent %s: %s", name, e)
             self.orchestrator.sub_agents[name] = agent
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to register sub-agent %s in orchestrator: %s", name, e)
 
         # 2. Execution
-        print(f"Sub-Agent {name}: Execution started...")
+        logger.info("Sub-Agent %s: Execution started...", name)
         raw_result = await agent.run()
 
         # 3. Synthesis: Refine and integrate sub-agent findings
-        print(f"Sub-Agent {name}: Execution finished. Synthesizing results...")
+        logger.info("Sub-Agent %s: Execution finished. Synthesizing results...", name)
         synthesis_prompt = f"""
  Integrate and summarize the findings from sub-agent '{name}' for the task '{task}'.
  Raw Result: {raw_result}
@@ -138,7 +138,7 @@ class AgentCoordinator:
         try:
             lesson = "No lesson recorded."
             summary = str(synthesis_raw)
-            print(f"DEBUG [Synthesis Raw]: {summary[:200]}")
+            logger.debug("Synthesis raw output for %s: %s", name, summary[:200])
 
             json_match = re.search(r"\{.*\}", summary, re.DOTALL)
             if json_match:
@@ -179,7 +179,7 @@ class AgentCoordinator:
 
             return summary
         except Exception as e:
-            print(f"Failed to record memory lesson or parse synthesis: {e}")
+            logger.error("Failed to record memory lesson or parse synthesis: %s", e)
             return str(synthesis_raw)
 
     async def _execute_tool_for_sub_agent(self, agent_name: str, tool_call: Dict) -> str:

@@ -89,9 +89,7 @@ class UnifiedGateway:
             ConnectionType.VPN.value: False,
             ConnectionType.DIRECT.value: False,
         }
-        self.rate_limits: Dict[str, Dict[str, List[datetime]]] = {
-            ct.value: {} for ct in ConnectionType
-        }
+        self.rate_limits: Dict[str, Dict[str, List[datetime]]] = {ct.value: {} for ct in ConnectionType}
         self.logger = logging.getLogger(__name__)
         self._health_task: Optional[asyncio.Task] = None
 
@@ -127,11 +125,7 @@ class UnifiedGateway:
                 except Exception:
                     cls_name = ""
 
-                safe_to_await = (
-                    asyncio.iscoroutine(coro)
-                    or asyncio.isfuture(coro)
-                    or isinstance(coro, asyncio.Task)
-                )
+                safe_to_await = asyncio.iscoroutine(coro) or asyncio.isfuture(coro) or isinstance(coro, asyncio.Task)
 
                 if safe_to_await:
                     try:
@@ -149,10 +143,10 @@ class UnifiedGateway:
                     try:
                         # Last-resort attempt to await; may raise TypeError
                         await coro
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except Exception as e:
+                        self.logger.debug("Last-resort await of health coro failed: %s", e)
+            except Exception as e:
+                self.logger.debug("Health wrapper outer exception: %s", e)
 
         # Create the wrapper coroutine and attempt to schedule it. Tests may
         # patch `asyncio.create_task` with mocks that don't actually schedule
@@ -177,9 +171,7 @@ class UnifiedGateway:
             if not (isinstance(task_obj, asyncio.Task) or asyncio.isfuture(task_obj)):
                 try:
                     coro.close()
-                except (
-                    Exception
-                ):  # pragma: no cover — defensive; coro.close() rarely fails
+                except Exception:  # pragma: no cover — defensive; coro.close() rarely fails
                     pass
             else:
                 self._health_task = task_obj
@@ -202,9 +194,7 @@ class UnifiedGateway:
                 # Defensive: if the task object is a test double (Mock/MagicMock)
                 # avoid awaiting it even if it exposes __await__ to prevent
                 # "coroutine was never awaited" warnings later in test runtime.
-                cls_name = getattr(
-                    self._health_task, "__class__", type(self._health_task)
-                ).__name__
+                cls_name = getattr(self._health_task, "__class__", type(self._health_task)).__name__
 
                 # If a Mock/MagicMock had its __await__ replaced with a real
                 # coroutine's __await__ (some tests do this), attempt to
@@ -219,9 +209,7 @@ class UnifiedGateway:
                         if asyncio.iscoroutine(possible_coro):
                             try:
                                 possible_coro.close()
-                            except (
-                                Exception
-                            ):  # pragma: no cover — mock-detection fallback
+                            except Exception:  # pragma: no cover — mock-detection fallback
                                 pass
                 except Exception:  # pragma: no cover — mock-detection fallback
                     pass
@@ -230,17 +218,17 @@ class UnifiedGateway:
                     # Skip awaiting mocked task objects
                     pass
                 else:
-                    if isinstance(self._health_task, asyncio.Task) or asyncio.isfuture(
-                        self._health_task
-                    ):
+                    if isinstance(self._health_task, asyncio.Task) or asyncio.isfuture(self._health_task):
                         try:
                             await self._health_task
-                        except (asyncio.CancelledError, Exception):
-                            pass
-            except Exception:
+                        except asyncio.CancelledError:
+                            self.logger.debug("Health task cancelled during gateway stop")
+                        except Exception as e:
+                            self.logger.debug("Health task raised during gateway stop: %s", e)
+            except Exception as e:
                 # If isinstance/isfuture check itself fails due to a mocked type,
                 # just skip awaiting to avoid test-time warnings.
-                pass
+                self.logger.debug("Failed to check/await health task type during stop: %s", e)
 
         # Close client websockets
         for conn in list(self.clients.values()):
@@ -252,8 +240,8 @@ class UnifiedGateway:
                         await close_fn()
                     elif callable(close_fn):
                         close_fn()
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.debug("Failed to close client websocket during stop: %s", e)
         self.clients.clear()
 
         # Close servers and processes
@@ -261,29 +249,29 @@ class UnifiedGateway:
             try:
                 self.local_server.close()
                 await self.local_server.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to close local_server during stop: %s", e)
 
         if self.cloudflare_process:
             try:
                 self.cloudflare_process.terminate()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to terminate cloudflare_process during stop: %s", e)
 
         if self.tailscale_process:
             try:
                 self.tailscale_process.terminate()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to terminate tailscale_process during stop: %s", e)
 
         if self.https_server and hasattr(self.https_server, "cleanup"):
             try:
                 await self.https_server.cleanup()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to clean up https_server during stop: %s", e)
 
         self.is_active = False
-        print("[Gateway] Services stopped.")
+        self.logger.info("[Gateway] Services stopped.")
 
     def get_connection_info(self) -> Dict[str, Any]:
         return {
@@ -297,9 +285,7 @@ class UnifiedGateway:
             },
         }
 
-    def _check_rate_limit(
-        self, conn: ClientConnection, limit: int = 1000, window: int = 60
-    ) -> bool:
+    def _check_rate_limit(self, conn: ClientConnection, limit: int = 1000, window: int = 60) -> bool:
         try:
             from adapters import unified_gateway as ug  # type: ignore
 
@@ -474,9 +460,7 @@ class UnifiedGateway:
                 return ConnectionType.LOCAL
         return ConnectionType.LOCAL
 
-    async def _handle_websocket(
-        self, websocket, path="", forced_type: Optional[ConnectionType] = None
-    ):
+    async def _handle_websocket(self, websocket, path="", forced_type: Optional[ConnectionType] = None):
         conn_type = forced_type or self._detect_connection_type(websocket)
         ip = "unknown"
         if getattr(websocket, "remote_address", None):
@@ -609,13 +593,13 @@ class UnifiedGateway:
             if hasattr(ws, "send"):
                 try:
                     await ws.send(ack)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.debug("Failed to send auth ack via ws.send: %s", e)
             elif hasattr(ws, "send_str"):
                 try:
                     await ws.send_str(ack)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.debug("Failed to send auth ack via ws.send_str: %s", e)
             return True
         return False
 
@@ -653,19 +637,17 @@ class UnifiedGateway:
             try:
                 await ws.send(payload)
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to send error via ws.send: %s", e)
         if hasattr(ws, "send_str"):
             try:
                 await ws.send_str(payload)
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to send error via ws.send_str: %s", e)
 
     async def _start_local_server(self):
         def process_request(_connection: WebSocketServerProtocol, request):
-            host = (
-                request.headers.get("Host", "") if hasattr(request, "headers") else ""
-            )
+            host = request.headers.get("Host", "") if hasattr(request, "headers") else ""
             # VULN-011 fix: exact hostname match instead of substring
             # Strip port if present (e.g. "localhost:8080" → "localhost")
             hostname = host.split(":")[0].strip()
@@ -684,7 +666,7 @@ class UnifiedGateway:
     async def send_message(self, client_id: str, message: Dict[str, Any]) -> bool:
         """Send a message back to a specific connected client"""
         if client_id not in self.clients:
-            self.logger.warning(f"Attempted to send to unknown client: {client_id}")
+            self.logger.warning("Attempted to send to unknown client: %s", client_id)
             return False
 
         conn = self.clients[client_id]
@@ -696,24 +678,19 @@ class UnifiedGateway:
                 await conn.websocket.send_str(payload)
             return True
         except Exception as e:
-            self.logger.error(f"Failed to send to gateway client {client_id}: {e}")
+            self.logger.error("Failed to send to gateway client %s: %s", client_id, e)
             return False
 
     async def _health_monitor_loop(self):
         while True:
             if self.enable_cloudflare:
-                if (
-                    self.cloudflare_process is None
-                    or self.cloudflare_process.poll() is not None
-                ):
+                if self.cloudflare_process is None or self.cloudflare_process.poll() is not None:
                     self.health_status[ConnectionType.CLOUDFLARE.value] = False
-                    self.logger.warning(
-                        "Cloudflare tunnel dead or not started. Reconnecting..."
-                    )
+                    self.logger.warning("Cloudflare tunnel dead or not started. Reconnecting...")
                     try:
                         await self._start_cloudflare_tunnel()
                     except Exception as e:
-                        self.logger.error(f"Cloudflare reconnection failed: {e}")
+                        self.logger.error("Cloudflare reconnection failed: %s", e)
                 else:
                     self.health_status[ConnectionType.CLOUDFLARE.value] = True
 

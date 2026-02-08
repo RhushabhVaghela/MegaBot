@@ -101,3 +101,80 @@ class TestSecretManager:
         sm = SecretManager()
         text = "Hello {{NONEXISTENT}}"
         assert sm.inject_secrets(text) == "Hello {{NONEXISTENT}}"
+
+    def test_world_readable_directory_warning(self, tmp_path, caplog):
+        """Test that a world-readable secrets dir triggers a warning."""
+        import logging
+        import stat as stat_mod
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        # Make it world-readable
+        secrets_dir.chmod(0o755)
+
+        with caplog.at_level(logging.WARNING, logger="megabot.secrets"):
+            sm = SecretManager(secrets_dir=str(secrets_dir))
+
+        assert any("world-readable" in r.message for r in caplog.records)
+
+    def test_non_world_readable_directory_no_warning(self, tmp_path, caplog):
+        """Test that a non-world-readable secrets dir does NOT trigger a warning."""
+        import logging
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        secrets_dir.chmod(0o700)
+
+        with caplog.at_level(logging.WARNING, logger="megabot.secrets"):
+            sm = SecretManager(secrets_dir=str(secrets_dir))
+
+        assert not any("world-readable" in r.message for r in caplog.records)
+
+    def test_permission_check_oserror(self, tmp_path, caplog):
+        """Test that OSError during permission check logs a warning."""
+        import logging
+        from unittest.mock import patch
+        import os as _os
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+
+        original_stat = _os.stat
+        call_count = 0
+
+        def stat_that_fails_on_second(path, *args, **kwargs):
+            """os.path.exists calls stat first; fail only on the explicit stat call."""
+            nonlocal call_count
+            result_or_exc = original_stat(path, *args, **kwargs)
+            if str(path) == str(secrets_dir):
+                call_count += 1
+                # First call is from os.path.exists (line 26), let it pass.
+                # Second call is the explicit os.stat (line 31), raise.
+                if call_count >= 2:
+                    raise OSError("Permission denied")
+            return result_or_exc
+
+        with patch("core.secrets.os.stat", side_effect=stat_that_fails_on_second):
+            with caplog.at_level(logging.WARNING, logger="megabot.secrets"):
+                sm = SecretManager(secrets_dir=str(secrets_dir))
+
+        assert any("Could not check permissions" in r.message for r in caplog.records)
+
+    def test_inject_secrets_max_name_length(self):
+        """Test that secret names exceeding _MAX_SECRET_NAME_LEN are ignored."""
+        sm = SecretManager()
+        long_name = "A" * 129  # Exceeds 128 limit
+        sm.secrets[long_name] = "should-not-replace"
+
+        text = "{{" + long_name + "}}"
+        # Should NOT be replaced because name is too long
+        assert sm.inject_secrets(text) == text
+
+    def test_inject_secrets_at_max_name_length(self):
+        """Test that secret names exactly at _MAX_SECRET_NAME_LEN ARE replaced."""
+        sm = SecretManager()
+        exact_name = "A" * 128  # Exactly at limit
+        sm.secrets[exact_name] = "replaced-value"
+
+        text = "{{" + exact_name + "}}"
+        assert sm.inject_secrets(text) == "replaced-value"

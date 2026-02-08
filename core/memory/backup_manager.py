@@ -69,8 +69,8 @@ class MemoryBackupManager:
             if os.path.exists(temp_db):
                 try:
                     os.remove(temp_db)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.debug("Failed to remove temp DB %s during backup cleanup: %s", temp_db, e)
 
     def _restore_backup_sync(self, backup_file: str, encryption_key: Optional[str] = None) -> str:
         """Blocking implementation of backup restore."""
@@ -143,8 +143,8 @@ class MemoryBackupManager:
             if os.path.exists(temp_db):
                 try:
                     os.remove(temp_db)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.debug("Failed to remove temp DB %s during restore cleanup: %s", temp_db, e)
 
     def _list_backups_sync(self) -> list:
         """Blocking implementation of backup listing."""

@@ -1,4 +1,7 @@
+import logging
 from typing import List, Dict
+
+logger = logging.getLogger(__name__)
 
 
 class SubAgent:
@@ -36,14 +39,13 @@ class SubAgent:
             self.plan = [
                 line.strip()
                 for line in response.split("\n")
-                if line.strip()
-                and (line.strip()[0].isdigit() or line.strip().startswith("-"))
+                if line.strip() and (line.strip()[0].isdigit() or line.strip().startswith("-"))
             ]
         return self.plan
 
     async def run(self) -> str:
         """Execute the sub-agent loop"""
-        print(f"Sub-Agent {self.name} ({self.role}) starting task: {self.task}")
+        logger.info("Sub-Agent %s (%s) starting task: %s", self.name, self.role, self.task)
 
         # Pre-flight check: Ensure plan exists
         if not self.plan:
@@ -51,9 +53,7 @@ class SubAgent:
 
         # Initial context
         context = f"You are a specialized sub-agent.\nName: {self.name}\nRole: {self.role}\nBoundaries: {self.ROLE_BOUNDARIES[self.role]}\nParent Goal: {self.task}\nPlanned Steps: {self.plan}"
-        messages = [
-            {"role": "user", "content": f"Perform the following task: {self.task}"}
-        ]
+        messages = [{"role": "user", "content": f"Perform the following task: {self.task}"}]
 
         for step in range(self.max_steps):
             try:
@@ -74,17 +74,13 @@ class SubAgent:
                     # For now, sub-agents report what they want to do
                     tool_calls = [b for b in response if b.get("type") == "tool_use"]
                     if not tool_calls:
-                        text = "".join(
-                            [b["text"] for b in response if b.get("type") == "text"]
-                        )
+                        text = "".join([b["text"] for b in response if b.get("type") == "text"])
                         return text
 
                     # Simple delegation back to parent for actual execution
                     results = []
                     for call in tool_calls:
-                        res = await self.parent._execute_tool_for_sub_agent(
-                            self.name, call
-                        )
+                        res = await self.parent._execute_tool_for_sub_agent(self.name, call)
                         results.append(
                             {
                                 "type": "tool_result",

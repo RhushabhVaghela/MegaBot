@@ -6,6 +6,7 @@ approval, and action approval/rejection workflows.
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import Dict, Optional, Any, TYPE_CHECKING
 
@@ -16,6 +17,8 @@ from core.task_utils import safe_create_task as _safe_create_task, sanitize_acti
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
+
+logger = logging.getLogger(__name__)
 
 # Import greeting from shared constants to avoid circular imports
 from core.constants import GREETING_TEXT
@@ -48,7 +51,7 @@ async def handle_client(orchestrator: "MegaBotOrchestrator", websocket: WebSocke
         while True:  # pragma: no cover
             data = await websocket.receive_text()
             msg_data = json.loads(data)
-            print(f"Received from UI: {msg_data}")
+            logger.debug("Received from UI: %s", msg_data)
 
             msg_type = msg_data.get("type")
 
@@ -81,7 +84,7 @@ async def handle_client(orchestrator: "MegaBotOrchestrator", websocket: WebSocke
                 await orchestrator._process_approval(action_id, approved=False)
 
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error("WebSocket error: %s", e)
     finally:
         orchestrator.clients.discard(websocket)
 

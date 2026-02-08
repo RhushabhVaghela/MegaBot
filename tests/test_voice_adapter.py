@@ -163,14 +163,16 @@ class TestVoiceAdapter:
         assert "<Gather" in args["twiml"]
 
     @pytest.mark.asyncio
-    async def test_make_call_no_client(self, voice_adapter):
+    async def test_make_call_no_client(self, voice_adapter, caplog):
         """Test make_call when client is not initialized (lines 130-131)"""
+        import logging
+
         voice_adapter.client = None
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.DEBUG, logger="adapters.voice_adapter"):
             sid = await voice_adapter.make_call("+123", "Hello")
             assert sid == "error_no_client"
-            mock_print.assert_called_with("[Voice] Cannot make call: Twilio client not initialized.")
+            assert any("Cannot make call: Twilio client not initialized" in r.message for r in caplog.records)
 
     def test_twilio_fallback_import_full_coverage(self):
         """Test the fallback mocks in voice_adapter for full coverage (lines 15-28)"""

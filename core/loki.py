@@ -7,6 +7,8 @@ from typing import List, Dict
 from core.agents import SubAgent
 from core.task_utils import safe_create_task
 
+logger = logging.getLogger(__name__)
+
 
 class LokiMode:
     """
@@ -21,7 +23,7 @@ class LokiMode:
     async def activate(self, prd_text: str):
         """Start the Loki Mode pipeline"""
         self.is_active = True
-        print("🔥 LOKI MODE ACTIVATED 🔥")
+        logger.info("LOKI MODE ACTIVATED")
         start_time = datetime.now()
 
         await self._relay_status("🔥 Loki Mode Activated. Starting pipeline...")
@@ -93,7 +95,7 @@ class LokiMode:
 
     async def _retrieve_learned_lessons(self, query: str) -> str:
         """Search and distill learned lessons from persistent memory"""
-        print("🧠 Retrieving Learned Lessons...")
+        logger.info("Retrieving Learned Lessons...")
         lessons = await self.orchestrator.memory.memory_search(query=query, type="learned_lesson")
         if not lessons:
             return ""
@@ -136,7 +138,7 @@ Instructions:
 
     async def _run_parallel_review(self, code_results: List[str], memory_context: str = "") -> str:
         """Spawn 3 specialized reviewers to critique the implementation"""
-        print("🔍 Starting Parallel Code Review...")
+        logger.info("Starting Parallel Code Review...")
         reviewers = [
             {
                 "name": "Security-Reviewer",
@@ -174,7 +176,7 @@ Instructions:
 
     async def _debate_memory_conflict(self, review_summary: str, impl_results: List[str], memory_context: str) -> bool:
         """Mediate between a detected conflict and a potentially superior new implementation."""
-        print("⚖️ Starting Conflict Mediation (The Debate)...")
+        logger.info("Starting Conflict Mediation (The Debate)...")
 
         impl_results_text = "\n".join(impl_results)
         debate_prompt = f"""
@@ -203,7 +205,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             messages=[{"role": "user", "content": debate_prompt}],
         )
 
-        print(f"Mediation Decision: {str(decision_res)[:100]}...")
+        logger.info("Mediation Decision: %s...", str(decision_res)[:100])
 
         if "DECISION: EVOLVE" in str(decision_res).upper():
             # Record the evolution in memory as a new lesson
@@ -218,7 +220,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
     async def _save_loki_macro(self, prd: str, tasks: List[Dict], results: List[str], status: str):
         """Save the entire execution as a reproducible macro in memU"""
-        print("🧠 Saving Loki Macro to Memory...")
+        logger.info("Saving Loki Macro to Memory...")
         macro = {
             "type": "loki_macro",
             "prd": prd,
@@ -252,8 +254,8 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             match = re.search(r"\[.*\]", res, re.DOTALL)
             if match:
                 return json.loads(match.group(0))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to parse JSON from PRD decomposition response: %s", e)
         return [
             {
                 "name": "Developer",
@@ -279,14 +281,14 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
 
     async def _run_security_audit(self, results: List[str], memory_context: str = "") -> str:
         """Specialized security review pass using Tirith Guard logic"""
-        print("🛡️ Running Security Audit...")
+        logger.info("Running Security Audit...")
         from adapters.security.tirith_guard import guard as tirith
 
         combined_text = "\n".join(results)
 
         # 1. Check for Terminal/Homoglyph Attacks
         if not tirith.validate(combined_text):
-            print("❌ SECURITY ALERT: Suspicious Unicode or Bidi characters detected in implementation!")
+            logger.error("SECURITY ALERT: Suspicious Unicode or Bidi characters detected in implementation!")
             return "Security Audit: FAILED (Suspicious Characters Detected)"
 
         # 2. Automated Scan (RegEx for secrets/keys)
@@ -299,7 +301,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
         ]
         for pattern in secret_patterns:
             if re.search(pattern, combined_text, re.IGNORECASE):
-                print(f"⚠️ SECURITY WARNING: Potential secret leak detected (pattern: {pattern})")
+                logger.warning("SECURITY WARNING: Potential secret leak detected (pattern: %s)", pattern)
                 # We don't fail immediately, but we flag it
 
         await asyncio.sleep(1)
@@ -333,7 +335,7 @@ If we should ACCEPT the new implementation as an architectural evolution, start 
             except Exception as e:
                 return f"Deployment error: {e}"
 
-        logging.warning(
+        logger.warning(
             "[LokiMode] No deployment pipeline configured. Set MEGABOT_DEPLOY_SCRIPT env var to a deploy script path."
         )
         return "Deployment skipped: no pipeline configured. Set MEGABOT_DEPLOY_SCRIPT or implement a deployment driver."

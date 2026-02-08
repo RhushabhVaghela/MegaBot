@@ -15,7 +15,7 @@ MegaBot works perfectly on macOS.
 
 ## 🪟 Windows (Native & WSL)
 ### native Windows
-1. Install Python 3.13 and Node.js from their respective websites.
+1. Install Python 3.12+ and Node.js from their respective websites.
 2. Run `pip install -r requirements.txt`.
 3. **Note**: Update `mega-config.yaml` to use Windows-style paths (e.g., `D:\\Agents and other repos`).
 

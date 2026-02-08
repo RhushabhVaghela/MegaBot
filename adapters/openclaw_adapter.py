@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import websockets
 import json
 import uuid
@@ -6,6 +7,8 @@ import os
 from typing import Any, Optional
 from core.interfaces import MessagingInterface, Message
 from core.resource_guard import LRUCache
+
+logger = logging.getLogger(__name__)
 
 
 class OpenClawAdapter(MessagingInterface):
@@ -27,8 +30,8 @@ class OpenClawAdapter(MessagingInterface):
         import secrets
 
         token = secrets.token_urlsafe(32)
-        print("WARNING: No auth token provided. Generated temporary token (see logs for first 8 chars).")
-        print(f"  Token prefix: {token[:8]}...")
+        logger.warning("No auth token provided. Generated temporary token (see logs for first 8 chars).")
+        logger.warning("  Token prefix: %s...", token[:8])
         return token
 
     async def connect(self, on_event=None):
@@ -51,7 +54,7 @@ class OpenClawAdapter(MessagingInterface):
         }
         await self.websocket.send(json.dumps(connect_req))
         response = await self.websocket.recv()
-        print(f"OpenClaw Handshake Response: {response}")
+        logger.info("OpenClaw Handshake Response: %s", response)
 
         # Start background listener
         asyncio.create_task(self._listen())
@@ -73,7 +76,7 @@ class OpenClawAdapter(MessagingInterface):
                     # Otherwise, it's a notification or unexpected event
                     await self.on_event(data)
         except Exception as e:
-            print(f"OpenClaw connection closed: {e}")
+            logger.error("OpenClaw connection closed: %s", e)
 
     async def execute_tool(self, method: str, params: dict) -> Any:
         if not self.websocket:

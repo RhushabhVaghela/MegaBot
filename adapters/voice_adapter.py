@@ -4,9 +4,12 @@ Provides integration with telephony services (Twilio) for voice calls.
 """
 
 import asyncio
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 from xml.sax.saxutils import escape as xml_escape
+
+logger = logging.getLogger(__name__)
 
 from core.interfaces import VoiceInterface
 
@@ -63,7 +66,7 @@ class VoiceAdapter(VoiceInterface):
             self.client = Client(account_sid, auth_token)
             self.is_connected = True
         except Exception as e:
-            print(f"[Voice] Failed to initialize Twilio client: {e}")
+            logger.error("[Voice] Failed to initialize Twilio client: %s", e)
             self.client = None
             self.is_connected = False
 
@@ -130,16 +133,16 @@ class VoiceAdapter(VoiceInterface):
 
             # Run in executor because twilio-python is synchronous
             if not self.client:
-                print("[Voice] Cannot make call: Twilio client not initialized.")
+                logger.warning("[Voice] Cannot make call: Twilio client not initialized.")
                 return "error_no_client"
 
             call = await asyncio.to_thread(lambda: self.client.calls.create(**kwargs))
 
-            print(f"[Voice] Call initiated to {recipient_phone}: {call.sid} (IVR={ivr})")
+            logger.info("[Voice] Call initiated to %s: %s (IVR=%s)", recipient_phone, call.sid, ivr)
             return call.sid
 
         except Exception as e:
-            print(f"[Voice] Make call error: {e}")
+            logger.error("[Voice] Make call error: %s", e)
             return f"error_{uuid.uuid4().hex[:8]}"
 
     async def transcribe_audio(self, audio_data: bytes) -> str:
@@ -171,11 +174,11 @@ class VoiceAdapter(VoiceInterface):
             finally:
                 os.unlink(tmp_path)
         except ImportError:
-            pass
+            logger.debug("[Voice] openai package not installed; skipping Whisper STT")
         except Exception as e:
-            print(f"[Voice] Whisper transcription failed: {e}")
+            logger.error("[Voice] Whisper transcription failed: %s", e)
 
-        print("[Voice] No STT service configured. Returning empty transcription.")
+        logger.warning("[Voice] No STT service configured. Returning empty transcription.")
         return ""
 
     async def speak(self, text: str) -> bytes:
@@ -198,11 +201,11 @@ class VoiceAdapter(VoiceInterface):
             )
             return response.content
         except ImportError:
-            pass
+            logger.debug("[Voice] openai package not installed; skipping OpenAI TTS")
         except Exception as e:
-            print(f"[Voice] OpenAI TTS failed: {e}")
+            logger.error("[Voice] OpenAI TTS failed: %s", e)
 
-        print("[Voice] No TTS service configured. Returning empty audio.")
+        logger.warning("[Voice] No TTS service configured. Returning empty audio.")
         return b""
 
     async def get_call_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
@@ -215,7 +218,7 @@ class VoiceAdapter(VoiceInterface):
             List of call log dictionaries, or empty list if Twilio is unavailable.
         """
         if not self.client:
-            print("[Voice] Cannot fetch call logs: Twilio client not initialized.")
+            logger.warning("[Voice] Cannot fetch call logs: Twilio client not initialized.")
             return []
 
         try:
@@ -233,10 +236,10 @@ class VoiceAdapter(VoiceInterface):
                 for call in calls
             ]
         except Exception as e:
-            print(f"[Voice] Failed to retrieve call logs: {e}")
+            logger.error("[Voice] Failed to retrieve call logs: %s", e)
             return []
 
     async def shutdown(self):
         """Clean up resources"""
         self.is_connected = False
-        print("[Voice] Adapter shutdown complete")
+        logger.info("[Voice] Adapter shutdown complete")

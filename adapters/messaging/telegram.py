@@ -91,12 +91,14 @@ class TelegramAdapter(PlatformAdapter):
     ) -> Any:
         """Upload a local file to Telegram using multipart form data."""
         await self._ensure_session()
+        fh = None
         try:
             data = aiohttp.FormData()
             data.add_field("chat_id", chat_id)
             if caption:
                 data.add_field("caption", caption)
-            data.add_field(field_name, open(file_path, "rb"), filename=file_path.split("/")[-1])
+            fh = open(file_path, "rb")
+            data.add_field(field_name, fh, filename=file_path.split("/")[-1])
 
             async with self.session.post(f"{self.api_url}/{method}", data=data) as resp:
                 result = await resp.json()
@@ -107,6 +109,9 @@ class TelegramAdapter(PlatformAdapter):
         except Exception as exc:
             logger.error("[Telegram] Upload failed: %s", exc)
             return None
+        finally:
+            if fh is not None:
+                fh.close()
 
     async def send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None) -> Optional[PlatformMessage]:
         res = await self._make_request("sendMessage", {"chat_id": chat_id, "text": text})

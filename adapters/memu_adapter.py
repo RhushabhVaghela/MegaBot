@@ -1,8 +1,11 @@
+import logging
 import sys
 import os
 from typing import Any
 from core.interfaces import MemoryInterface
 from core.resource_guard import LRUCache
+
+logger = logging.getLogger(__name__)
 
 
 class MemUAdapter(MemoryInterface):
@@ -12,7 +15,7 @@ class MemUAdapter(MemoryInterface):
         try:
             from memu.app import MemoryService  # type: ignore
 
-            print("Successfully loaded memU from installed packages")
+            logger.info("Successfully loaded memU from installed packages")
             service_class = MemoryService
             found_path = True
         except ImportError:
@@ -33,14 +36,14 @@ class MemUAdapter(MemoryInterface):
                         self.memu_path = path  # pragma: no cover
                         service_class = MemoryService
                         found_path = True  # pragma: no cover
-                        print(f"Successfully loaded memU from {path}")  # pragma: no cover
+                        logger.info("Successfully loaded memU from %s", path)  # pragma: no cover
                         break  # pragma: no cover
                     except ImportError:
                         sys.path.pop(0)
                         continue
 
         if not found_path:
-            print(f"WARNING: memU not found at {memu_path}. Using functional fallback mock.")
+            logger.warning("memU not found at %s. Using functional fallback mock.", memu_path)
 
             # Fallback Mock Class with basic functional storage
             class MockMemoryService:
@@ -52,7 +55,7 @@ class MemUAdapter(MemoryInterface):
                     url = kwargs.get("resource_url")
                     key = url or f"item_{len(self.storage)}"
                     self.storage[key] = content or "File/Link"
-                    print(f"MockMemory: Stored {key}")
+                    logger.debug("MockMemory: Stored %s", key)
 
                 async def retrieve(self, **kwargs):
                     query = kwargs.get("query", "").lower()
@@ -89,27 +92,23 @@ class MemUAdapter(MemoryInterface):
                     },
                 )
             except Exception as e:
-                print(f"Failed to initialize MemoryService: {e}")
-
-                # Final fallback to ultra-safe dummy
-                class Dummy:
-                    async def memorize(self, **kwargs):
-                        pass
-
-                    async def retrieve(self, **kwargs):
-                        return {"items": []}
-
-                self.service = Dummy()
+                logger.error("Failed to initialize MemoryService: %s", e)
+                self.service = self._make_dummy_service()
         else:  # pragma: no cover
-            # Final fallback to ultra-safe dummy if no service_class found (should not happen due to mock)
-            class Dummy:
-                async def memorize(self, **kwargs):
-                    pass
+            self.service = self._make_dummy_service()
 
-                async def retrieve(self, **kwargs):
-                    return {"items": []}
+    @staticmethod
+    def _make_dummy_service():
+        """Create an ultra-safe dummy service when memU is unavailable."""
 
-            self.service = Dummy()
+        class Dummy:
+            async def memorize(self, **kwargs):
+                pass
+
+            async def retrieve(self, **kwargs):
+                return {"items": []}
+
+        return Dummy()
 
     async def store(self, key: str, value: Any) -> None:
         # Auto-detect modality
@@ -143,12 +142,12 @@ class MemUAdapter(MemoryInterface):
 
     async def ingest_openclaw_logs(self, log_path: str):
         if not os.path.exists(log_path):
-            print(f"OpenClaw logs not found at {log_path}")
+            logger.warning("OpenClaw logs not found at %s", log_path)
             return
 
         # memU can process conversation logs
         await self.service.memorize(resource_url=log_path, modality="conversation")
-        print(f"Ingested OpenClaw logs from {log_path}")
+        logger.info("Ingested OpenClaw logs from %s", log_path)
 
     async def retrieve(self, key: str) -> Any:
         return await self.service.retrieve(query=key)
@@ -164,7 +163,7 @@ class MemUAdapter(MemoryInterface):
             if isinstance(results, dict):
                 return results.get("items", [])
         except Exception as e:
-            print(f"Proactive retrieval failed: {e}")
+            logger.error("Proactive retrieval failed: %s", e)
         return []
 
     async def learn_from_interaction(self, interaction_data: dict):
@@ -186,5 +185,5 @@ class MemUAdapter(MemoryInterface):
             if isinstance(results, dict):
                 return results.get("items", [])
         except Exception as e:
-            print(f"Search failed: {e}")
+            logger.error("Search failed: %s", e)
         return []

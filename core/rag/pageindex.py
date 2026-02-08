@@ -1,7 +1,10 @@
+import logging
 import os
 import re
 import json
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class PageIndexRAG:
@@ -21,36 +24,30 @@ class PageIndexRAG:
         """Creates a hierarchical map of the codebase with summaries. Uses cache if available."""
         if not force_rebuild and os.path.exists(self.index_path):
             try:
-                print(f"RAG: Loading cached index from {self.index_path}...")
+                logger.info("RAG: Loading cached index from %s...", self.index_path)
                 with open(self.index_path, "r") as f:
                     self.index = json.load(f)
                 return
             except Exception as e:
-                print(f"RAG: Failed to load cache: {e}")
+                logger.warning("RAG: Failed to load cache: %s", e)
 
-        print(f"RAG: Building structural index for {self.root_dir}...")
+        logger.info("RAG: Building structural index for %s...", self.root_dir)
         self.index = {"root": self.root_dir, "files": {}, "folders": {}}
 
-        # ... (rest of building logic) ...
         self._walk_and_index(self.root_dir, self.index)
 
         # Save to cache
         try:
             with open(self.index_path, "w") as f:
                 json.dump(self.index, f)
-            print(f"RAG: Index cached to {self.index_path}")
+            logger.info("RAG: Index cached to %s", self.index_path)
         except Exception as e:
-            print(f"RAG: Failed to save cache: {e}")
+            logger.warning("RAG: Failed to save cache: %s", e)
 
     def _walk_and_index(self, root_dir, current_index):
         for root, dirs, files in os.walk(root_dir):
             # Avoid hidden folders and common noise
-            dirs[:] = [
-                d
-                for d in dirs
-                if not d.startswith(".")
-                and d not in ["node_modules", "__pycache__", "venv"]
-            ]
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["node_modules", "__pycache__", "venv"]]
 
             rel_path = os.path.relpath(root, root_dir)
             current = current_index
@@ -61,9 +58,7 @@ class PageIndexRAG:
                     current = current["folders"][part]
 
             for file in files:
-                if file.endswith(
-                    (".md", ".py", ".js", ".ts", ".txt", ".yaml", ".yml", ".json")
-                ):
+                if file.endswith((".md", ".py", ".js", ".ts", ".txt", ".yaml", ".yml", ".json")):
                     file_path = os.path.join(root, file)
                     try:
                         with open(file_path, "r", encoding="utf-8") as f:
@@ -82,9 +77,7 @@ class PageIndexRAG:
 
     def _extract_symbols(self, content: str, filename: str) -> List[str]:
         if filename.endswith(".py"):
-            return re.findall(
-                r"^(?:class|def)\s+([a-zA-Z_][a-zA-Z0-9_]*)", content, re.MULTILINE
-            )
+            return re.findall(r"^(?:class|def)\s+([a-zA-Z_][a-zA-Z0-9_]*)", content, re.MULTILINE)
         if filename.endswith((".js", ".ts")):
             return re.findall(
                 r"^(?:class|function|const)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
@@ -121,14 +114,8 @@ class PageIndexRAG:
         def search_dict(d, path=""):
             for fname, info in d.get("files", {}).items():
                 fpath = os.path.join(path, fname)
-                if (
-                    q in fpath.lower()
-                    or q in info["summary"].lower()
-                    or any(q in s.lower() for s in info["headers"])
-                ):
-                    results.append(
-                        f"File: {fpath}\n  Summary: {info['summary']}\n  Symbols: {info['headers'][:5]}"
-                    )
+                if q in fpath.lower() or q in info["summary"].lower() or any(q in s.lower() for s in info["headers"]):
+                    results.append(f"File: {fpath}\n  Summary: {info['summary']}\n  Symbols: {info['headers'][:5]}")
 
             for dname, sub in d.get("folders", {}).items():
                 search_dict(sub, os.path.join(path, dname))
@@ -171,10 +158,7 @@ class PageIndexRAG:
 
             return "\n\n".join(detailed_results)
         except Exception as e:
-            return (
-                f"Reasoning RAG failed: {e}. Falling back to keywords.\n"
-                + self._keyword_navigation(query)
-            )
+            return f"Reasoning RAG failed: {e}. Falling back to keywords.\n" + self._keyword_navigation(query)
 
     def _get_collapsed_index(self, max_depth=2) -> Dict:
         """Returns a simplified version of the index for LLM context."""

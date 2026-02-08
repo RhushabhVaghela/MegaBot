@@ -1,3 +1,56 @@
+## v1.2.0 (2026-02-08)
+
+Full production readiness audit and fixes across 5 sessions.
+
+### Logging & Observability (Phase 6B-1)
+
+- Replaced ~252 `print()` calls with structured `logger` across 29 production files (16 core + 12 adapters + 1 coordinator).
+- Logger naming convention: `logging.getLogger("megabot.<module>")` or `logging.getLogger(__name__)`.
+- Only 6 `print()` remain in acceptable `if __name__ == "__main__"` blocks.
+
+### Exception Handling (Phase 6B-2)
+
+- Fixed 69 silent `except ...: pass` blocks across 19 files.
+- Added appropriate logging: `logger.debug()` for expected failures (cleanup, shutdown, CancelledError), `logger.warning()` for unexpected non-critical, `logger.error()` for potential data loss.
+- Split `except (CancelledError, Exception): pass` into separate clauses where appropriate.
+
+### Security (Phase 6B-3)
+
+- **Secrets directory permissions**: Added world-readable directory warning and secret name length limit (128 chars) in `core/secrets.py`.
+- **MCP JSON-RPC IDs**: Replaced static `"id": 1` with incrementing counter in `adapters/mcp_adapter.py`.
+- **Telegram file handle leak**: Refactored `_upload_media()` to guarantee `close()` in `finally` block.
+- **Atomic file writes**: Admin handler `file_operation` write now uses `tempfile.mkstemp()` + `os.replace()` with cleanup on failure.
+
+### Code Quality (Phase 6B-4)
+
+- Removed misleading `# ... (rest of building logic) ...` comment in `core/rag/pageindex.py`.
+- Consolidated duplicate `Dummy` classes in `adapters/memu_adapter.py` into `_make_dummy_service()` static method.
+
+### Professional Cleanup (Phase 6B-5)
+
+- Deleted 8 stale `features/` README files, empty `audits/` directory, build artifacts (`htmlcov/`, `megabot.egg-info/`, `.ruff_cache/`, `megabot_memory.db`).
+- Deleted 2 duplicate architecture docs (canonical version: `docs/architecture/overview.md`).
+- Deleted 7 stale audit/planning docs from `docs/`.
+- Fixed PII leak: replaced real phone number in `docs/testing.md`.
+- Fixed typos in `docs/troubleshooting.md` (conda env name, config filename).
+
+### Documentation (Phase 6B-6)
+
+- Fixed Python version `3.13` to `3.12+` in `docs/platforms.md`.
+- Fixed 4 broken relative links in `docs/development/index.md`.
+- Updated `docs/index.md`: removed broken link, updated last-updated date.
+
+### Runtime Bug Fix
+
+- Fixed `NameError` in `core/network/gateway.py`: bare `logger` replaced with `self.logger` on 3 lines.
+
+### Testing (Phase 6B-7)
+
+- 17 new tests covering all Phase 6 security and code quality changes.
+- **1714 tests passing, 0 failures** (verified 2026-02-08).
+
+---
+
 ## v1.1.0 (2026-02-07)
 
 Comprehensive hardening, cleanup, and documentation overhaul across 17 sessions.

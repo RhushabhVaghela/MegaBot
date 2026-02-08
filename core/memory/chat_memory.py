@@ -51,8 +51,8 @@ class ChatMemoryManager:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error closing chat_memory DB connection: %s", e)
 
     async def write(
         self,

@@ -27,7 +27,7 @@ pip install -r requirements.txt
 Or using conda:
 ```bash
 conda env create -f environment.yml
-conda activate metabot
+conda activate megabot
 ```
 
 ### Docker Issues
@@ -56,7 +56,7 @@ FileNotFoundError: mega-config.yaml
 **Solution:**
 ```bash
 # Copy the template
-cp meta-config.yaml.template mega-config.yaml
+cp mega-config.yaml.template mega-config.yaml
 
 # Edit with your settings
 nano mega-config.yaml

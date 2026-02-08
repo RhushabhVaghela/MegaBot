@@ -52,7 +52,6 @@ New to MegaBot? Start here to get up and running quickly.
 
 ### Legacy Documentation
 - **[General Troubleshooting](troubleshooting.md)** - Legacy troubleshooting guide
-- **[Architecture](architecture.md)** - Legacy architecture documentation
 - **[Testing](testing.md)** - Legacy testing documentation
 - **[Configuration](configuration.md)** - Legacy configuration guide
 
@@ -85,5 +84,5 @@ MegaBot is an open-source project. We welcome contributions!
 ---
 
 **Version**: Latest (Main Branch)  
-**Last Updated**: 2026-02-05  
+**Last Updated**: 2026-02-07  
 **MegaBot** © 2026 - Unified AI Orchestrator

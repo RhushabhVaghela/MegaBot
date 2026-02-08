@@ -125,7 +125,7 @@ class LLMProvider(ABC):
         # 1. THINK
         think_msg = f"Task: {prompt}\n\nThink deeply about this task. Breakdown the problem and identify what you need to search for."
         thought = await self.generate(prompt=think_msg, context=context)
-        print(f"DEBUG [SearchR1-Think]: {thought[:100]}...")
+        logger.debug("SearchR1-Think: %s...", str(thought)[:100])
 
         # 2. SEARCH (if tool provided, otherwise internal reasoning)
         search_info = ""
@@ -133,7 +133,7 @@ class LLMProvider(ABC):
             search_msg = f"Thought: {thought}\n\nGenerate search queries for the tools."
             queries = await self.generate(prompt=search_msg, context=context)
             search_info = await search_tool.search(queries)
-            print(f"DEBUG [SearchR1-Search]: Found {len(search_info)} bytes of data.")
+            logger.debug("SearchR1-Search: Found %d bytes of data.", len(search_info))
         else:
             # Internal 'knowledge retrieval' step
             search_msg = f"Thought: {thought}\n\nRecall relevant facts or simulate search results for this problem."

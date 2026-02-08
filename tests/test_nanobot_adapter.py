@@ -104,8 +104,10 @@ async def test_nanobot_adapter_initialization_failure_fallback():
 
 
 @pytest.mark.asyncio
-async def test_send_message_unsupported_platform(capsys):
+async def test_send_message_unsupported_platform(caplog):
     """Test sending message with unsupported platform."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
     message = Message(
@@ -114,17 +116,18 @@ async def test_send_message_unsupported_platform(capsys):
         metadata={"recipient": "unknown", "platform": "unknown"},
     )
 
-    # Should not raise exception, just print warning
-    await adapter.send_message(message)
+    # Should not raise exception, just log warning
+    with caplog.at_level(logging.WARNING, logger="adapters.nanobot_adapter"):
+        await adapter.send_message(message)
 
-    # Check that the warning was printed
-    captured = capsys.readouterr()
-    assert "Unsupported platform unknown or recipient unknown" in captured.out
+    assert any("Unsupported platform unknown or recipient unknown" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_send_message_whatsapp(capsys):
+async def test_send_message_whatsapp(caplog):
     """Test sending message via WhatsApp."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
     message = Message(
@@ -134,16 +137,17 @@ async def test_send_message_whatsapp(capsys):
     )
 
     # Should not raise exception
-    await adapter.send_message(message)
+    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+        await adapter.send_message(message)
 
-    # Check that the mock print happened
-    captured = capsys.readouterr()
-    assert "Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in captured.out
+    assert any("Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_send_message_whatsapp_by_recipient_prefix(capsys):
+async def test_send_message_whatsapp_by_recipient_prefix(caplog):
     """Test sending message via WhatsApp based on recipient prefix."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
     message = Message(
@@ -153,11 +157,10 @@ async def test_send_message_whatsapp_by_recipient_prefix(capsys):
     )
 
     # Should detect whatsapp from + prefix even with unknown platform
-    await adapter.send_message(message)
+    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+        await adapter.send_message(message)
 
-    # Check that the mock print happened
-    captured = capsys.readouterr()
-    assert "Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in captured.out
+    assert any("Mock WhatsApp: Sent 'Hello WhatsApp' to +1234567890" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -193,24 +196,29 @@ async def test_run_routine():
 
 
 @pytest.mark.asyncio
-async def test_messenger_methods(capsys):
+async def test_messenger_methods(caplog):
     """Test messenger methods directly."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
-    # Test telegram send
-    await adapter.messenger.send_telegram("123", "test telegram")
-    captured = capsys.readouterr()
-    assert "Mock Telegram: Sent 'test telegram' to 123" in captured.out
+    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+        # Test telegram send
+        await adapter.messenger.send_telegram("123", "test telegram")
+        assert any("Mock Telegram: Sent 'test telegram' to 123" in r.message for r in caplog.records)
 
-    # Test whatsapp send
-    await adapter.messenger.send_whatsapp("456", "test whatsapp")
-    captured = capsys.readouterr()
-    assert "Mock WhatsApp: Sent 'test whatsapp' to 456" in captured.out
+        caplog.clear()
+
+        # Test whatsapp send
+        await adapter.messenger.send_whatsapp("456", "test whatsapp")
+        assert any("Mock WhatsApp: Sent 'test whatsapp' to 456" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_send_message_telegram(capsys):
+async def test_send_message_telegram(caplog):
     """Test sending message via Telegram."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
     message = Message(
@@ -219,15 +227,17 @@ async def test_send_message_telegram(capsys):
         metadata={"recipient": "123456789", "platform": "telegram"},
     )
 
-    await adapter.send_message(message)
+    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+        await adapter.send_message(message)
 
-    captured = capsys.readouterr()
-    assert "Mock Telegram: Sent 'Hello Telegram' to 123456789" in captured.out
+    assert any("Mock Telegram: Sent 'Hello Telegram' to 123456789" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_send_message_telegram_by_recipient_prefix(capsys):
+async def test_send_message_telegram_by_recipient_prefix(caplog):
     """Test sending message via Telegram based on recipient prefix."""
+    import logging
+
     adapter = NanobotAdapter("/fake/path", "telegram_token", "whatsapp_token")
 
     message = Message(
@@ -236,10 +246,10 @@ async def test_send_message_telegram_by_recipient_prefix(capsys):
         metadata={"recipient": "@testuser", "platform": "unknown"},
     )
 
-    await adapter.send_message(message)
+    with caplog.at_level(logging.DEBUG, logger="adapters.nanobot_adapter"):
+        await adapter.send_message(message)
 
-    captured = capsys.readouterr()
-    assert "Mock Telegram: Sent 'Hello Telegram' to @testuser" in captured.out
+    assert any("Mock Telegram: Sent 'Hello Telegram' to @testuser" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio

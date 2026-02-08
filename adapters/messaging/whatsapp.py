@@ -1,9 +1,12 @@
+import logging
 import uuid
 import asyncio
 from typing import Any, Dict, List, Optional
 from .server import PlatformAdapter, PlatformMessage, MessageType
 
 from core.resource_guard import LRUCache
+
+logger = logging.getLogger(__name__)
 
 
 class WhatsAppAdapter(PlatformAdapter):
@@ -44,7 +47,7 @@ class WhatsAppAdapter(PlatformAdapter):
             await self._init_direct_api()
             return self.is_initialized
         except Exception as e:
-            print(f"[WhatsApp] Initialization failed: {e}")
+            logger.error("Initialization failed: %s", e)
             return False
 
     async def _init_openclaw(self) -> bool:
@@ -54,7 +57,7 @@ class WhatsAppAdapter(PlatformAdapter):
             if hasattr(self.server, "openclaw") and self.server.openclaw:
                 self._openclaw = self.server.openclaw
                 self._use_openclaw = True
-                print("[WhatsApp] Using OpenClaw for WhatsApp Web integration")
+                logger.info("Using OpenClaw for WhatsApp Web integration")
                 return True
 
             # Try to import and create OpenClaw adapter
@@ -68,10 +71,10 @@ class WhatsAppAdapter(PlatformAdapter):
             self._openclaw = OpenClawAdapter(host=host, port=port, auth_token=auth_token)
             await self._openclaw.connect()
             self._use_openclaw = True
-            print("[WhatsApp] Connected to OpenClaw for WhatsApp Web")
+            logger.info("Connected to OpenClaw for WhatsApp Web")
             return True
         except Exception as e:
-            print(f"[WhatsApp] OpenClaw not available: {e}")
+            logger.warning("OpenClaw not available: %s", e)
             self._use_openclaw = False
             return False
 
@@ -82,19 +85,19 @@ class WhatsAppAdapter(PlatformAdapter):
 
             self.session = aiohttp.ClientSession(headers={"Authorization": f"Bearer {self.access_token}"})
             if not self.phone_number_id:
-                print("[WhatsApp] Warning: No phone_number_id configured")
+                logger.warning("No phone_number_id configured")
                 return False
 
             async with self.session.get(f"{self.GRAPH_API_BASE}/{self.phone_number_id}") as resp:
                 if resp.status == 200:
                     self.is_initialized = True
-                    print("[WhatsApp] Connected via Business API")
+                    logger.info("Connected via Business API")
                     return True
                 else:
-                    print(f"[WhatsApp] Business API auth failed: {resp.status}")
+                    logger.error("Business API auth failed: %s", resp.status)
                     return False
         except Exception as e:
-            print(f"[WhatsApp] Direct API initialization failed: {e}")
+            logger.error("Direct API initialization failed: %s", e)
             return False
 
     def register_notification_callback(self, callback):
@@ -107,8 +110,8 @@ class WhatsAppAdapter(PlatformAdapter):
                     await cb(data)
                 else:
                     cb(data)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Notification callback error: %s", e)
 
     async def send_text(
         self,
@@ -153,7 +156,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 reply_to=reply_to,
             )
         except Exception as e:
-            print(f"[WhatsApp] send_text error: {e}")
+            logger.error("send_text error: %s", e)
             return None
 
     async def send_media(
@@ -205,7 +208,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"media_path": media_path},
             )
         except Exception as e:
-            print(f"[WhatsApp] send_media error: {e}")
+            logger.error("send_media error: %s", e)
             return None
 
     async def send_document(
@@ -271,7 +274,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 },
             )
         except Exception as e:
-            print(f"[WhatsApp] send_location error: {e}")
+            logger.error("send_location error: %s", e)
             return None
 
     async def send_contact(
@@ -316,7 +319,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"contact_name": name, "contact_phone": phone},
             )
         except Exception as e:
-            print(f"[WhatsApp] send_contact error: {e}")
+            logger.error("send_contact error: %s", e)
             return None
 
     async def send_template(
@@ -357,7 +360,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"template_name": template_name, "language": language},
             )
         except Exception as e:
-            print(f"[WhatsApp] send_template error: {e}")
+            logger.error("send_template error: %s", e)
             return None
 
     async def send_push_notification(
@@ -395,7 +398,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 result.metadata["notification_id"] = str(uuid.uuid4())
             return result
         except Exception as e:
-            print(f"[WhatsApp] send_push_notification error: {e}")
+            logger.error("send_push_notification error: %s", e)
             return None
 
     async def send_interactive_list(
@@ -442,7 +445,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"interactive_type": "list", "sections": sections},
             )
         except Exception as e:
-            print(f"[WhatsApp] send_interactive_list error: {e}")
+            logger.error("send_interactive_list error: %s", e)
             return None
 
     async def send_reply_buttons(
@@ -491,7 +494,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"interactive_type": "button", "buttons": buttons},
             )
         except Exception as e:
-            print(f"[WhatsApp] send_reply_buttons error: {e}")
+            logger.error("send_reply_buttons error: %s", e)
             return None
 
     async def send_order_notification(
@@ -529,7 +532,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
             return await self.send_reply_buttons(chat_id, content, buttons)
         except Exception as e:
-            print(f"[WhatsApp] send_order_notification error: {e}")
+            logger.error("send_order_notification error: %s", e)
             return None
 
     async def send_payment_notification(
@@ -561,7 +564,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
             return await self.send_text(chat_id, content)
         except Exception as e:
-            print(f"[WhatsApp] send_payment_notification error: {e}")
+            logger.error("send_payment_notification error: %s", e)
             return None
 
     async def send_appointment_reminder(
@@ -593,7 +596,7 @@ class WhatsAppAdapter(PlatformAdapter):
             else:
                 return await self.send_text(chat_id, content)
         except Exception as e:
-            print(f"[WhatsApp] send_appointment_reminder error: {e}")
+            logger.error("send_appointment_reminder error: %s", e)
             return None
 
     async def create_group(self, group_name: str, participants: List[str]) -> Optional[str]:
@@ -612,7 +615,7 @@ class WhatsAppAdapter(PlatformAdapter):
             self.group_chats[gid] = {"name": group_name, "participants": participants}
             return gid
         except Exception as e:
-            print(f"[WhatsApp] create_group error: {e}")
+            logger.error("create_group error: %s", e)
             return None
 
     async def add_group_participant(self, group_id: str, phone: str) -> bool:
@@ -703,7 +706,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 metadata={"raw": msg_data},
             )
         except Exception as e:
-            print(f"[WhatsApp] handle_webhook error: {e}")
+            logger.error("handle_webhook error: %s", e)
             return None
 
     async def _send_with_retry(self, payload: Dict) -> Optional[Dict]:
@@ -723,11 +726,11 @@ class WhatsAppAdapter(PlatformAdapter):
                         await asyncio.sleep(wait_time)
                         continue
                     error_text = await resp.text()
-                    print(f"[WhatsApp] API error {resp.status}: {error_text}")
+                    logger.error("API error %s: %s", resp.status, error_text)
                     return None
             except Exception as e:
                 if attempt == self.retry_attempts - 1:
-                    print(f"[WhatsApp] Send failed after {self.retry_attempts} attempts: {e}")
+                    logger.error("Send failed after %d attempts: %s", self.retry_attempts, e)
                     return None
                 await asyncio.sleep(0.01 * (2**attempt))
         return None
@@ -758,7 +761,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 )
             return None
         except Exception as e:
-            print(f"[WhatsApp] OpenClaw send error: {e}")
+            logger.error("OpenClaw send error: %s", e)
             return None
 
     async def _send_media_via_openclaw(
@@ -797,7 +800,7 @@ class WhatsAppAdapter(PlatformAdapter):
                 )
             return None
         except Exception as e:
-            print(f"[WhatsApp] OpenClaw media send error: {e}")
+            logger.error("OpenClaw media send error: %s", e)
             return None
 
     async def _upload_media(self, file_path: str, media_type: MessageType) -> Optional[str]:
@@ -810,7 +813,7 @@ class WhatsAppAdapter(PlatformAdapter):
             import os
 
             if not os.path.exists(file_path):
-                print(f"[WhatsApp] Media file not found: {file_path}")
+                logger.error("Media file not found: %s", file_path)
                 return None
 
             mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
@@ -838,10 +841,10 @@ class WhatsAppAdapter(PlatformAdapter):
                     return result.get("id")
                 else:
                     error_text = await resp.text()
-                    print(f"[WhatsApp] Media upload failed: {resp.status} - {error_text}")
+                    logger.error("Media upload failed: %s - %s", resp.status, error_text)
                     return None
         except Exception as e:
-            print(f"[WhatsApp] Media upload error: {e}")
+            logger.error("Media upload error: %s", e)
             return None
 
     async def shutdown(self):
@@ -849,13 +852,13 @@ class WhatsAppAdapter(PlatformAdapter):
         try:
             if self.session:
                 await self.session.close()
-                print("[WhatsApp] HTTP session closed")
+                logger.info("HTTP session closed")
             if self._openclaw:
                 # OpenClaw doesn't have explicit disconnect, but we could add one
-                print("[WhatsApp] OpenClaw adapter closed")
-            print("[WhatsApp] Adapter shutdown complete")
+                logger.info("OpenClaw adapter closed")
+            logger.info("Adapter shutdown complete")
         except Exception as e:
-            print(f"[WhatsApp] Error during shutdown: {e}")
+            logger.error("Error during shutdown: %s", e)
 
     def _normalize_phone(self, phone: str) -> str:
         """Normalize phone number format."""
@@ -875,7 +878,7 @@ class WhatsAppAdapter(PlatformAdapter):
 
     async def make_call(self, chat_id: str, is_video: bool = False) -> bool:
         """Voice/Video calls are not supported via Business API."""
-        print("[WhatsApp] Voice/Video calls not supported via WhatsApp Business API")
+        logger.warning("Voice/Video calls not supported via WhatsApp Business API")
         return False
 
     def _get_contact_name(self, phone: str) -> str:

@@ -1,8 +1,11 @@
 import asyncio
 import json
+import logging
 import subprocess
 from typing import Any, List, Dict, Optional
 from core.interfaces import ToolInterface
+
+logger = logging.getLogger(__name__)
 
 
 class MCPAdapter(ToolInterface):
@@ -12,6 +15,7 @@ class MCPAdapter(ToolInterface):
         self.args = server_config.get("args", [])
         self.process = None
         self.tools: List[Dict[str, Any]] = []
+        self._request_id = 0
 
     async def start(self):
         self.process = await asyncio.create_subprocess_exec(
@@ -21,15 +25,15 @@ class MCPAdapter(ToolInterface):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        print(f"Started MCP Server: {self.name}")
+        logger.info("Started MCP Server: %s", self.name)
         # Fetch tool list on startup
         try:
             res = await self.execute(method="tools/list")
             if res and "result" in res:
                 self.tools = res["result"].get("tools", [])
-                print(f"Server '{self.name}' provided {len(self.tools)} tools.")
+                logger.info("Server '%s' provided %d tools.", self.name, len(self.tools))
         except Exception as e:
-            print(f"Failed to fetch tools for {self.name}: {e}")
+            logger.error("Failed to fetch tools for %s: %s", self.name, e)
 
     async def execute(self, **kwargs) -> Any:
         method = kwargs.get("method")
@@ -37,7 +41,8 @@ class MCPAdapter(ToolInterface):
         if not self.process:
             await self.start()
 
-        request = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
+        self._request_id += 1
+        request = {"jsonrpc": "2.0", "id": self._request_id, "method": method, "params": params}
 
         if self.process and self.process.stdin:
             self.process.stdin.write(json.dumps(request).encode() + b"\n")
@@ -65,9 +70,7 @@ class MCPManager:
                 return server_name
         return None
 
-    async def call_tool(
-        self, server_name: Optional[str], tool_name: str, params: Dict[str, Any]
-    ):
+    async def call_tool(self, server_name: Optional[str], tool_name: str, params: Dict[str, Any]):
         if not server_name:
             server_name = self.find_server_for_tool(tool_name)
 
@@ -80,7 +83,5 @@ class MCPManager:
 
         server = self.servers.get(server_name)
         if server:
-            return await server.execute(
-                method="tools/call", params={"name": tool_name, "arguments": params}
-            )
+            return await server.execute(method="tools/call", params={"name": tool_name, "arguments": params})
         return {"error": f"Server '{server_name}' not found."}

@@ -1678,9 +1678,12 @@ class TestGatewayAuthEdgeCases:
     @pytest.mark.asyncio
     async def test_auth_send_raises_exception_lines_580_581(self):
         """Lines 580-581: ws.send() raises during ack -> silently ignored, still returns True."""
+        import logging
+
         gw = _CoreGateway.__new__(_CoreGateway)
         gw.auth_token = "secret"
         gw._AUTH_TIMEOUT_SECONDS = 5
+        gw.logger = logging.getLogger("core.network.gateway")
 
         auth_msg = json.dumps({"type": "auth", "token": "secret"})
 
@@ -1705,9 +1708,12 @@ class TestGatewayAuthEdgeCases:
     @pytest.mark.asyncio
     async def test_auth_send_str_raises_exception_lines_585_586(self):
         """Lines 585-586: ws.send_str() raises during ack -> silently ignored, still returns True."""
+        import logging
+
         gw = _CoreGateway.__new__(_CoreGateway)
         gw.auth_token = "secret"
         gw._AUTH_TIMEOUT_SECONDS = 5
+        gw.logger = logging.getLogger("core.network.gateway")
 
         auth_msg = json.dumps({"type": "auth", "token": "secret"})
 

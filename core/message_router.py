@@ -1,9 +1,12 @@
 import asyncio
 import json
+import logging
 from typing import Any, Optional
 
 from core.interfaces import Message
 from core.task_utils import safe_create_task
+
+logger = logging.getLogger(__name__)
 
 
 class MessageRouter:
@@ -17,9 +20,7 @@ class MessageRouter:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
 
-    def _to_platform_message(
-        self, message: Message, chat_id: Optional[str] = None
-    ) -> Any:
+    def _to_platform_message(self, message: Message, chat_id: Optional[str] = None) -> Any:
         """Convert core Message to PlatformMessage for native messaging"""
         from adapters.messaging import MediaAttachment, PlatformMessage, MessageType
         import uuid
@@ -35,7 +36,7 @@ class MessageRouter:
                         att["type"] = MessageType(att["type"]).value
                     platform_attachments.append(MediaAttachment.from_dict(att))
                 except Exception as e:
-                    print(f"Error converting attachment: {e}")
+                    logger.error("Error converting attachment: %s", e)
 
         return PlatformMessage(
             id=str(uuid.uuid4()),
@@ -67,19 +68,15 @@ class MessageRouter:
         if hasattr(message, "attachments") and message.attachments:
             for att in message.attachments:
                 if str(att.get("type")).lower() == "image" and att.get("data"):
-                    print(f"Redaction-Agent: Scanning image for {target_chat}...")
+                    logger.info("Redaction-Agent: Scanning image for %s...", target_chat)
                     try:
                         # 1. Analyze for sensitive regions
-                        analysis_raw = await orchestrator.computer_driver.execute(
-                            "analyze_image", text=att["data"]
-                        )
+                        analysis_raw = await orchestrator.computer_driver.execute("analyze_image", text=att["data"])
                         analysis = json.loads(analysis_raw)
                         regions = analysis.get("sensitive_regions", [])
 
                         if regions:
-                            print(
-                                f"Redaction-Agent: Blurring {len(regions)} sensitive areas."
-                            )
+                            logger.info("Redaction-Agent: Blurring %d sensitive areas.", len(regions))
                             redacted_data = await orchestrator.computer_driver.execute(
                                 "blur_regions", text=att["data"], regions=regions
                             )
@@ -90,39 +87,30 @@ class MessageRouter:
                                 att["metadata"] = att.get("metadata", {})
                                 att["metadata"]["redacted"] = True
                             else:
-                                print(
-                                    "Redaction-Agent: Verification FAILED. Blocking image."
-                                )
-                                att["content"] = (
-                                    "[SECURITY BLOCK: Redaction verification failed]"
-                                )
+                                logger.warning("Redaction-Agent: Verification FAILED. Blocking image.")
+                                att["content"] = "[SECURITY BLOCK: Redaction verification failed]"
                                 if "data" in att:
                                     del att["data"]
                         else:
                             # No sensitive regions detected in first pass
                             pass
                     except Exception as e:
-                        print(f"Redaction failed: {e}")
+                        logger.error("Redaction failed: %s", e)
 
         # Vision Policy Enforcement: Require approval for outbound images
-        has_images = any(
-            str(att.get("type")).lower() == "image"
-            for att in getattr(message, "attachments", [])
-        )
+        has_images = any(str(att.get("type")).lower() == "image" for att in getattr(message, "attachments", []))
 
         if has_images and platform != "websocket":
             auth = orchestrator.permissions.is_authorized("vision.outbound")
             if auth is False:
-                print(f"Vision Policy: Outbound image blocked for {target_chat}")
+                logger.warning("Vision Policy: Outbound image blocked for %s", target_chat)
                 return
             if auth is None:
                 # If it's already a security message, don't loop
                 if message.sender == "Security":
                     pass
                 else:
-                    print(
-                        f"Vision Policy: Queuing outbound image for approval in {target_chat}"
-                    )
+                    logger.info("Vision Policy: Queuing outbound image for approval in %s", target_chat)
                     import uuid
 
                     action = {
@@ -148,11 +136,7 @@ class MessageRouter:
                         sender="Security",
                     )
                     # Use a background task to avoid recursion depth if send_platform_message is called in a loop
-                    safe_create_task(
-                        orchestrator.message_router.send_platform_message(
-                            admin_resp, platform=platform
-                        )
-                    )
+                    safe_create_task(orchestrator.message_router.send_platform_message(admin_resp, platform=platform))
                     return
 
         # Granular Pruning: Tag architectural decisions to keep forever
@@ -182,9 +166,9 @@ class MessageRouter:
             orchestrator.message_handler.chat_contexts[target_chat].append(
                 {"role": "assistant", "content": message.content}
             )
-            orchestrator.message_handler.chat_contexts[target_chat] = (
-                orchestrator.message_handler.chat_contexts[target_chat][-10:]
-            )
+            orchestrator.message_handler.chat_contexts[target_chat] = orchestrator.message_handler.chat_contexts[
+                target_chat
+            ][-10:]
 
         # Route to appropriate adapter
         if platform in [
@@ -202,15 +186,10 @@ class MessageRouter:
                     "sender": message.sender,
                     "metadata": metadata,
                 }
-                await orchestrator.adapters["gateway"].send_message(
-                    target_client, msg_payload
-                )
+                await orchestrator.adapters["gateway"].send_message(target_client, msg_payload)
             else:
                 # Broadcast or generic? For now, send to last active client if no target
-                if (
-                    orchestrator.last_active_chat
-                    and orchestrator.last_active_chat["platform"] == platform
-                ):
+                if orchestrator.last_active_chat and orchestrator.last_active_chat["platform"] == platform:
                     await orchestrator.adapters["gateway"].send_message(
                         orchestrator.last_active_chat["chat_id"],
                         {"type": "message", "content": message.content},
@@ -218,6 +197,4 @@ class MessageRouter:
 
         platform_msg = self._to_platform_message(message, chat_id=target_chat)
         platform_msg.platform = platform
-        await orchestrator.adapters["messaging"].send_message(
-            platform_msg, target_client=target_client
-        )
+        await orchestrator.adapters["messaging"].send_message(platform_msg, target_client=target_client)

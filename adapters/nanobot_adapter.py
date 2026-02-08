@@ -1,6 +1,9 @@
+import logging
 import sys
 import os
 from core.interfaces import MessagingInterface, Message
+
+logger = logging.getLogger(__name__)
 
 
 class NanobotAdapter(MessagingInterface):
@@ -9,7 +12,7 @@ class NanobotAdapter(MessagingInterface):
         try:
             from nanobot.core import MarketAnalyzer, RoutineEngine, Messenger
 
-            print("Successfully loaded nanobot from installed packages")
+            logger.info("Successfully loaded nanobot from installed packages")
             found_path = True
         except ImportError:
             # 2. Try finding the package in likely locations
@@ -32,14 +35,14 @@ class NanobotAdapter(MessagingInterface):
 
                         self.nanobot_path = path  # pragma: no cover
                         found_path = True  # pragma: no cover
-                        print(f"Successfully loaded nanobot from {path}")  # pragma: no cover
+                        logger.info("Successfully loaded nanobot from %s", path)  # pragma: no cover
                         break  # pragma: no cover
                     except ImportError:
                         sys.path.pop(0)
                         continue
 
         if not found_path:
-            print(f"WARNING: nanobot not found at {nanobot_path}. Using functional fallback mock.")
+            logger.warning("nanobot not found at %s. Using functional fallback mock.", nanobot_path)
 
             # Fallback Mock Classes with basic functional storage
             class MockMarketAnalyzer:
@@ -65,11 +68,11 @@ class NanobotAdapter(MessagingInterface):
                     self.whatsapp_token = whatsapp_token
 
                 async def send_telegram(self, chat_id: str, text: str) -> bool:
-                    print(f"Mock Telegram: Sent '{text}' to {chat_id}")
+                    logger.debug("Mock Telegram: Sent '%s' to %s", text, chat_id)
                     return True
 
                 async def send_whatsapp(self, phone: str, text: str) -> bool:
-                    print(f"Mock WhatsApp: Sent '{text}' to {phone}")
+                    logger.debug("Mock WhatsApp: Sent '%s' to %s", text, phone)
                     return True
 
             MarketAnalyzer = MockMarketAnalyzer
@@ -82,7 +85,7 @@ class NanobotAdapter(MessagingInterface):
             self.routine_engine = RoutineEngine()
             self.messenger = Messenger(telegram_token=telegram_token, whatsapp_token=whatsapp_token)
         except Exception as e:
-            print(f"Failed to initialize Nanobot services: {e}")
+            logger.error("Failed to initialize Nanobot services: %s", e)
 
             # Final fallback to ultra-safe dummy
             class Dummy:
@@ -113,7 +116,7 @@ class NanobotAdapter(MessagingInterface):
         elif platform == "whatsapp" or recipient.startswith("+"):
             await self.messenger.send_whatsapp(recipient, message.content)
         else:
-            print(f"Nanobot: Unsupported platform {platform} or recipient {recipient}")
+            logger.warning("Nanobot: Unsupported platform %s or recipient %s", platform, recipient)
 
     async def receive_message(self) -> Message:
         """Receive message from integrated platforms.
@@ -121,7 +124,7 @@ class NanobotAdapter(MessagingInterface):
         Returns a placeholder Message since no webhook/polling is configured.
         In production, this would be backed by a webhook endpoint or polling loop.
         """
-        print(
+        logger.warning(
             "[Nanobot] receive_message called but no webhook/polling is configured. "
             "Configure a webhook endpoint or implement platform-specific polling."
         )

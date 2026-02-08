@@ -5,9 +5,12 @@ computer-use approval interlock, and identity-claim detection.
 """
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional, TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from fastapi import WebSocket  # type: ignore
 
@@ -36,7 +39,7 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
     await asyncio.sleep(300)
 
     if any(a["id"] == action["id"] for a in orchestrator.admin_handler.approval_queue):
-        print(f"Escalation: Approval {action['id']} timed out. Initiating Voice Call...")
+        logger.warning("Escalation: Approval %s timed out. Initiating Voice Call...", action["id"])
 
         now = datetime.now().hour
         dnd_start = getattr(orchestrator.config.system, "dnd_start", 22)
@@ -49,7 +52,7 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
             is_dnd = dnd_start <= now < dnd_end
 
         if is_dnd:
-            print("Escalation: DND active. Skipping voice call.")
+            logger.info("Escalation: DND active. Skipping voice call.")
             return
 
         try:
@@ -71,10 +74,10 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
                             "DO NOT DISTURB",
                         ]
                     ):
-                        print(f"Escalation: Dynamic DND active via Calendar ('{summary}'). Skipping call.")
+                        logger.info("Escalation: Dynamic DND active via Calendar ('%s'). Skipping call.", summary)
                         return
         except Exception as e:
-            print(f"Escalation: Calendar check failed (expected if not configured): {e}")
+            logger.warning("Escalation: Calendar check failed (expected if not configured): %s", e)
 
         admin_phone = getattr(orchestrator.config.system, "admin_phone", None)
         if admin_phone and orchestrator.adapters["messaging"].voice_adapter:
@@ -86,7 +89,7 @@ async def start_approval_escalation(orchestrator: "MegaBotOrchestrator", action:
                 admin_phone, script, ivr=True, action_id=action["id"]
             )
         else:
-            print("Escalation: No admin phone or voice adapter configured.")
+            logger.warning("Escalation: No admin phone or voice adapter configured.")
 
 
 # ------------------------------------------------------------------
@@ -169,7 +172,7 @@ async def check_identity_claims(
         claimed_name = str(claimed_name).strip().strip("'\"").upper()
 
         if "NONE" not in claimed_name:
-            print(f"Identity-Link: Detected claim to be '{claimed_name}' from {platform}:{platform_id}")
+            logger.info("Identity-Link: Detected claim to be '%s' from %s:%s", claimed_name, platform, platform_id)
 
             action = {
                 "id": str(uuid.uuid4()),

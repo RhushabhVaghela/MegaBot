@@ -3,6 +3,7 @@ Core orchestrator components extracted from monolithic orchestrator.
 Handles message routing, health monitoring, and system coordination.
 """
 
+import logging
 from collections import OrderedDict
 from typing import Dict, Any, List
 import asyncio
@@ -12,6 +13,8 @@ from core.dependencies import resolve_service
 from core.interfaces import Message
 from core.drivers import ComputerDriver
 from core.task_utils import safe_create_task
+
+logger = logging.getLogger(__name__)
 
 
 class MessageHandler:
@@ -28,7 +31,7 @@ class MessageHandler:
 
     async def process_gateway_message(self, data: Dict):
         """Handle messages incoming from the Unified Gateway"""
-        print(f"Gateway Message: {data}")
+        logger.debug("Gateway Message: %s", data)
         msg_type = data.get("type")
         sender_id = data.get("sender_id", "unknown")
         chat_id = data.get("chat_id", sender_id)  # Default to sender_id if no chat_id (e.g. DM)
@@ -95,13 +98,13 @@ class MessageHandler:
 
         for attachment in attachments:
             if attachment.get("type") == "image":
-                print(f"Vision-Agent: Analyzing attachment from {sender_id}...")
+                logger.info("Vision-Agent: Analyzing attachment from %s...", sender_id)
                 image_data = attachment.get("data") or attachment.get("url")
                 if image_data:
                     description = await computer_driver.execute("analyze_image", text=image_data)
                     vision_context += f"\n[Attachment Analysis]: {description}\n"
             elif attachment.get("type") == "audio":
-                print(f"Voice-Agent: Transcribing attachment from {sender_id}...")
+                logger.info("Voice-Agent: Transcribing attachment from %s...", sender_id)
                 audio_data = attachment.get("data")
                 if audio_data:
                     try:
@@ -114,7 +117,7 @@ class MessageHandler:
                         if transcript:
                             vision_context += f"\n[Audio Transcript]: {transcript}\n"
                     except Exception as e:
-                        print(f"Voice-Agent: Transcription failed for {sender_id}: {e}")
+                        logger.error("Voice-Agent: Transcription failed for %s: %s", sender_id, e)
 
         return vision_context
 
@@ -152,19 +155,21 @@ class HealthMonitor:
         for t in list(self._tasks):
             try:
                 t.cancel()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("HealthMonitor: failed to cancel task during shutdown: %s", e)
 
         for t in list(self._tasks):
             try:
                 if isinstance(t, asyncio.Task) or asyncio.isfuture(t):
                     try:
                         await t
-                    except Exception:
-                        pass
-            except Exception:
+                    except asyncio.CancelledError:
+                        logger.debug("HealthMonitor: task cancelled during shutdown")
+                    except Exception as e:
+                        logger.debug("HealthMonitor: error awaiting task during shutdown: %s", e)
+            except Exception as e:
                 # If mocked types raise on isinstance checks, skip awaiting
-                pass
+                logger.debug("HealthMonitor: isinstance check failed during shutdown: %s", e)
 
         self._tasks.clear()
         self.last_status = {}
@@ -188,14 +193,16 @@ class HealthMonitor:
         try:
             is_connected = self.orchestrator.adapters["openclaw"].websocket is not None
             health["openclaw"] = {"status": "up" if is_connected else "down"}
-        except Exception:
+        except Exception as e:
+            logger.debug("Health check: openclaw status unavailable: %s", e)
             health["openclaw"] = {"status": "down"}
 
         # Messaging Server
         try:
             client_count = len(self.orchestrator.adapters["messaging"].clients)
             health["messaging"] = {"status": "up", "clients": client_count}
-        except Exception:
+        except Exception as e:
+            logger.debug("Health check: messaging status unavailable: %s", e)
             health["messaging"] = {"status": "down"}
 
         # MCP Servers
@@ -204,7 +211,8 @@ class HealthMonitor:
                 "status": "up",
                 "server_count": len(self.orchestrator.adapters["mcp"].servers),
             }
-        except Exception:
+        except Exception as e:
+            logger.debug("Health check: mcp status unavailable: %s", e)
             health["mcp"] = {"status": "down"}
 
         # Resource Guard (RAM/VRAM)
@@ -230,7 +238,9 @@ class HealthMonitor:
                     if not current_up:
                         count = self.restart_counts.get(component, 0)
                         if count < 3:  # Max 3 retries # pragma: no cover
-                            print(f"Heartbeat: {component} is down. Triggering restart (attempt {count + 1})...")
+                            logger.warning(
+                                "Heartbeat: %s is down. Triggering restart (attempt %d)...", component, count + 1
+                            )
                             await self.orchestrator.restart_component(component)
                             self.restart_counts[component] = count + 1
 
@@ -245,7 +255,7 @@ class HealthMonitor:
 
                 self.last_status = status
             except Exception as e:
-                print(f"Heartbeat loop error: {e}")
+                logger.error("Heartbeat loop error: %s", e)
 
             await asyncio.sleep(60)  # Check every minute
 
@@ -263,18 +273,20 @@ class BackgroundTasks:
         for t in list(self._tasks):
             try:
                 t.cancel()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("BackgroundTasks: failed to cancel task during shutdown: %s", e)
 
         for t in list(self._tasks):
             try:
                 if isinstance(t, asyncio.Task) or asyncio.isfuture(t):
                     try:
                         await t
-                    except (asyncio.CancelledError, Exception):
-                        pass
-            except Exception:
-                pass
+                    except asyncio.CancelledError:
+                        logger.debug("BackgroundTasks: task cancelled during shutdown")
+                    except Exception as e:
+                        logger.debug("BackgroundTasks: error awaiting task during shutdown: %s", e)
+            except Exception as e:
+                logger.debug("BackgroundTasks: isinstance check failed during shutdown: %s", e)
 
         self._tasks.clear()
 
@@ -287,21 +299,23 @@ class BackgroundTasks:
         def _safe_schedule(coro):
             try:
                 t = safe_create_task(coro)
-                print(f"[BackgroundTasks] scheduled via safe_create_task: {coro}")
+                logger.debug("[BackgroundTasks] scheduled via safe_create_task: %s", coro)
                 return t
-            except Exception:
+            except Exception as e:
+                logger.debug("[BackgroundTasks] safe_create_task failed, trying ensure_future: %s", e)
                 try:
                     t = asyncio.ensure_future(coro)
-                    print(f"[BackgroundTasks] scheduled via ensure_future: {coro}")
+                    logger.debug("[BackgroundTasks] scheduled via ensure_future: %s", coro)
                     return t
-                except Exception:
+                except Exception as e2:
+                    logger.debug("[BackgroundTasks] ensure_future also failed: %s", e2)
                     # If coro is a coroutine object, close it to avoid warnings.
                     try:
                         if hasattr(coro, "close"):
-                            print(f"[BackgroundTasks] closing coro in _safe_schedule: {coro}")
+                            logger.debug("[BackgroundTasks] closing coro in _safe_schedule: %s", coro)
                             coro.close()
-                    except Exception:
-                        pass
+                    except Exception as e3:
+                        logger.debug("[BackgroundTasks] failed to close coro in _safe_schedule: %s", e3)
                     return None
 
         for loop_fn in (
@@ -312,15 +326,16 @@ class BackgroundTasks:
         ):
             try:
                 coro = loop_fn()
-            except Exception:
+            except Exception as e:
                 # If creating the coroutine itself raises, skip scheduling it.
+                logger.debug("[BackgroundTasks] failed to create coro from %s: %s", loop_fn, e)
                 coro = None
 
             if coro is None:
                 # Nothing to schedule (tests may stub these to return None)
                 continue
 
-            print(f"[BackgroundTasks] attempting to schedule coro: {coro!r}")
+            logger.debug("[BackgroundTasks] attempting to schedule coro: %r", coro)
             task = _safe_schedule(coro)
             if task is not None:
                 self._tasks.append(task)
@@ -328,10 +343,10 @@ class BackgroundTasks:
                 # Ensure coroutine is closed if scheduling failed to avoid warnings
                 try:
                     if hasattr(coro, "close"):
-                        print(f"[BackgroundTasks] closing coro in main loop: {coro!r}")
+                        logger.debug("[BackgroundTasks] closing coro in main loop: %r", coro)
                         coro.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("[BackgroundTasks] failed to close coro in main loop: %s", e)
         # Health monitoring is started by the orchestrator itself to allow
         # finer control over restart sequencing and to avoid double-starting
         # during tests. BackgroundTasks is responsible only for internal
@@ -347,50 +362,50 @@ class BackgroundTasks:
                     try:
                         await self.orchestrator.adapters["memu"].ingest_openclaw_logs(log_path)
                     except Exception as e:
-                        print(f"Sync Loop: OpenClaw log ingest error: {e}")
+                        logger.error("Sync Loop: OpenClaw log ingest error: %s", e)
 
-                print("Sync Loop: Synchronizing user identities across platforms...")
+                logger.info("Sync Loop: Synchronizing user identities across platforms...")
 
                 # Sync user identities and link platform accounts
                 if hasattr(self.orchestrator, "user_identity"):
                     try:
                         # Trigger any pending identity sync operations
                         await self.orchestrator.user_identity.sync_pending_identities()
-                        print("Sync Loop: User identities synchronized")
+                        logger.info("Sync Loop: User identities synchronized")
                     except Exception as e:
-                        print(f"Sync Loop: Identity sync error: {e}")
+                        logger.error("Sync Loop: Identity sync error: %s", e)
 
                 # Sync chat memory across platforms for linked users
                 if hasattr(self.orchestrator, "chat_memory"):
                     try:
                         # Consolidate cross-platform conversations for linked users
                         await self.orchestrator.chat_memory.sync_cross_platform_chats()
-                        print("Sync Loop: Chat memory synchronized")
+                        logger.info("Sync Loop: Chat memory synchronized")
                     except Exception as e:
-                        print(f"Sync Loop: Chat memory sync error: {e}")
+                        logger.error("Sync Loop: Chat memory sync error: %s", e)
 
                 # Update knowledge memory stats
                 if hasattr(self.orchestrator, "knowledge_memory"):
                     try:
                         stats = await self.orchestrator.knowledge_memory.get_stats()
-                        print(f"Sync Loop: Knowledge memory stats - {stats}")
+                        logger.info("Sync Loop: Knowledge memory stats - %s", stats)
                     except Exception as e:
-                        print(f"Sync Loop: Knowledge memory error: {e}")
+                        logger.error("Sync Loop: Knowledge memory error: %s", e)
 
                 await asyncio.sleep(300)  # Every 5 minutes
             except Exception as e:
-                print(f"Sync loop error: {e}")
+                logger.error("Sync loop error: %s", e)
 
     async def proactive_loop(self):
         """Proactive task checking loop."""
         while True:
             try:
-                print("Proactive Loop: Checking for updates...")
+                logger.info("Proactive Loop: Checking for updates...")
 
                 # Check memU for proactive tasks
                 anticipations = await self.orchestrator.adapters["memu"].get_anticipations()
                 for task in anticipations:
-                    print(f"Proactive Trigger (Memory): {task.get('content')}")
+                    logger.info("Proactive Trigger (Memory): %s", task.get("content"))
                     message = Message(content=f"Suggestion: {task.get('content')}", sender="MegaBot")
                     await self.orchestrator.adapters["openclaw"].send_message(message)
 
@@ -400,38 +415,38 @@ class BackgroundTasks:
                         "google-services", "list_events", {"limit": 1}
                     )
                     if events:
-                        print(f"Proactive Trigger (Calendar): {events}")
+                        logger.info("Proactive Trigger (Calendar): %s", events)
                         resp = Message(  # pragma: no cover
                             content=f"Calendar Reminder: {events}", sender="Calendar"
                         )
                         await self.orchestrator.send_platform_message(resp)  # pragma: no cover
                 except Exception as e:  # pragma: no cover
-                    print(f"Calendar check failed (expected if not configured): {e}")
+                    logger.debug("Calendar check failed (expected if not configured): %s", e)
 
             except Exception as e:  # pragma: no cover
-                print(f"Proactive loop error: {e}")
+                logger.error("Proactive loop error: %s", e)
             await asyncio.sleep(3600)  # Check every hour
 
     async def pruning_loop(self):
         """Background task to prune old chat history."""
         while True:
             try:
-                print("Pruning Loop: Checking for bloated chat histories...")
+                logger.info("Pruning Loop: Checking for bloated chat histories...")
                 chat_ids = await self.orchestrator.memory.get_all_chat_ids()
                 for chat_id in chat_ids:
                     # Keep last 500 messages per chat
                     await self.orchestrator.memory.chat_forget(chat_id, max_history=500)
             except Exception as e:  # pragma: no cover
-                print(f"Pruning loop error: {e}")
+                logger.error("Pruning loop error: %s", e)
             await asyncio.sleep(86400)  # Run once every 24 hours
 
     async def backup_loop(self):
         """Background task to backup the memory database."""
         while True:
             try:
-                print("Backup Loop: Creating memory database backup...")
+                logger.info("Backup Loop: Creating memory database backup...")
                 res = await self.orchestrator.memory.backup_database()
-                print(f"Backup Loop: {res}")
+                logger.info("Backup Loop: %s", res)
             except Exception as e:  # pragma: no cover
-                print(f"Backup loop error: {e}")
+                logger.error("Backup loop error: %s", e)
             await asyncio.sleep(43200)  # Run every 12 hours

@@ -4,6 +4,7 @@ Contains the OpenClaw event router and the permission policy checker
 that gates system/shell commands.
 """
 
+import logging
 import uuid
 from typing import Dict, TYPE_CHECKING
 
@@ -13,6 +14,8 @@ from core.constants import GREETING_TEXT
 
 if TYPE_CHECKING:
     from core.orchestrator import MegaBotOrchestrator
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
@@ -73,7 +76,7 @@ async def on_openclaw_event(orchestrator: "MegaBotOrchestrator", data: Dict) -> 
         orchestrator: The MegaBotOrchestrator instance.
         data: The event payload from OpenClaw.
     """
-    print(f"OpenClaw Event: {data}")
+    logger.debug("OpenClaw Event: %s", data)
     method = data.get("method")
     params = data.get("params", {})
     sender_id = params.get("sender_id", "unknown")
@@ -94,12 +97,12 @@ async def on_openclaw_event(orchestrator: "MegaBotOrchestrator", data: Dict) -> 
         policy = check_policy(orchestrator, data)
 
         if policy == "allow":
-            print(f"Policy: Auto-approving {method}")
+            logger.info("Policy: Auto-approving %s", method)
             await orchestrator.adapters["openclaw"].send_message(data)
             return
 
         if policy == "deny":
-            print(f"Policy: Auto-denying {method}")
+            logger.info("Policy: Auto-denying %s", method)
             return
 
         action = {

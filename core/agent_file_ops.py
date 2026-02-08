@@ -195,8 +195,10 @@ async def read_file(
                     size=size,
                 )
                 return f"Security Error: read_file denied: file too large ({size} bytes)"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "Failed to enforce size limit on read_file: agent=%s path=%s err=%s", agent_name, resolved, e
+            )
 
         # Read file content in chunks
         chunks = []
@@ -216,8 +218,8 @@ async def read_file(
     except Exception as e:
         try:
             os.close(fd)
-        except Exception:
-            pass
+        except Exception as e2:
+            logger.debug("Failed to close fd during read_file error cleanup: %s", e2)
         logger.warning(
             "read_file denied (exception): agent=%s path=%s err=%s",
             agent_name,
@@ -277,8 +279,8 @@ async def write_file(
                 if _stat.S_ISLNK(post_stat.st_mode):
                     try:
                         os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed to unlink tmp_path during symlink deny cleanup: %s", e)
                     logger.warning(
                         "write_file denied (dest symlink): agent=%s path=%s",
                         agent_name,
@@ -290,15 +292,20 @@ async def write_file(
                         path=str(resolved),
                     )
                     return "Security Error: write_file denied: destination is a symlink"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Failed to check symlink status on write_file dest: agent=%s path=%s err=%s",
+                    agent_name,
+                    resolved,
+                    e,
+                )
 
             # If pre-existed and identity changed -> abort
             if pre_stat is not None and (pre_stat.st_ino != post_stat.st_ino or pre_stat.st_dev != post_stat.st_dev):
                 try:
                     os.unlink(tmp_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to unlink tmp_path during TOCTOU deny cleanup: %s", e)
                 logger.warning(
                     "write_file TOCTOU detected: agent=%s path=%s",
                     agent_name,
@@ -321,8 +328,8 @@ async def write_file(
                 if _stat.S_ISLNK(final_stat.st_mode):
                     try:
                         os.unlink(str(resolved))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed to unlink symlink during post-replace cleanup: %s", e)
                     logger.warning(
                         "write_file TOCTOU post-replace symlink: agent=%s path=%s",
                         agent_name,
@@ -334,13 +341,18 @@ async def write_file(
                         path=str(resolved),
                     )
                     return "Security Error: write_file denied: TOCTOU detected (post-replace)"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Failed to check post-replace symlink on write_file: agent=%s path=%s err=%s",
+                    agent_name,
+                    resolved,
+                    e,
+                )
     except Exception as e:
         try:
             os.unlink(tmp_path)
-        except Exception:
-            pass
+        except Exception as e2:
+            logger.debug("Failed to unlink tmp_path during write_file error cleanup: %s", e2)
         logger.error(
             "write_file failed: agent=%s path=%s err=%s",
             agent_name,

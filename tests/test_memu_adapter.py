@@ -8,9 +8,7 @@ def mock_memory_service():
     mock_service_class = MagicMock()
     mock_instance = MagicMock()
     mock_service_class.return_value = mock_instance
-    with patch.dict(
-        "sys.modules", {"memu.app": MagicMock(MemoryService=mock_service_class)}
-    ):
+    with patch.dict("sys.modules", {"memu.app": MagicMock(MemoryService=mock_service_class)}):
         yield mock_instance
 
 
@@ -26,9 +24,7 @@ async def test_memu_adapter_store(mock_memory_service):
 @pytest.mark.asyncio
 async def test_memu_adapter_search(mock_memory_service):
     adapter = MemUAdapter("/tmp/mock_memu", "sqlite:///:memory:")
-    adapter.service.retrieve = AsyncMock(
-        return_value={"items": [{"content": "found it"}]}
-    )
+    adapter.service.retrieve = AsyncMock(return_value={"items": [{"content": "found it"}]})
     results = await adapter.search("query")
     assert results == [{"content": "found it"}]
 
@@ -139,9 +135,7 @@ async def test_memu_adapter_failed_initialization():
     mock_service_class = MagicMock()
     mock_service_class.side_effect = Exception("Init failed")
 
-    with patch.dict(
-        "sys.modules", {"memu.app": MagicMock(MemoryService=mock_service_class)}
-    ):
+    with patch.dict("sys.modules", {"memu.app": MagicMock(MemoryService=mock_service_class)}):
         adapter = MemUAdapter("/tmp", "sqlite://")
 
         # Should have fallen back to Dummy service
@@ -187,9 +181,7 @@ async def test_memu_adapter_store_video_modality(mock_memory_service):
 async def test_memu_adapter_get_proactive_suggestions(mock_memory_service):
     """Test get_proactive_suggestions method"""
     adapter = MemUAdapter("/tmp", "sqlite://")
-    adapter.service.retrieve = AsyncMock(
-        return_value={"items": [{"content": "suggestion"}]}
-    )
+    adapter.service.retrieve = AsyncMock(return_value={"items": [{"content": "suggestion"}]})
     result = await adapter.get_proactive_suggestions()
     assert result == [{"content": "suggestion"}]
 
@@ -221,9 +213,7 @@ async def test_memu_adapter_learn_from_interaction(mock_memory_service):
     call_args = adapter.service.memorize.call_args
     assert call_args is not None
     kwargs = call_args[1]
-    assert (
-        "User interaction: clicked_button at 2024-01-01T12:00:00" in kwargs["content"]
-    )
+    assert "User interaction: clicked_button at 2024-01-01T12:00:00" in kwargs["content"]
     assert "Context: dashboard" in kwargs["content"]
     assert kwargs["modality"] == "interaction"
 
@@ -235,3 +225,33 @@ async def test_memu_adapter_search_exception(mock_memory_service):
     adapter.service.retrieve = AsyncMock(side_effect=Exception("Search failed"))
     result = await adapter.search("query")
     assert result == []
+
+
+# =====================================================================
+# Phase 6B-7: _make_dummy_service() tests
+# =====================================================================
+
+
+def test_make_dummy_service_returns_object_with_async_methods():
+    """_make_dummy_service() returns an object with memorize() and retrieve() methods."""
+    dummy = MemUAdapter._make_dummy_service()
+    assert hasattr(dummy, "memorize")
+    assert hasattr(dummy, "retrieve")
+    assert callable(dummy.memorize)
+    assert callable(dummy.retrieve)
+
+
+@pytest.mark.asyncio
+async def test_make_dummy_service_memorize_returns_none():
+    """Dummy memorize() accepts kwargs and returns None."""
+    dummy = MemUAdapter._make_dummy_service()
+    result = await dummy.memorize(content="test", modality="text")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_make_dummy_service_retrieve_returns_empty_items():
+    """Dummy retrieve() accepts kwargs and returns {"items": []}."""
+    dummy = MemUAdapter._make_dummy_service()
+    result = await dummy.retrieve(query="anything", limit=10)
+    assert result == {"items": []}

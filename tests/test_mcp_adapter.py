@@ -12,13 +12,9 @@ async def test_mcp_adapter_execute():
         mock_process.stdin.drain = AsyncMock()
         mock_process.stdout.readline = AsyncMock()
         mock_exec.return_value = mock_process
-        mock_process.stdout.readline.return_value = (
-            json.dumps({"jsonrpc": "2.0", "result": "ok"}).encode() + b"\n"
-        )
+        mock_process.stdout.readline.return_value = json.dumps({"jsonrpc": "2.0", "result": "ok"}).encode() + b"\n"
 
-        adapter = MCPAdapter(
-            {"name": "test", "command": "npx", "args": ["test-server"]}
-        )
+        adapter = MCPAdapter({"name": "test", "command": "npx", "args": ["test-server"]})
         result = await adapter.execute(method="tools/list")
 
         assert mock_exec.called
@@ -51,9 +47,7 @@ async def test_mcp_adapter_execute_no_stdout():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_call_tool():
-    with patch(
-        "adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock
-    ) as mock_execute:
+    with patch("adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
         mock_execute.return_value = {"result": "success"}
 
         manager = MCPManager([{"name": "test-server", "command": "npx"}])
@@ -77,9 +71,7 @@ async def test_mcp_manager_call_tool_not_found():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_start_all():
-    manager = MCPManager(
-        [{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}]
-    )
+    manager = MCPManager([{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}])
     for s in manager.servers.values():
         s.start = AsyncMock()
 
@@ -114,9 +106,7 @@ async def test_mcp_adapter_fetch_tools_success():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_find_server_for_tool():
-    manager = MCPManager(
-        [{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}]
-    )
+    manager = MCPManager([{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}])
     manager.servers["s1"].tools = [{"name": "tool1"}]
     manager.servers["s2"].tools = [{"name": "tool2"}]
 
@@ -127,9 +117,7 @@ async def test_mcp_manager_find_server_for_tool():
 
 @pytest.mark.asyncio
 async def test_mcp_manager_call_tool_lookup():
-    with patch(
-        "adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock
-    ) as mock_execute:
+    with patch("adapters.mcp_adapter.MCPAdapter.execute", new_callable=AsyncMock) as mock_execute:
         mock_execute.return_value = {"result": "ok"}
         manager = MCPManager([{"name": "s1", "command": "c1"}])
         manager.servers["s1"].tools = [{"name": "tool1"}]
@@ -148,9 +136,64 @@ async def test_mcp_manager_call_tool_fallback():
     assert result["result"] == "fallback_ok"
 
     # Multiple servers, no fallback
-    manager = MCPManager(
-        [{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}]
-    )
+    manager = MCPManager([{"name": "s1", "command": "c1"}, {"name": "s2", "command": "c2"}])
     result = await manager.call_tool(None, "unknown_tool", {})
     assert "error" in result
     assert "not found on any MCP server" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_mcp_adapter_request_id_starts_at_zero():
+    """Test that _request_id starts at 0."""
+    adapter = MCPAdapter({"name": "test", "command": "npx"})
+    assert adapter._request_id == 0
+
+
+@pytest.mark.asyncio
+async def test_mcp_adapter_request_id_increments():
+    """Test that _request_id increments on each execute() call."""
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_process = MagicMock()
+        mock_process.stdin.write = MagicMock()
+        mock_process.stdin.drain = AsyncMock()
+        mock_process.stdout.readline = AsyncMock(
+            return_value=json.dumps({"jsonrpc": "2.0", "result": "ok"}).encode() + b"\n"
+        )
+        mock_exec.return_value = mock_process
+
+        adapter = MCPAdapter({"name": "test", "command": "npx"})
+        adapter.process = mock_process  # skip start()
+
+        await adapter.execute(method="tools/list")
+        assert adapter._request_id == 1
+
+        await adapter.execute(method="tools/call")
+        assert adapter._request_id == 2
+
+        await adapter.execute(method="tools/list")
+        assert adapter._request_id == 3
+
+
+@pytest.mark.asyncio
+async def test_mcp_adapter_request_id_in_payload():
+    """Test that the incremented _request_id is included in the JSON-RPC request."""
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_process = MagicMock()
+        mock_process.stdin.write = MagicMock()
+        mock_process.stdin.drain = AsyncMock()
+        mock_process.stdout.readline = AsyncMock(
+            return_value=json.dumps({"jsonrpc": "2.0", "result": "ok"}).encode() + b"\n"
+        )
+        mock_exec.return_value = mock_process
+
+        adapter = MCPAdapter({"name": "test", "command": "npx"})
+        adapter.process = mock_process
+
+        await adapter.execute(method="ping")
+
+        # Verify the written payload contains id=1
+        written_bytes = mock_process.stdin.write.call_args[0][0]
+        payload = json.loads(written_bytes.strip())
+        assert payload["id"] == 1
+        assert payload["jsonrpc"] == "2.0"
+        assert payload["method"] == "ping"

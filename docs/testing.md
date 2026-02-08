@@ -109,7 +109,7 @@ npm run coverage  # Generate coverage report
 ## 🏗️ Integration Testing
 MegaBot includes comprehensive integration tests that simulate full WebSocket communication from the client through to the adapters using `AsyncMock`. Integration tests cover:
 
-- **Cross-platform messaging** to the Indian number `+919601777533`
+- **Cross-platform messaging** to a configured test number
 - **Unified gateway routing** across different connection types (local, Cloudflare, VPN)
 - **Rate limiting** per connection type
 - **Health monitoring** for all services

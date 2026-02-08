@@ -648,8 +648,8 @@ class MessageRequest(BaseModel):
 
 ## Additional Resources
 
-- [API Documentation](api/index.md)
-- [Adapter Framework Guide](adapters/framework.md)
-- [Architecture Overview](architecture/overview.md)
-- [Security Deep-Dive](security/model.md)
+- [API Documentation](../api/index.md)
+- [Adapter Framework Guide](../adapters/framework.md)
+- [Architecture Overview](../architecture/overview.md)
+- [Security Deep-Dive](../security/model.md)
 - [Testing Guide](testing.md)

@@ -52,8 +52,8 @@ class UserIdentityManager:
         if hasattr(self._local, "conn"):
             try:
                 self._local.conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error closing user_identity DB connection: %s", e)
 
     async def link_identity(self, internal_id: str, platform: str, platform_id: str) -> bool:
         """Link a platform-specific ID to a unified internal ID."""

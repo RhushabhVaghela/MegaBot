@@ -1,3 +1,5 @@
+import logging
+
 from .server import (
     MegaBotMessagingServer,
     PlatformMessage,
@@ -13,13 +15,15 @@ from .sms import SMSAdapter
 import websockets
 import aiofiles
 
+logger = logging.getLogger(__name__)
+
 
 async def main():
     """Main entrypoint for the messaging server."""
     server = MegaBotMessagingServer()
 
     async def log_msg(msg):
-        print(f"New Message: {msg.content}")
+        logger.info("New Message: %s", msg.content)
 
     server.register_handler(log_msg)
     await server.start()

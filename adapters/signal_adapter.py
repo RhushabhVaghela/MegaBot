@@ -289,8 +289,8 @@ class SignalAdapter:
             try:
                 await self._load_groups()
                 await self._load_contacts()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("[Signal] Failed to load groups/contacts during init: %s", e)
 
             return True
 
@@ -304,8 +304,8 @@ class SignalAdapter:
             try:
                 self.process.terminate()
                 await self.process.wait()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[Signal] Error terminating process during shutdown: %s", e)
             self.process = None
 
         if self.reader_task:
@@ -377,10 +377,10 @@ class SignalAdapter:
                     data = json.loads(line.decode())
                     await self._handle_message(data)
                 except json.JSONDecodeError:
-                    pass
+                    logger.debug("[Signal] Skipping non-JSON line from signal-cli")
 
         except asyncio.CancelledError:
-            pass
+            logger.debug("[Signal] Message reader cancelled")
 
     async def _handle_message(self, data: Dict[str, Any]) -> None:
         """Handle incoming message from signal-cli"""
@@ -554,7 +554,7 @@ class SignalAdapter:
                         writer.close()
                         await writer.wait_closed()
                     except Exception:
-                        pass
+                        logger.debug("[Signal] Error closing writer during RPC cleanup")
 
             if attempt < MAX_RETRIES - 1:
                 delay = RETRY_BASE_DELAY * (2**attempt)
@@ -682,7 +682,7 @@ class SignalAdapter:
                     quote_id = int(quote_message_id.split("_")[-1])
                     params["quote"] = {"id": quote_id}
                 except (ValueError, IndexError):
-                    pass
+                    logger.debug("[Signal] Could not parse quote_message_id: %s", quote_message_id)
             if mentions:
                 params["mentions"] = mentions
             if attachments:
@@ -750,7 +750,7 @@ class SignalAdapter:
                 try:
                     timestamps.append(int(m.split("_")[-1]))
                 except (ValueError, IndexError):
-                    pass
+                    logger.debug("[Signal] Could not parse message_id for receipt: %s", m)
 
             params = {
                 "recipient": recipient,

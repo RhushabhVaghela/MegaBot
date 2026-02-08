@@ -1031,18 +1031,22 @@ async def test_orchestrator_health_with_error(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_start_rag_print(orchestrator):
+async def test_orchestrator_start_rag_print(orchestrator, caplog):
     """Test RAG build print and exception (lines 541-542)"""
-    with patch("builtins.print") as mock_print:
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="core.lifecycle"):
         # Success path (line 541)
         orchestrator.rag.build_index = AsyncMock()
         await orchestrator.start()
-        mock_print.assert_any_call(f"Project RAG index built for: {orchestrator.rag.root_dir}")
+        assert any("Project RAG index built for:" in r.message for r in caplog.records)
+
+        caplog.clear()
 
         # Exception path (line 542)
         orchestrator.rag.build_index.side_effect = Exception("RAG Error")
         await orchestrator.start()
-        mock_print.assert_any_call("Failed to build RAG index: RAG Error")
+        assert any("Failed to build RAG index: RAG Error" in r.message for r in caplog.records)
 
 
 # =====================================================================

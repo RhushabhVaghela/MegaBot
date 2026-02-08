@@ -2,6 +2,7 @@
 Tests for Discord Adapter
 """
 
+import logging
 import pytest
 import asyncio
 import importlib
@@ -668,23 +669,19 @@ class TestDiscordAdapter:
         assert message_handled
 
     @pytest.mark.asyncio
-    async def test_handle_message_error_logging(self, adapter, mock_message):
+    async def test_handle_message_error_logging(self, adapter, mock_message, caplog):
         """Test _handle_message error handling"""
-        import io
-        from contextlib import redirect_stdout  # Changed from redirect_stderr
+        import logging
 
         async def failing_handler(platform_msg):
             raise Exception("Test error")
 
         adapter.register_message_handler(failing_handler)
 
-        # Capture stdout for error logging (not stderr)
-        captured_error = io.StringIO()
-        with redirect_stdout(captured_error):
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             await adapter._handle_message(mock_message)
 
-        error_output = captured_error.getvalue()
-        assert "[Discord] Message handler error:" in error_output
+        assert any("[Discord] Message handler error:" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_send_text_success_and_return(self, adapter, mock_bot):
@@ -723,12 +720,12 @@ class TestDiscordAdapter:
             assert result == mock_platform_msg
 
     @pytest.mark.asyncio
-    async def test_make_call_not_supported(self, adapter):
+    async def test_make_call_not_supported(self, adapter, caplog):
         """Test make_call not supported print and return"""
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
             result = await adapter.make_call("123456")
 
-        mock_print.assert_called_once_with("[Discord] Call initiation not supported for 123456")
+        assert any("Call initiation not supported for 123456" in r.message for r in caplog.records)
         assert result is False
 
     @pytest.mark.asyncio
@@ -877,17 +874,17 @@ class TestDiscordAdapter:
         assert call_kwargs["category"] == mock_category
 
     @pytest.mark.asyncio
-    async def test_create_channel_exception_handling(self, adapter, mock_bot):
+    async def test_create_channel_exception_handling(self, adapter, mock_bot, caplog):
         """Test create_channel exception handling"""
         adapter.bot = mock_bot
         mock_guild = Mock()
         mock_guild.create_text_channel = AsyncMock(side_effect=Exception("Create failed"))
         mock_bot.get_guild.return_value = mock_guild
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.create_channel("123456", "test-channel", "text")
 
-        mock_print.assert_called_once_with("[Discord] Create channel error: Create failed")
+        assert any("Create channel error: Create failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -902,7 +899,7 @@ class TestDiscordAdapter:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_on_ready_event_print_and_sync(self, adapter, mock_bot):
+    async def test_on_ready_event_print_and_sync(self, adapter, mock_bot, caplog):
         """Test on_ready event handler print output and tree sync"""
         adapter.bot = mock_bot
         adapter.tree = Mock()
@@ -927,12 +924,10 @@ class TestDiscordAdapter:
         assert on_ready_handler is not None, "on_ready handler not captured"
 
         # Call the handler
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.INFO, logger="adapters.discord_adapter"):
             await on_ready_handler()
 
-        mock_print.assert_called_once()
-        call_args = mock_print.call_args
-        assert call_args[0][0].startswith("[Discord] Bot logged in as")
+        assert any("Bot logged in as" in r.message for r in caplog.records)
         adapter.tree.sync.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1126,7 +1121,7 @@ class TestDiscordAdapter:
         assert not handler_called
 
     @pytest.mark.asyncio
-    async def test_on_reaction_add_exception_handling(self, adapter):
+    async def test_on_reaction_add_exception_handling(self, adapter, caplog):
         """Test on_reaction_add exception handling in handlers"""
         adapter.bot = Mock()
         adapter.bot.user = Mock()
@@ -1157,14 +1152,12 @@ class TestDiscordAdapter:
         on_reaction_add_handler = captured_handlers_exc.get("on_reaction_add")
         assert on_reaction_add_handler is not None, "on_reaction_add handler not captured"
 
-        # Call the handler - should catch exception and print
-        with patch("builtins.print") as mock_print:
+        # Call the handler - should catch exception and log
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             await on_reaction_add_handler(mock_reaction, mock_user)
 
-        # Should have printed the error
-        mock_print.assert_called_once()
-        call_args = mock_print.call_args
-        assert call_args[0][0].startswith("[Discord] Reaction handler error:")
+        # Should have logged the error
+        assert any("Reaction handler error:" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_on_reaction_remove_handler_calls(self, adapter):
@@ -1290,7 +1283,7 @@ class TestDiscordAdapter:
         assert handler_called
 
     @pytest.mark.asyncio
-    async def test_on_reaction_remove_exception_handling(self, adapter):
+    async def test_on_reaction_remove_exception_handling(self, adapter, caplog):
         """Test on_reaction_remove exception handling in handlers"""
         adapter.bot = Mock()
         adapter.bot.user = Mock()
@@ -1321,14 +1314,12 @@ class TestDiscordAdapter:
         on_reaction_remove_handler = captured_handlers_exc.get("on_reaction_remove")
         assert on_reaction_remove_handler is not None, "on_reaction_remove handler not captured"
 
-        # Call the handler - should catch exception and print
-        with patch("builtins.print") as mock_print:
+        # Call the handler - should catch exception and log
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             await on_reaction_remove_handler(mock_reaction, mock_user)
 
-        # Should have printed the error
-        mock_print.assert_called_once()
-        call_args = mock_print.call_args
-        assert call_args[0][0].startswith("[Discord] Reaction handler error:")
+        # Should have logged the error
+        assert any("Reaction handler error:" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_on_reaction_remove_self_ignore(self, adapter):
@@ -1421,17 +1412,17 @@ class TestDiscordAdapter:
         assert call_kwargs["files"] == mock_files
 
     @pytest.mark.asyncio
-    async def test_send_message_exception_handling(self, adapter, mock_bot):
+    async def test_send_message_exception_handling(self, adapter, mock_bot, caplog):
         """Test send_message exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
         mock_channel.send = AsyncMock(side_effect=Exception("Send failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.send_message("123456", "Test message")
 
-        mock_print.assert_called_once_with("[Discord] Send message error: Send failed")
+        assert any("Send message error: Send failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1466,15 +1457,15 @@ class TestDiscordAdapter:
         assert platform_msg.message_type == MessageType.AUDIO
 
     @pytest.mark.asyncio
-    async def test_send_message_channel_not_found(self, adapter, mock_bot):
+    async def test_send_message_channel_not_found(self, adapter, mock_bot, caplog):
         """Test send_message when channel is not found"""
         adapter.bot = mock_bot
         mock_bot.get_channel.return_value = None
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
             result = await adapter.send_message("999999999999999999", "Test message")
 
-        mock_print.assert_called_once_with("[Discord] Channel 999999999999999999 not found")
+        assert any("Channel 999999999999999999 not found" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1517,15 +1508,15 @@ class TestDiscordAdapter:
         assert info["guild_name"] == "Test Guild"
 
     @pytest.mark.asyncio
-    async def test_get_channel_info_exception_handling(self, adapter, mock_bot):
+    async def test_get_channel_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_channel_info exception handling"""
         adapter.bot = mock_bot
         mock_bot.get_channel.side_effect = Exception("Channel fetch failed")
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_channel_info("123456")
 
-        mock_print.assert_called_once_with("[Discord] Get channel info error: Channel fetch failed")
+        assert any("Get channel info error: Channel fetch failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1558,15 +1549,15 @@ class TestDiscordAdapter:
         assert result["icon_url"] == "https://example.com/icon.png"
 
     @pytest.mark.asyncio
-    async def test_get_guild_info_exception_handling(self, adapter, mock_bot):
+    async def test_get_guild_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_guild_info exception handling"""
         adapter.bot = mock_bot
         mock_bot.get_guild.side_effect = Exception("Guild fetch failed")
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_guild_info("123456")
 
-        mock_print.assert_called_once_with("[Discord] Get guild info error: Guild fetch failed")
+        assert any("Get guild info error: Guild fetch failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1580,7 +1571,7 @@ class TestDiscordAdapter:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_reaction_exception_handling(self, adapter, mock_bot):
+    async def test_add_reaction_exception_handling(self, adapter, mock_bot, caplog):
         """Test add_reaction exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
@@ -1589,10 +1580,10 @@ class TestDiscordAdapter:
         mock_message.add_reaction = AsyncMock(side_effect=Exception("Add reaction failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
-            result = await adapter.add_reaction("123456", 789012, "👍")
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+            result = await adapter.add_reaction("123456", 789012, "\U0001f44d")
 
-        mock_print.assert_called_once_with("[Discord] Add reaction error: Add reaction failed")
+        assert any("Add reaction error: Add reaction failed" in r.message for r in caplog.records)
         assert result is False
 
     @pytest.mark.asyncio
@@ -1606,7 +1597,7 @@ class TestDiscordAdapter:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_remove_reaction_exception_handling(self, adapter, mock_bot):
+    async def test_remove_reaction_exception_handling(self, adapter, mock_bot, caplog):
         """Test remove_reaction exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
@@ -1616,10 +1607,10 @@ class TestDiscordAdapter:
         mock_bot.get_channel.return_value = mock_channel
         adapter.bot.user = Mock()
 
-        with patch("builtins.print") as mock_print:
-            result = await adapter.remove_reaction("123456", 789012, "👍")
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
+            result = await adapter.remove_reaction("123456", 789012, "\U0001f44d")
 
-        mock_print.assert_called_once_with("[Discord] Remove reaction error: Remove reaction failed")
+        assert any("Remove reaction error: Remove reaction failed" in r.message for r in caplog.records)
         assert result is False
 
     @pytest.mark.asyncio
@@ -1633,7 +1624,7 @@ class TestDiscordAdapter:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_message_exception_handling(self, adapter, mock_bot):
+    async def test_delete_message_exception_handling(self, adapter, mock_bot, caplog):
         """Test delete_message exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
@@ -1642,10 +1633,10 @@ class TestDiscordAdapter:
         mock_message.delete = AsyncMock(side_effect=Exception("Delete message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.delete_message("123456", 789012)
 
-        mock_print.assert_called_once_with("[Discord] Delete message error: Delete message failed")
+        assert any("Delete message error: Delete message failed" in r.message for r in caplog.records)
         assert result is False
 
     @pytest.mark.asyncio
@@ -1673,7 +1664,7 @@ class TestDiscordAdapter:
         mock_message.edit.assert_called_once_with(content="New content")
 
     @pytest.mark.asyncio
-    async def test_edit_message_exception_handling(self, adapter, mock_bot):
+    async def test_edit_message_exception_handling(self, adapter, mock_bot, caplog):
         """Test edit_message exception handling"""
         adapter.bot = mock_bot
         mock_channel = Mock()
@@ -1682,22 +1673,22 @@ class TestDiscordAdapter:
         mock_message.edit = AsyncMock(side_effect=Exception("Edit message failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.edit_message("123456", 789012, "New content")
 
-        mock_print.assert_called_once_with("[Discord] Edit message error: Edit message failed")
+        assert any("Edit message error: Edit message failed" in r.message for r in caplog.records)
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_get_user_info_exception_handling(self, adapter, mock_bot):
+    async def test_get_user_info_exception_handling(self, adapter, mock_bot, caplog):
         """Test get_user_info exception handling"""
         adapter.bot = mock_bot
         mock_bot.fetch_user = AsyncMock(side_effect=Exception("User fetch failed"))
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.get_user_info("123456")
 
-        mock_print.assert_called_once_with("[Discord] Get user info error: User fetch failed")
+        assert any("Get user info error: User fetch failed" in r.message for r in caplog.records)
         assert result is None
 
     def test_register_error_handler(self, adapter):
@@ -1707,7 +1698,7 @@ class TestDiscordAdapter:
         assert handler in adapter.error_handlers
 
     @pytest.mark.asyncio
-    async def test_send_text_exception_handling(self, adapter, mock_bot):
+    async def test_send_text_exception_handling(self, adapter, mock_bot, caplog):
         """Test send_text exception handling"""
         adapter.bot = mock_bot
 
@@ -1716,15 +1707,15 @@ class TestDiscordAdapter:
         mock_channel.send.side_effect = Exception("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.send_text("123456", "Hello World")
 
-        mock_print.assert_called_once_with("[Discord] Send message error: 'NoneType' object has no attribute 'send'")
+        assert any("Send message error: 'NoneType' object has no attribute 'send'" in r.message for r in caplog.records)
         assert result is None
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_send_media_exception_handling(self, adapter, mock_bot):
+    async def test_send_media_exception_handling(self, adapter, mock_bot, caplog):
         """Test send_media exception handling"""
         adapter.bot = mock_bot
 
@@ -1733,23 +1724,21 @@ class TestDiscordAdapter:
         mock_channel.send.side_effect = Exception("'NoneType' object has no attribute 'send'")
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.send_media("123456", "/path/to/image.png")
 
-        mock_print.assert_called_once_with("[Discord] Send message error: 'NoneType' object has no attribute 'send'")
+        assert any("Send message error: 'NoneType' object has no attribute 'send'" in r.message for r in caplog.records)
         assert result is None
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_make_call_print_and_return_false(self, adapter):
+    async def test_make_call_print_and_return_false(self, adapter, caplog):
         """Test make_call prints message and returns False"""
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
             result = await adapter.make_call("123456")
 
             assert result is False
-            mock_print.assert_called_once()
-            call_args = mock_print.call_args[0][0]
-            assert "[Discord] Call initiation not supported" in call_args
+        assert any("Call initiation not supported" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_handle_webhook_return_none(self, adapter):
@@ -1801,7 +1790,7 @@ class TestDiscordAdapter:
         assert "**Field2:** Value2" in platform_msg.content
 
     @pytest.mark.asyncio
-    async def test_send_message_reply_not_found_exception(self, adapter, mock_bot):
+    async def test_send_message_reply_not_found_exception(self, adapter, mock_bot, caplog):
         """Test send_message exception handling when reply message not found"""
         adapter.bot = mock_bot
         mock_channel = Mock()
@@ -1810,10 +1799,10 @@ class TestDiscordAdapter:
         mock_channel.fetch_message = AsyncMock(side_effect=discord_mock.NotFound(Mock(), Mock()))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
             result = await adapter.send_message("123456", "Test message", reply_to=789012)
 
-        mock_print.assert_called_once_with("[Discord] Reply message 789012 not found")
+        assert any("Reply message 789012 not found" in r.message for r in caplog.records)
         # Should continue and send the message despite reply not found
         mock_channel.send.assert_called_once()
         assert result is not None
@@ -1856,31 +1845,31 @@ class TestDiscordAdapter:
         assert call_kwargs["embed"] == mock_embed
 
     @pytest.mark.asyncio
-    async def test_send_text_exception_handling_coverage(self, adapter, mock_bot):
+    async def test_send_text_exception_handling_coverage(self, adapter, mock_bot, caplog):
         """Test send_text exception handling and print (additional coverage)"""
         adapter.bot = mock_bot
         mock_channel = Mock()
         mock_channel.send = AsyncMock(side_effect=Exception("Send text failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.send_text("123456", "Hello World")
 
-        mock_print.assert_called_once_with("[Discord] Send message error: Send text failed")
+        assert any("Send message error: Send text failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_send_media_exception_handling_coverage(self, adapter, mock_bot):
+    async def test_send_media_exception_handling_coverage(self, adapter, mock_bot, caplog):
         """Test send_media exception handling and print (additional coverage)"""
         adapter.bot = mock_bot
         mock_channel = Mock()
         mock_channel.send = AsyncMock(side_effect=Exception("Send media failed"))
         mock_bot.get_channel.return_value = mock_channel
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR, logger="adapters.discord_adapter"):
             result = await adapter.send_media("123456", "/path/to/media.png")
 
-        mock_print.assert_called_once_with("[Discord] Send message error: Send media failed")
+        assert any("Send message error: Send media failed" in r.message for r in caplog.records)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1890,12 +1879,12 @@ class TestDiscordAdapter:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_make_call_prints_not_supported(self, adapter):
+    async def test_make_call_prints_not_supported(self, adapter, caplog):
         """Test make_call prints not supported message and returns False"""
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.WARNING, logger="adapters.discord_adapter"):
             result = await adapter.make_call("123456", is_video=True)
 
-        mock_print.assert_called_once_with("[Discord] Call initiation not supported for 123456")
+        assert any("Call initiation not supported for 123456" in r.message for r in caplog.records)
         assert result is False
 
     def test_ping_slash_command_definition(self):
